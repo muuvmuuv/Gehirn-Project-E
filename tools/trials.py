@@ -2,12 +2,14 @@
 """Phase 0 trials: run gehirn missions from the default start and count how they end.
 
 Each run gets its own directory with a fresh journal, recorder and log, and its own plug
-port; everything else, GEHIRN_URL and the models included, comes from the environment.
+port; everything else, GEHIRN_URL and the models included, comes from the environment,
+falling back to the KEY=VALUE lines of --env-file for variables the environment lacks.
 A run ends one second after the journal records the first release, or at the time limit.
 Exits 0 when at least 80% of runs delivered on target and no ballot was lost to a parse
 error, the parts of the Phase 0 done criterion in PLAN.md that a journal shows.
 
     GEHIRN_URL=http://127.0.0.1:11434/v1/chat/completions python3 tools/trials.py --jobs 2
+    python3 tools/trials.py --env-file .env    # .env: GEHIRN_KEY=${OPENROUTER_API_KEY}
 """
 
 import argparse
@@ -22,6 +24,8 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+
+from withenv import load_env
 
 # The journal's text lines come from core/core.v Memory, its ballot lines from
 # main.v BallotEntry; the log is gehirn's stdout as listed in contract C4.
@@ -126,6 +130,7 @@ def fly(n: int, args: argparse.Namespace, slots: "queue.Queue[int]") -> Tally:
         os.makedirs(d)
         journal, log = os.path.join(d, "core.jsonl"), os.path.join(d, "gehirn.log")
         env = {
+            **args.env,
             **os.environ,
             "CORE_JOURNAL": journal,
             "PLUG_RECORDER": os.path.join(d, "plug.jsonl"),
@@ -165,7 +170,13 @@ def main() -> None:
     ap.add_argument("--binary", default="./gehirn", help="gehirn executable")
     ap.add_argument("--plug-base", type=int, default=7800, help="PLUG_LISTEN port of job slot 0")
     ap.add_argument("--out", help="empty or new directory for the runs, default a fresh temp dir")
+    ap.add_argument("--env-file", help="dotenv file for variables the environment does not set")
     args = ap.parse_args()
+
+    try:
+        args.env = load_env(args.env_file) if args.env_file else {}
+    except OSError as e:
+        sys.exit(f"trials: cannot read {args.env_file}: {e.strerror}")
 
     args.binary = os.path.abspath(args.binary)
     if not (os.path.isfile(args.binary) and os.access(args.binary, os.X_OK)):
