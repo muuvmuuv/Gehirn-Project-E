@@ -17,12 +17,12 @@ import socket
 import time
 from collections.abc import Iterator
 
-START = (-3.5, -2.5)  # gehirn/body/body.v Sim's start pose, used until the recorder exists
+START = (-3.5, -2.5)  # body/body.v Sim's start pose, used until the recorder exists
 ARRIVE = 0.35  # lcl.arrive: close enough to the beacon to stop steering
 TAIL = 4096  # bytes read from the end of the recorder, several lines' worth
 
 
-# The counterpart of datagram() is gehirn/plug/plug.v Wire; pose() reads its Record lines.
+# The counterpart of datagram() is plug/plug.v Wire; pose() reads its Record lines.
 def datagram(pilot: str, u: list[float], eject: bool) -> bytes:
     """Encode one pilot command."""
     return json.dumps({"pilot": pilot, "u": u, "eject": eject}).encode()

@@ -23,8 +23,8 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
-# The journal's text lines come from gehirn/core/core.v Memory, its ballot lines from
-# gehirn/main.v BallotEntry; the log is gehirn's stdout as listed in contract C4.
+# The journal's text lines come from core/core.v Memory, its ballot lines from
+# main.v BallotEntry; the log is gehirn's stdout as listed in contract C4.
 RELEASE_VOTE = re.compile(r"^proposed release\b.*, (approved|rejected) \d+/\d+$", re.S)
 PARSE_ERRORS = ("unreadable", "no JSON object")
 LINGER = 1.0  # seconds a run goes on after the first release
