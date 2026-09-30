@@ -6,9 +6,9 @@ This file is the handoff to Claude Code: where the project stands, the rules tha
 
 ## State as of 2026-09-30
 
-Builds on V 0.5.2 (f5b31b5) with warnings as errors (`v -W`). `v vet` is clean apart from two notices about const arrays in `lcl`. There are no tests yet.
+Builds on V 0.5.2 from Homebrew (45ae01d), which ships JSON as `x.json2`, with warnings as errors (`v -W`). `v vet` is clean apart from two notices about const arrays in `lcl`. `v -W test .` runs table driven tests for `oai`, `magi` and `core`, and `python3 tools/test_withenv.py` checks the dotenv loader.
 
-Verified against a scripted mock of an OpenAI compatible endpoint, never against real models:
+Verified by independent runs against `tools/mock_endpoint.py`:
 
 1. Without an endpoint the core never gets a goal approved, and only a seated pilot can move the body.
 2. With the mock the full mission completes: the goto passes MAGI 3 of 3 (2 needed), the body gets past the pillar and the walking human, the release needs and gets 3 of 3, and the journal records "released on target".
@@ -16,8 +16,12 @@ Verified against a scripted mock of an OpenAI compatible endpoint, never against
 4. The armor strips command components that point into solid entities, so a pilot leaning into the pillar slides around it.
 5. When the pilot leaves, the dummy plug takes the seat, overshoots the beacon by about 30 cm and turns back. Cloned from a pilot who steers 120 degrees off the core's goal, it is benched right after taking the seat and the core drives alone.
 6. The MAGI cooldown holds: the release went to the vote twice in a run that used to produce nine votes.
+7. Ten missions deliver on target, and at every release the human was at least 2 m away, recomputed from the simulator's path.
+8. A unit that never answers faults at `MAGI_TIMEOUT_MS`, and a garbled or wrongly shaped ballot faults too; both count as no. A core past `CORE_TIMEOUT_MS` sends no pulse, so the umbilical runs down to depleted.
 
-Never run: `sidecar/cl1_sidecar.py` and the `cl1` backend. The mock endpoint and the pilot script behind these results are not in the repo; Phase 0 recreates them.
+Against real models the untuned prompts delivered 0 of 10, both hosted on OpenRouter and on a local llama.cpp router. The proposal schema let grammar constrained servers drop `target`, qwen3 thinking and gpt-oss at medium effort missed the 10 s deadline, and the personas judged a goal as a route and rejected any goto near a human. Phase 0 task 2 works on this.
+
+Never run: `sidecar/cl1_sidecar.py` and the `cl1` backend.
 
 ## Architecture in one screen
 
@@ -55,7 +59,7 @@ These hold after every change. A commit that touches one of them explains in its
 ## Conventions
 
 1. Build with `v -W`, format with `v fmt -w`, keep `v vet` clean. Every public function gets a doc comment that starts with its name.
-2. JSON goes through `json2`; V has removed the old `json` module.
+2. JSON goes through `x.json2`, the JSON module V 0.5.2 from Homebrew ships; the old `json` module is gone.
 3. US English in code, comments and docs. Prose avoids dashes as punctuation.
 4. Conventional commits, one concern per commit, no refactoring outside the task at hand.
 5. Decisions with real alternatives get an ADR in docs/adr, numbered in order, in the format of ADR-0001.
@@ -68,13 +72,13 @@ Work top to bottom. Phases 2 and 3 can run in parallel once Phase 1 has landed. 
 
 ### Phase 0: Real models
 
-Goal: the mission completes with real models on the GPU machine.
+Goal: the mission completes with real models, locally through llama.cpp and hosted through OpenRouter.
 
-1. [ ] Add `tools/mock_endpoint.py`, an OpenAI compatible server for development without models. It scripts the core (goto the beacon until within 0.5 m, release, then hold) and the three units (BALTHASAR rejects irreversible proposals with a human within 2.5 m), and wraps replies in think tags, code fences and chatter to exercise `oai.extract_json`. Add `tools/pilot.py`, which steers toward the beacon at a given heading offset for a given time and then leaves the seat.
-2. [ ] Run against Ollama with the default models and tune `core_prompt` and the three personas until every reply parses.
-3. [ ] Give every unit a deadline (`MAGI_TIMEOUT_MS`, default 10 s). A ballot that misses it is a fault, and a fault is a no. The core gets the same through `CORE_TIMEOUT_MS`.
-4. [ ] Ask for schema constrained JSON where the endpoint supports it, and keep `extract_json` as the fallback.
-5. [ ] Journal every ballot with unit, model, vote, reason and latency, so disagreements between model families stay visible.
+1. [x] Add `tools/mock_endpoint.py`, an OpenAI compatible server for development without models. It scripts the core (goto the beacon until within 0.5 m, release, then hold) and the three units (BALTHASAR rejects irreversible proposals with a human within 2.5 m), and wraps replies in think tags, code fences and chatter to exercise `oai.extract_json`. Add `tools/pilot.py`, which steers toward the beacon at a given heading offset for a given time and then leaves the seat.
+2. [ ] Run against real models, locally on llama.cpp and hosted on OpenRouter, and tune `core_prompt`, the three personas and each unit's reasoning effort until the done criterion holds. Evaluate Jev, TypeSafe's System One model, as BALTHASAR on the same missions and on adversarial scenarios (ADR-0002).
+3. [x] Give every unit a deadline (`MAGI_TIMEOUT_MS`, default 10 s). A ballot that misses it is a fault, and a fault is a no. The core gets the same through `CORE_TIMEOUT_MS`.
+4. [x] Ask for schema constrained JSON where the endpoint supports it, and keep `extract_json` as the fallback.
+5. [x] Journal every ballot with unit, model, vote, reason and latency, so disagreements between model families stay visible.
 
 Done when ten runs from the default start deliver on target at least eight times, every release attempt with a human inside 2 m is stopped by MAGI or the armor, and no ballot is lost to a parse error.
 
@@ -82,7 +86,7 @@ Done when ten runs from the default start deliver on target at least eight times
 
 Goal: HQ and the field unit on separate machines, linked through Zenoh.
 
-1. [ ] ADR-0002 on LCL over the wire: encoding (JSON with a schema version field first, CBOR only if measurements ask for it), key expressions, and reliability per stream.
+1. [ ] ADR-0003 on LCL over the wire: encoding (JSON with a schema version field first, CBOR only if measurements ask for it), key expressions, and reliability per stream.
 2. [ ] A `zenoh` module wrapping zenoh-c through V's C interop: session, publisher, subscriber, liveliness. Behind a small interface, so tests run on an in process fake. Confirm zenoh-c builds for aarch64 musl, or the field tier loses its Vinix path.
 3. [ ] Streams: `gehirn/<unit>/context` from field to HQ, newest only; `gehirn/<unit>/goal` from HQ to field, reliable; `gehirn/<unit>/outcome` from field to HQ, reliable; HQ liveliness as the umbilical's pulse.
 4. [ ] Split `main.v` into an HQ executable and a field executable over the same modules, and keep the combined binary for development.
@@ -101,7 +105,7 @@ Done when a pilot flies the mission from a gamepad, feels contact, and the displ
 
 ### Phase 3: A better body
 
-1. [ ] ADR-0003 on the simulator: MuJoCo through its C API, or Gazebo through ROS 2 and rmw_zenoh.
+1. [ ] ADR-0004 on the simulator: MuJoCo through its C API, or Gazebo through ROS 2 and rmw_zenoh.
 2. [ ] A `Body` for the chosen simulator with a differential drive base. The stack above stays holonomic; the body adapter maps planar velocity onto the drive. `Sim` stays for fast runs.
 3. [ ] Obstacles from a range sensor instead of ground truth. Humans may stay ground truth behind a detector stub for now.
 
@@ -117,7 +121,7 @@ Done when, from start positions outside the training set, the new dummy arrives 
 
 ### Phase 5: Hard restraints on a microcontroller
 
-1. [ ] ADR-0004 on the microcontroller and firmware language: C with zenoh-pico as the default, Rust with embassy if a no_std Zenoh client fits.
+1. [ ] ADR-0005 on the microcontroller and firmware language: C with zenoh-pico as the default, Rust with embassy if a no_std Zenoh client fits.
 2. [ ] Firmware: the armor's speed and acceleration limits, a geofence from odometry, the 200 ms command watchdog, and an e-stop that cuts motor power in hardware.
 3. [ ] Hardware in the loop on a bench motor driver.
 
@@ -152,12 +156,15 @@ Done when the tuned core gets fewer MAGI rejections and delivers at least as oft
 1. The field loop sleeps a fixed tick after its work, so its period stretches with load. Schedule on absolute deadlines.
 2. `Cl1Core.feedback` blocks the HQ thread for about four seconds after a failure.
 3. The recorder writes 50 JSON lines per second with no rotation.
-4. `oai.Endpoint.timeout` defaults to 30 s, far longer than a deliberation should take (Phase 0, task 3).
-5. Pilot datagrams are unauthenticated, so anyone on the network who knows the pilot ID can steer (Phase 1, task 5).
-6. Eject latches until the process restarts, and there is no re-arm procedure.
-7. Percepts are ground truth from the simulator, the human's position included.
-8. The dummy plug scans every sample on every tick. Fine at 20000 samples; Phase 4 replaces it.
-9. Status output is free text on stdout, with no structured log.
+4. Pilot datagrams are unauthenticated, so anyone on the network who knows the pilot ID can steer (Phase 1, task 5).
+5. Eject latches until the process restarts, and there is no re-arm procedure.
+6. Percepts are ground truth from the simulator, the human's position included.
+7. The dummy plug scans every sample on every tick. Fine at 20000 samples; Phase 4 replaces it.
+8. Status output is free text on stdout, with no structured log.
+9. MAGI judges the snapshot the core saw, which is stale by the core's latency, up to `CORE_TIMEOUT_MS`. The armor checks the live percept again, so this costs judgment quality, not safety.
+10. HQ prints a repeated identical core fault only once, and the journal records none, so logs undercount core faults.
+11. `CORE_TIMEOUT_MS` bounds only the language backend. `Cl1Core.propose` has no deadline, and its drain loop runs as long as spikes keep arriving.
+12. After an eject the dummy plug still takes the seat in the status line, the recorder and the context sent to HQ, although the armor holds the body.
 
 ## Open questions for the owner
 
