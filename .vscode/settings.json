@@ -1,0 +1,4 @@
+{
+	"v-analyzer.serverPath": "~/.config/v-analyzer/bin/v-analyzer",
+	"v-analyzer.customVrootPath": "gehirn/"
+}
