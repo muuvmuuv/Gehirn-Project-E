@@ -6,7 +6,7 @@ Rules are numbered per section, so a review can cite one: Errors 2, Tests 3. The
 
 ## Set up
 
-gehirn builds with V 0.5.2 from Homebrew, commit 45ae01d. The tools under `tools/` need Python 3.10 or newer and nothing else. The git hooks need lefthook and gitleaks; wire them once per clone:
+gehirn builds with V 0.5.2 from Homebrew, commit 45ae01d. The tools under `tools/` need Python 3.10 or newer and nothing else. The `Justfile` is the one entry point for the checks, the build and the mock missions, so it needs just. The git hooks need lefthook and gitleaks; wire them once per clone:
 
 ```sh
 lefthook install
@@ -15,24 +15,12 @@ lefthook install
 ## Checks
 
 ```sh
-v fmt -verify .                    # v fmt -w . fixes it
-v vet -W .                         # every pub fn has a doc comment that starts with its name
-v -W -N test .                     # warnings and notices fail the build; runs every _test.v
-python3 tools/test_withenv.py
-python3 -m py_compile tools/*.py sidecar/*.py
+just check
 ```
 
-Run them on the working tree before asking for a commit. The `pre-commit` hook in `lefthook.yml` runs the same checks on what is staged, so unstaged work in progress cannot fail a commit: `v fmt`, `v vet` and `py_compile` on the staged files, gitleaks on the staged diff, and the tests on a copy of the staged tree whenever a `.v` file is staged, which takes 4 to 8 seconds. Nothing scans the whole tree for keys. `lefthook.yml` holds the same commands, so a change to one changes the other.
+Run it on the working tree before asking for a commit. It runs `just fmt`, `just vet`, `just test` and `just py`, and `just --list` says what each checks. The `pre-commit` hook in `lefthook.yml` calls the same recipes on what is staged, so unstaged work in progress cannot fail a commit: `fmt`, `vet` and `py` on the staged files, gitleaks on the staged diff, and `test` on a copy of the staged tree whenever a `.v` file is staged, which takes 4 to 8 seconds. Nothing scans the whole tree for keys. A command changes in the `Justfile`, and both pick it up.
 
-Any change to a `.v` file outside tests, or to `tools/mock_endpoint.py`, also flies the mock missions, and the commit body reports the result. The build takes 30 to 75 seconds, ten missions about two and a half minutes, the scenario gate under a second. The last line stops the mock, which holds port 8081, the port of the llama.cpp preset.
-
-```sh
-v -prod -o gehirn .
-python3 tools/mock_endpoint.py &
-TYPESAFE_URL=http://127.0.0.1:8081/v1/systemone TYPESAFE_API_KEY=mock python3 tools/trials.py --jobs 3
-TYPESAFE_URL=http://127.0.0.1:8081/v1/systemone TYPESAFE_API_KEY=mock ./gehirn magi-eval 3
-pkill -f tools/mock_endpoint.py
-```
+Any change to a `.v` file outside tests, or to `tools/mock_endpoint.py`, also flies the mock missions, and the commit body reports the result. `just missions` builds gehirn, starts the mock on port 8081, the port of the llama.cpp preset, flies ten missions, puts the adversarial scenarios to the mock MAGI and stops the mock; `just missions 3` flies three. The build takes 30 to 75 seconds, ten missions about two and a half minutes, the scenario gate under a second. Run it in a shell without the hosted exports of the README, because every mission inherits `GEHIRN_URL` and the model variables.
 
 A failing check is never unrelated. Fix it, or stop and report it.
 
@@ -123,7 +111,7 @@ A failing check is never unrelated. Fix it, or stop and report it.
 2. Standard library only. The sidecar's `cl` SDK is the one import from outside it.
 3. A script opens with a docstring that says what it does and shows how to call it. Functions have type hints, and a function another tool imports has a docstring, as `withenv.load_env` does.
 4. A constant copied from V is an UPPER_CASE module constant with the comment of Comments 6.
-5. A function another tool imports, and every new parser or loader, has a self check, `tools/test_<name>.py`, that runs under plain `python3` and asserts, as `tools/test_withenv.py` does.
+5. A function another tool imports, and every new parser or loader, has a self check, `tools/test_<name>.py`, that runs under plain `python3` and asserts, as `tools/test_withenv.py` does. `just py` runs every one.
 
 ## Commits
 

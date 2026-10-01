@@ -6,7 +6,7 @@ This file is the handoff to Claude Code: where the project stands, the rules tha
 
 ## State as of 2026-10-02
 
-Builds on V 0.5.2 from Homebrew (45ae01d), which ships JSON as `x.json2`, with warnings as errors (`v -W`). `v vet` is clean apart from two notices about const arrays in `lcl`. `v -W -N test .` runs table driven tests for `armor`, `umbilical`, `plug.Sync`, `oai`, `jev`, `magi`, `core`, `main` and the scenario harness, and `python3 tools/test_withenv.py` checks the dotenv loader.
+Builds on V 0.5.2 from Homebrew (45ae01d), which ships JSON as `x.json2`, with warnings as errors (`v -W`). `v vet` is clean apart from two notices about const arrays in `lcl`. `just check` runs every check: table driven tests for `armor`, `umbilical`, `plug.Sync`, `oai`, `jev`, `magi`, `core`, `main` and the scenario harness, and `tools/test_withenv.py` for the dotenv loader. `just missions` flies the mock missions.
 
 Verified by independent runs against `tools/mock_endpoint.py`:
 
@@ -71,7 +71,7 @@ Work top to bottom. Phases 2, 3 and 9 can run in parallel once Phase 1 has lande
 
 ### Tooling
 
-1. [ ] A Justfile as the one entry point: `just check` for the checks, `just missions` for the mock missions, `just build` for the binary, and later the image pipeline of Phase 6. CONTRIBUTING.md, `lefthook.yml` and the README then call the recipes instead of repeating the commands.
+1. [x] A Justfile as the one entry point: `just check` for the checks, `just missions` for the mock missions, `just build` for the binary, and later the image pipeline of Phase 6. CONTRIBUTING.md, `lefthook.yml` and the README then call the recipes instead of repeating the commands.
 
 ### Phase 0: Real models
 
@@ -135,7 +135,7 @@ Done when pulling the network cable, killing the field process and pressing the 
 1. [ ] Run the field unit on Vinix in a VM, aarch64 on Apple Silicon or amd64 under KVM, with HQ on Linux.
 2. [ ] `/dev/eva0`: a kernel driver in V implementing `Resource`, with an in kernel copy of the planar simulator standing in for hardware. `read` returns percepts, `write` takes velocity commands, `ioctl` runs effectors and halt. Only the armor's process may open it.
 3. [ ] `body.Device`, a `Body` over `/dev/eva0`.
-4. [ ] Two images from one pipeline: the field image, headless, with Vinix, the field unit and `/dev/eva0`; and the bridge image, which boots straight into the Phase 9 bridge, on Vinix where its graphics hold on the target hardware and on a minimal Linux kiosk otherwise.
+4. [ ] Two images from one pipeline, a `just` recipe: the field image, headless, with Vinix, the field unit and `/dev/eva0`; and the bridge image, which boots straight into the Phase 9 bridge, on Vinix where its graphics hold on the target hardware and on a minimal Linux kiosk otherwise.
 
 Done when the field unit on Vinix completes the mission through `/dev/eva0` while HQ runs on Linux, and the bridge image boots into the bridge and follows that mission.
 

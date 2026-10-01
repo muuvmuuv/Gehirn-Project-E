@@ -1,9 +1,9 @@
 # Git hooks for gehirn. Activate once per clone with `lefthook install`.
 #
 # pre-commit checks what is staged, so unstaged work in progress cannot fail a
-# commit. The tests run on a copy of the staged tree that git checkout-index
+# commit. It calls the Justfile's recipes, which hold the commands, on the staged
+# files. The tests run on a copy of the staged tree that git checkout-index
 # writes, and take 4 to 8 seconds whenever a .v file is staged.
-# CONTRIBUTING.md "Checks" lists the same commands; change both together.
 
 pre-commit:
   parallel: true
@@ -14,25 +14,20 @@ pre-commit:
 
     - name: v fmt
       glob: "*.{v,vsh}"
-      run: v fmt -verify {staged_files}
+      run: just fmt {staged_files}
       fail_text: run `v fmt -w` on the files listed
 
-    # Warnings fail here: a pub fn without a doc comment that starts with its name.
     - name: v vet
       glob: "*.v"
-      run: v vet -W {staged_files}
+      run: just vet {staged_files}
 
     - name: v test
       glob: "*.v"
-      run: d=$(mktemp -d) && git checkout-index --all --prefix="$d/" && (cd "$d" && v -W -N test .); s=$?; rm -rf "$d"; exit $s
+      run: d=$(mktemp -d) && git checkout-index --all --prefix="$d/" && (cd "$d" && just test); s=$?; rm -rf "$d"; exit $s
 
-    - name: withenv
-      glob: "tools/*withenv.py"
-      run: python3 tools/test_withenv.py
-
-    - name: python syntax
+    - name: python
       glob: "*.py"
-      run: python3 -m py_compile {staged_files}
+      run: just py {staged_files}
 
 commit-msg:
   jobs:

@@ -6,7 +6,9 @@
       "Bash(v vet:*)",
       "Bash(v -W -check:*)",
       "Bash(v -W -N test .)",
-      "Bash(python3 tools/test_withenv.py)"
+      "Bash(python3 tools/test_withenv.py)",
+      "Bash(just check)",
+      "Bash(just test)"
     ],
     "deny": ["Bash(git push:*)"]
   },
