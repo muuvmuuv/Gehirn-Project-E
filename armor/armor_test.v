@@ -5,6 +5,7 @@ import lcl
 
 // Fake is a body that records what the armor sends it, so a test sees what moved.
 struct Fake {
+	fail bool // actuate errs instead of recording
 mut:
 	sent    [][]f64
 	effects []string
@@ -20,6 +21,9 @@ fn (mut f Fake) sense() lcl.Percept {
 }
 
 fn (mut f Fake) actuate(u []f64) ! {
+	if f.fail {
+		return error('fake: actuate failed')
+	}
 	f.sent << u.clone()
 }
 
@@ -64,9 +68,9 @@ struct DriveCase {
 }
 
 fn test_drive() {
-	// Humans and obstacles sit east of the body, so a command north passes them by. Gaps are
-	// center distance minus radius: a human at 1.85 m with r 0.5 is 1.35 m away, halfway between
-	// human_stop and human_slow.
+	// Humans and obstacles sit east of the body or on it, so a command north passes them by.
+	// Gaps are center distance minus radius: a human at 1.85 m with r 0.5 is 1.35 m away,
+	// halfway between human_stop and human_slow.
 	cases := [
 		DriveCase{
 			name: 'manned speed cap'
@@ -231,6 +235,12 @@ fn test_drive() {
 			want:  [0.6, 0.8]
 		},
 		DriveCase{
+			name:  'an obstacle centered on the body has no direction to drop'
+			scene: [ent('obstacle', [0.0, 0.0], 0.5)]
+			u:     [0.6, 0.8]
+			want:  [0.6, 0.8]
+		},
+		DriveCase{
 			name:  'a beacon is not solid'
 			scene: [ent('beacon', [0.5, 0.0], 0.3)]
 			u:     [0.6, 0.8]
@@ -285,6 +295,7 @@ fn test_effect() {
 	cases := [
 		PermitCase{'release in the open', 'release', [], true},
 		PermitCase{'goto in the open', 'goto', [], true},
+		PermitCase{'hold in the open', 'hold', [], true},
 		PermitCase{'release with a human inside release_keep', 'release', [near], false},
 		PermitCase{'unknown verb', 'selfdestruct', [], false},
 	]
@@ -362,4 +373,32 @@ fn test_unmeasurable_percept_permits_nothing_and_halts() {
 		assert f.halts == 1, name
 		assert a.last == [0.0, 0.0], name
 	}
+}
+
+fn test_command_of_the_wrong_length_halts() {
+	// Each command is slower than last, so no acceleration limit runs that would panic on it:
+	// only the length check keeps it from the body.
+	cases := {
+		'command too short': [0.5]
+		'command too long':  [0.5, 0.0, 0.0]
+		'command empty':     []f64{}
+	}
+	for name, u in cases {
+		mut f := &Fake{}
+		mut a := restrain(f, Limits{})
+		a.last = [1.0, 0.0]
+		assert a.drive(u, at([0.0, 0.0]), 1.0, true) == [0.0, 0.0], name
+		assert f.sent.len == 0, name
+		assert f.halts == 1, name
+		assert a.last == [0.0, 0.0], name
+	}
+}
+
+fn test_failed_actuation_halts() {
+	mut f := &Fake{
+		fail: true
+	}
+	mut a := restrain(f, Limits{})
+	_ = a.drive([0.5, 0.0], at([0.0, 0.0]), 1.0, true)
+	assert f.halts == 1
 }

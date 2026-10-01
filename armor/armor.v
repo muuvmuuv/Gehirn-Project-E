@@ -131,8 +131,8 @@ fn (a Armor) separation(p lcl.Percept) f64 {
 
 // measurable reports whether p has a finite pose with one coordinate per degree of freedom, and
 // every entity a finite position of the same length and a finite radius. A NaN fails every
-// comparison, so a human at a NaN position would pass the release_keep check, and a short
-// position would panic lcl.sub.
+// comparison, so a human at a NaN position would pass the release_keep check. A position shorter
+// than the pose would panic lcl.dist, and a longer one the lcl.sub(e.pos, p.pose) in drive.
 fn (a Armor) measurable(p lcl.Percept) bool {
 	return p.pose.len == a.last.len && finite(p.pose) && p.scene.all(it.pos.len == p.pose.len
 		&& finite(it.pos) && math.is_finite(it.r))
