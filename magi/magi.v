@@ -64,7 +64,7 @@ const ballot_schema = oai.Schema{
 // model such as Jev that answers fixed questions about facts computed in magi/jev.v (ADR-0002).
 pub type Backend = jev.Endpoint | oai.Endpoint
 
-// Unit is one MAGI judge on its own backend.
+// Unit is one MAGI judge on its own backend. main.v load_config builds the three that Magi polls.
 pub struct Unit {
 pub:
 	name    string
@@ -73,7 +73,8 @@ pub:
 	bounds  []f64 // the operating area for Jev, xmin, ymin, xmax, ymax; main.v passes armor.Limits.bounds
 }
 
-// Ballot is one unit's vote on one proposal, with its reason and latency.
+// Ballot is one unit's vote on one proposal, with its reason and latency. Unit.vote casts it,
+// tally counts it, and main.v hq journals it.
 pub struct Ballot {
 pub:
 	unit       string
@@ -84,7 +85,8 @@ pub:
 	latency_ms i64
 }
 
-// Verdict is the outcome of one vote: the quorum it needed and every ballot cast.
+// Verdict is the outcome of one vote: the quorum it needed and every ballot cast. Magi.decide
+// returns it to main.v hq and eval.v magi_eval.
 pub struct Verdict {
 pub:
 	approved bool

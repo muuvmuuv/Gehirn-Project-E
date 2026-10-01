@@ -17,8 +17,9 @@ mut:
 	halt()
 }
 
-// Sim is a planar point body with a payload. It integrates whenever it is sensed and, like any
-// real motor controller, zeroes its velocity by itself when commands go stale.
+// Sim is a planar point body with a payload, the Body main.v builds with new_sim. It integrates
+// whenever it is sensed and, like any real motor controller, zeroes its velocity by itself when
+// commands go stale.
 pub struct Sim {
 mut:
 	pose    []f64 = [-3.5, -2.5] // tools/pilot.py START and tools/scenarios.json copy this start

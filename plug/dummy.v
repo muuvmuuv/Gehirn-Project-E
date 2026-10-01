@@ -10,8 +10,9 @@ import lcl
 // toward a goal MAGI approved, by k nearest neighbor behavior cloning over that log. Every
 // command is stored in the goal's own frame, as speed along the way to the goal and speed across
 // it, so an imitation that overshoots turns back instead of holding a heading it memorized.
-// Planar like the simulator, and crude on purpose; a trained policy drops in behind the same
-// methods.
+// ponytail: planar nearest neighbor replay of the log, cloned once, so it only repeats what the
+// pilot already flew; once it misses or gets benched from starts the log lacks, PLAN Phase 4
+// trains a policy behind the same ready, act and learn.
 pub struct Dummy {
 	k     int = 7
 	limit int = 20000

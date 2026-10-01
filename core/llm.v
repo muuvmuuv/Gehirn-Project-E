@@ -35,7 +35,8 @@ const proposal_schema = oai.Schema{
 	schema: '{"type":"object","properties":{"check":{"type":"string"},"verb":{"type":"string","enum":${json2.encode(lcl.known_verbs)}},"target":{"type":"array","items":{"type":"number"}},"why":{"type":"string"}},"required":["check","verb","target","why"]}'
 }
 
-// LlmCore is the language model backend of Core: one chat model proposes each goal.
+// LlmCore is the language model backend of Core: one chat model proposes each goal. main.v
+// new_backend picks it unless CORE_BACKEND is cl1.
 pub struct LlmCore {
 pub:
 	ep oai.Endpoint

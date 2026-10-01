@@ -47,7 +47,7 @@ A failing check is never unrelated. Fix it, or stop and report it.
 5. Each module has one overview comment above the `module` line of its main file: what the module is and where it sits in the canon.
 6. A value that lives in two places, V and a Python tool or a constant and a prompt's prose, has a comment on each side that names the other file and symbol, and one commit changes both. `armor.Limits` and `FENCE` in `tools/mock_endpoint.py` are the model. Where a test can compare the two sides, write the test, because comments alone drift.
 7. A deliberate simplification carries a `ponytail:` comment that names its limit and what to do once the limit is hit. One that covers a whole symbol goes into its doc comment after the name sentence (rule 3). A workaround for a V bug names the bug and when to remove the workaround.
-8. One blank line sits above every comment block, except at the start of a block, and never between a doc comment and its declaration.
+8. One blank line sits above every comment block, except at the start of a block, and never between a doc comment and its declaration. Inside an array or map literal no blank line sits above a comment, because `v fmt` deletes blank lines there.
 
 ### Naming
 

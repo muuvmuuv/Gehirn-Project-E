@@ -8,8 +8,9 @@ import net
 import os
 import lcl
 
-// Sync is an exponential moving average of how well the seat and the core agree. It is the
-// arbitration term of shared control: the better they agree, the more the core may steer.
+// Sync is an exponential moving average of how well the seat and the core agree. main.v's field
+// loop keeps one for the pilot and one for the dummy plug. It is the arbitration term of shared
+// control: the better they agree, the more the core may steer.
 pub struct Sync {
 pub mut:
 	ratio f64 = 0.5
@@ -86,8 +87,8 @@ pub:
 	sync   f64
 }
 
-// Recorder writes every tick. This log is the dummy plug's training set, and later the
-// dataset for a real policy, so it exists from the first minute of operation.
+// Recorder writes every tick main.v's field loop hands it. This log is the dummy plug's training
+// set, and later the dataset for a real policy, so it exists from the first minute of operation.
 pub struct Recorder {
 mut:
 	f       os.File

@@ -89,9 +89,11 @@ pub:
 }
 
 // HqMsg is one message from HQ to main.v's field loop: a goal and whether MAGI approved it,
-// whether HQ is alive to pulse the umbilical, and a status line for the field loop to print.
-// Phase 1 carries its parts apart: goal and approved on the goal stream, alive as HQ's
-// liveliness, and note becomes HQ's own status output once HQ runs as its own process.
+// whether HQ is alive to pulse the umbilical, and a note for the field loop to print. The note is
+// one status line, or after a vote a block of lines: the proposal, the verdict's tally and one
+// line per unit's ballot. Phase 1 carries its parts apart: goal and approved on the goal stream,
+// alive as HQ's liveliness, and note becomes HQ's own status output once HQ runs as its own
+// process.
 pub struct HqMsg {
 pub:
 	goal     Intent

@@ -17,6 +17,7 @@ pub:
 }
 
 // Reply is one evaluation: the model that says it answered, each noul by question id, and usage.
+// Endpoint.ask returns it, and magi/jev.v jev_judge votes on it.
 pub struct Reply {
 pub:
 	model string
@@ -24,7 +25,8 @@ pub:
 	usage Usage
 }
 
-// Usage is the token count System One reports for one evaluation.
+// Usage is the token count System One reports for one evaluation. Reply carries it to the
+// caller, and nothing in gehirn reads it.
 pub struct Usage {
 pub:
 	input_tokens  int

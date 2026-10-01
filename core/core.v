@@ -16,8 +16,9 @@ mut:
 	feedback(o lcl.Outcome)
 }
 
-// Memory is an append only journal. Its tail goes into every context; the whole file is the
-// raw material for fine tuning a core on its own history later.
+// Memory is an append only journal, the one main.v hq keeps for the pilot. Its tail goes into
+// every context; the whole file is the raw material for fine tuning a core on its own history
+// later.
 pub struct Memory {
 	path string
 	keep int

@@ -17,6 +17,7 @@ pub:
 }
 
 // Schema constrains a reply to a JSON Schema, for endpoints that support structured output.
+// Endpoint.ask takes one: core/llm.v proposal_schema or magi/magi.v ballot_schema.
 pub struct Schema {
 pub:
 	name   string
