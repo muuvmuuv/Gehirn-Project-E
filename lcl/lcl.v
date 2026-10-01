@@ -88,6 +88,18 @@ pub:
 	memory  []string
 }
 
+// HqMsg is one message from HQ to main.v's field loop: a goal and whether MAGI approved it,
+// whether HQ is alive to pulse the umbilical, and a status line for the field loop to print.
+// Phase 1 carries its parts apart: goal and approved on the goal stream, alive as HQ's
+// liveliness, and note becomes HQ's own status output once HQ runs as its own process.
+pub struct HqMsg {
+pub:
+	goal     Intent
+	approved bool
+	alive    bool
+	note     string
+}
+
 // is_irreversible reports whether a verb needs all three MAGI. Unknown verbs do.
 pub fn is_irreversible(verb string) bool {
 	return verb !in known_verbs || verb in irreversible_verbs

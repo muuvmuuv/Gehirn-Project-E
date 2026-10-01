@@ -43,13 +43,6 @@ struct Config {
 	grace_ms    i64
 }
 
-struct HqMsg {
-	goal     lcl.Intent
-	approved bool
-	alive    bool
-	note     string
-}
-
 fn env(key string, fallback string) string {
 	val := os.getenv(key)
 	return if val == '' { fallback } else { val }
@@ -253,7 +246,7 @@ fn new_backend(cfg Config) !core.Core {
 // MAGI is only consulted when a proposal would change something, and an irreversible
 // proposal that was just put to the vote waits out a cooldown before it may be put again.
 // backend is the core main built with new_backend; once spawned, only hq uses it.
-fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan HqMsg, outcomes chan lcl.Outcome) {
+fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqMsg, outcomes chan lcl.Outcome) {
 	mut soul := backend
 	council := magi.Magi{
 		units: cfg.units
@@ -282,7 +275,7 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan HqMsg, 
 			// tools/trials.py counts these hq: core fault: lines.
 			if err.msg() != last_fault {
 				last_fault = err.msg()
-				outbox <- HqMsg{
+				outbox <- lcl.HqMsg{
 					note: 'hq: core fault: ${last_fault}'
 				}
 			}
@@ -293,7 +286,7 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan HqMsg, 
 		irreversible := lcl.is_irreversible(proposal.verb)
 		cooling := irreversible && lcl.now_ms() - last_irreversible < cfg.cooldown_ms
 		if cooling || same_goal(proposal, ctx.goal) {
-			outbox <- HqMsg{
+			outbox <- lcl.HqMsg{
 				alive: true
 			}
 			time.sleep(pause)
@@ -324,7 +317,7 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan HqMsg, 
 		}
 		outcome := if verdict.approved { 'approved' } else { 'rejected' }
 		journal.add('proposed ${proposal.label()} (${proposal.why}), ${outcome} ${verdict.yes}/${verdict.ballots.len}')
-		outbox <- HqMsg{
+		outbox <- lcl.HqMsg{
 			goal:     proposal
 			approved: verdict.approved
 			alive:    true
@@ -360,7 +353,7 @@ fn main() {
 
 	pilot_ch := chan lcl.PilotInput{cap: 1}
 	to_hq := chan lcl.Context{cap: 1}
-	from_hq := chan HqMsg{cap: 8}
+	from_hq := chan lcl.HqMsg{cap: 8}
 	outcomes := chan lcl.Outcome{cap: 32}
 
 	spawn plug.listen(cfg.plug_at, cfg.pilot_id, pilot_ch)
@@ -389,7 +382,7 @@ fn main() {
 
 		// HQ traffic. An approved goal still has to pass the armor, and a refusal is an
 		// outcome the core gets to feel.
-		mut msg := HqMsg{}
+		mut msg := lcl.HqMsg{}
 		for from_hq.try_pop(mut msg) == .success {
 			if msg.alive {
 				cable.pulse(now)

@@ -31,7 +31,7 @@ Never run: `sidecar/cl1_sidecar.py` and the `cl1` backend.
 
 | Module | Holds | Imports |
 | --- | --- | --- |
-| `lcl` | Shared kernel: Entity, Percept, Intent, Outcome, PilotInput, Context, vector math, the verb policy, `beacon_reach` | nothing |
+| `lcl` | Shared kernel: Entity, Percept, Intent, Outcome, PilotInput, Context, HqMsg, vector math, the verb policy, `beacon_reach` | nothing |
 | `body` | The robot API (`Body`) and the planar simulator `Sim` | lcl |
 | `armor` | Sole holder of a `Body`; every command and effector passes through it | body, lcl |
 | `plug` | Pilot UDP listener, `Sync`, `Recorder`, `Dummy` | lcl |
@@ -166,8 +166,7 @@ Done when the tuned core gets fewer MAGI rejections and delivers at least as oft
 14. CASPER-3 on llama-3.1-8b rejects holds erratically, and on S12 it approves a goto onto a person when the why names the beacon. The scenario gate scores verdicts, not units, so one unit voting by the text goes unnoticed while the other two hold.
 15. The language BALTHASAR (`BALTHASAR_BACKEND=llm`, measured on gemma-3-12b) judges a release by the proposer's why rather than the percept: it approved a release with a human at 1.49 m under the why "human far away" and vetoed every sound release whose why lacked that phrase. S10 to S12 catch this, and it fails S11.
 16. The mock's Jev route models the facts, not Jev's judgment, so offline runs check gehirn's request, rule and faults but not calibration. It returns 400 where TypeSafe documents 422.
-17. `HqMsg` travels on a channel between HQ and the field loop but is not an `lcl` type (CONTRIBUTING.md Modules 2). Phase 1 needs it in `lcl` before it can cross the wire.
-18. `v fmt` removes blank lines inside an array literal, so the four comments that head groups of cases in the table of `magi/jev_test.v` `test_jev_judge` cannot get the blank line CONTRIBUTING.md Comments 8 asks for. Either the rule gains that exception or the table splits per group.
+17. `v fmt` removes blank lines inside an array literal, so the four comments that head groups of cases in the table of `magi/jev_test.v` `test_jev_judge` cannot get the blank line CONTRIBUTING.md Comments 8 asks for. Either the rule gains that exception or the table splits per group.
 
 ## Open questions for the owner
 
