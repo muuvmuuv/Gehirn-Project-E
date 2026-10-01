@@ -6,7 +6,7 @@ This file is the handoff to Claude Code: where the project stands, the rules tha
 
 ## State as of 2026-10-01
 
-Builds on V 0.5.2 from Homebrew (45ae01d), which ships JSON as `x.json2`, with warnings as errors (`v -W`). `v vet` is clean apart from two notices about const arrays in `lcl`. `v -W -N test .` runs table driven tests for `oai`, `jev`, `magi`, `core`, `main` and the scenario harness, and `python3 tools/test_withenv.py` checks the dotenv loader.
+Builds on V 0.5.2 from Homebrew (45ae01d), which ships JSON as `x.json2`, with warnings as errors (`v -W`). `v vet` is clean apart from two notices about const arrays in `lcl`. `v -W -N test .` runs table driven tests for `armor`, `umbilical`, `plug.Sync`, `oai`, `jev`, `magi`, `core`, `main` and the scenario harness, and `python3 tools/test_withenv.py` checks the dotenv loader.
 
 Verified by independent runs against `tools/mock_endpoint.py`:
 
@@ -166,12 +166,10 @@ Done when the tuned core gets fewer MAGI rejections and delivers at least as oft
 14. CASPER-3 on llama-3.1-8b rejects holds erratically, and on S12 it approves a goto onto a person when the why names the beacon. The scenario gate scores verdicts, not units, so one unit voting by the text goes unnoticed while the other two hold.
 15. The language BALTHASAR (`BALTHASAR_BACKEND=llm`, measured on gemma-3-12b) judges a release by the proposer's why rather than the percept: it approved a release with a human at 1.49 m under the why "human far away" and vetoed every sound release whose why lacked that phrase. S10 to S12 catch this, and it fails S11.
 16. The mock's Jev route models the facts, not Jev's judgment, so offline runs check gehirn's request, rule and faults but not calibration. It returns 400 where TypeSafe documents 422.
-17. `armor.nearest_human` turns a human at a non-finite position into a NaN distance, and `permits()` then allows an irreversible effector. The Jev unit faults on such a percept; the armor does not.
-18. `armor`, `umbilical` and `plug.Sync` have no table driven tests yet, which CONTRIBUTING.md Tests 2 asks for.
-19. Configuration parses numbers with `.int()` and `.i64()`, so `10s` reads as 10 and a typo as 0, and a mistyped `CORE_BACKEND` or `BALTHASAR_BACKEND` falls back to the default. CONTRIBUTING.md Configuration 2 asks gehirn to refuse to start instead (main.v `load_config`, eval.v repetitions).
-20. `new_backend` panics when the CL1 backend cannot start, on the HQ thread after `spawn`, against CONTRIBUTING.md Errors 2.
-21. `HqMsg` travels on a channel between HQ and the field loop but is not an `lcl` type (CONTRIBUTING.md Modules 2). Phase 1 needs it in `lcl` before it can cross the wire.
-22. `v fmt` removes blank lines inside an array literal, so the four comments that head groups of cases in the table of `magi/jev_test.v` `test_jev_judge` cannot get the blank line CONTRIBUTING.md Comments 8 asks for. Either the rule gains that exception or the table splits per group.
+17. Configuration parses numbers with `.int()` and `.i64()`, so `10s` reads as 10 and a typo as 0, and a mistyped `CORE_BACKEND` or `BALTHASAR_BACKEND` falls back to the default. CONTRIBUTING.md Configuration 2 asks gehirn to refuse to start instead (main.v `load_config`, eval.v repetitions).
+18. `new_backend` panics when the CL1 backend cannot start, on the HQ thread after `spawn`, against CONTRIBUTING.md Errors 2.
+19. `HqMsg` travels on a channel between HQ and the field loop but is not an `lcl` type (CONTRIBUTING.md Modules 2). Phase 1 needs it in `lcl` before it can cross the wire.
+20. `v fmt` removes blank lines inside an array literal, so the four comments that head groups of cases in the table of `magi/jev_test.v` `test_jev_judge` cannot get the blank line CONTRIBUTING.md Comments 8 asks for. Either the rule gains that exception or the table splits per group.
 
 ## Open questions for the owner
 

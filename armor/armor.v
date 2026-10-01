@@ -56,9 +56,10 @@ pub fn (a Armor) is_ejected() bool {
 	return a.ejected
 }
 
-// permits is the capability check for a goal or an effector.
+// permits is the capability check for a goal or an effector. A percept the armor cannot measure
+// permits nothing.
 pub fn (a Armor) permits(verb string, p lcl.Percept) bool {
-	if a.ejected || verb !in a.limits.verbs {
+	if a.ejected || verb !in a.limits.verbs || !a.measurable(p) {
 		return false
 	}
 	if lcl.is_irreversible(verb) && nearest_human(p) < a.limits.release_keep {
@@ -81,9 +82,10 @@ pub fn (mut a Armor) eject() {
 	a.bd.halt()
 }
 
-// drive pushes one command through every restraint, actuates, and returns what was sent.
+// drive pushes one command through every restraint, actuates, and returns what was sent. On a
+// percept it cannot measure it halts the body and returns zeros.
 pub fn (mut a Armor) drive(u []f64, p lcl.Percept, dt f64, manned bool) []f64 {
-	if a.ejected || u.len != a.last.len {
+	if a.ejected || u.len != a.last.len || !a.measurable(p) {
 		a.bd.halt()
 		a.last = []f64{len: a.last.len}
 		return a.last.clone()
@@ -125,6 +127,19 @@ fn (a Armor) separation(p lcl.Percept) f64 {
 		return 1.0
 	}
 	return math.max(0.2, (d - a.limits.human_stop) / (a.limits.human_slow - a.limits.human_stop))
+}
+
+// measurable reports whether p has a finite pose with one coordinate per degree of freedom, and
+// every entity a finite position of the same length and a finite radius. A NaN fails every
+// comparison, so a human at a NaN position would pass the release_keep check, and a short
+// position would panic lcl.sub.
+fn (a Armor) measurable(p lcl.Percept) bool {
+	return p.pose.len == a.last.len && finite(p.pose) && p.scene.all(it.pos.len == p.pose.len
+		&& finite(it.pos) && math.is_finite(it.r))
+}
+
+fn finite(v []f64) bool {
+	return v.all(math.is_finite(it))
 }
 
 fn nearest_human(p lcl.Percept) f64 {
