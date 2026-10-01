@@ -394,11 +394,34 @@ fn test_command_of_the_wrong_length_halts() {
 	}
 }
 
+fn test_non_finite_command_halts() {
+	cases := {
+		'NaN along x':       [math.nan(), 0.0]
+		'+inf along y':      [0.0, math.inf(1)]
+		'-inf along x':      [math.inf(-1), 0.0]
+		'NaN on both axes':  [math.nan(), math.nan()]
+		'one finite of two': [0.5, math.nan()]
+	}
+	for name, u in cases {
+		mut f := &Fake{}
+		mut a := restrain(f, Limits{})
+		a.last = [0.5, 0.0]
+		assert a.drive(u, at([0.0, 0.0]), 1.0, true) == [0.0, 0.0], name
+		assert f.sent.len == 0, name
+		assert f.halts == 1, name
+		assert a.last == [0.0, 0.0], name
+	}
+}
+
 fn test_failed_actuation_halts() {
 	mut f := &Fake{
 		fail: true
 	}
 	mut a := restrain(f, Limits{})
-	_ = a.drive([0.5, 0.0], at([0.0, 0.0]), 1.0, true)
+	assert a.drive([0.5, 0.0], at([0.0, 0.0]), 1.0, true) == [0.0, 0.0]
 	assert f.halts == 1
+
+	// The body never moved, so the next command ramps up from rest, not from the command
+	// that failed.
+	assert a.last == [0.0, 0.0]
 }

@@ -83,9 +83,10 @@ pub fn (mut a Armor) eject() {
 }
 
 // drive pushes one command through every restraint, actuates, and returns what was sent. On a
-// percept it cannot measure it halts the body and returns zeros.
+// command or percept it cannot use, and when the body fails to actuate, it halts the body and
+// returns zeros, so the next command ramps up from rest.
 pub fn (mut a Armor) drive(u []f64, p lcl.Percept, dt f64, manned bool) []f64 {
-	if a.ejected || u.len != a.last.len || !a.measurable(p) {
+	if a.ejected || u.len != a.last.len || !finite(u) || !a.measurable(p) {
 		a.bd.halt()
 		a.last = []f64{len: a.last.len}
 		return a.last.clone()
@@ -114,7 +115,11 @@ pub fn (mut a Armor) drive(u []f64, p lcl.Percept, dt f64, manned bool) []f64 {
 	if (p.pose[1] <= b[1] && v[1] < 0.0) || (p.pose[1] >= b[3] && v[1] > 0.0) {
 		v[1] = 0.0
 	}
-	a.bd.actuate(v) or { a.bd.halt() }
+	a.bd.actuate(v) or {
+		a.bd.halt()
+		a.last = []f64{len: a.last.len}
+		return a.last.clone()
+	}
 	a.last = v.clone()
 	return v
 }
