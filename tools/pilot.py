@@ -72,7 +72,7 @@ def point(value: str) -> tuple[float, float]:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap = argparse.ArgumentParser(description=__doc__ and __doc__.splitlines()[0])  # None under -OO
     ap.add_argument("--addr", default="127.0.0.1:7777", help="gehirn's PLUG_LISTEN")
     ap.add_argument("--pilot", default="shinji", help="gehirn's PILOT_ID")
     ap.add_argument("--offset", type=float, default=0.0,

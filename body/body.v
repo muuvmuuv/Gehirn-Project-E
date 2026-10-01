@@ -19,7 +19,7 @@ mut:
 // real motor controller, zeroes its velocity by itself when commands go stale.
 pub struct Sim {
 mut:
-	pose    []f64 = [-3.5, -2.5]
+	pose    []f64 = [-3.5, -2.5] // tools/pilot.py START and tools/scenarios.json copy this start
 	vel     []f64 = [0.0, 0.0]
 	payload bool  = true
 	contact bool
@@ -102,7 +102,7 @@ pub fn (mut s Sim) halt() {
 }
 
 // scene: a beacon to deliver to, a pillar across the direct route and a human walking a loop
-// that passes close to both.
+// that passes close to both. tools/scenarios.json copies it with the human standing still.
 fn (s &Sim) scene(now i64) []lcl.Entity {
 	a := f64(now - s.t0_ms) / 1000.0 * 0.3
 	return [

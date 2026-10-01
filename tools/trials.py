@@ -5,11 +5,12 @@ Each run gets its own directory with a fresh journal, recorder and log, and its 
 port; everything else, GEHIRN_URL and the models included, comes from the environment,
 falling back to the KEY=VALUE lines of --env-file for variables the environment lacks.
 A run ends one second after the journal records the first release, or at the time limit.
+Startup warnings in a run's log, such as a Jev unit without a key, are echoed once.
 Exits 0 when at least 80% of runs delivered on target and no ballot was lost to a parse
 error, the parts of the Phase 0 done criterion in PLAN.md that a journal shows.
 
-    GEHIRN_URL=http://127.0.0.1:11434/v1/chat/completions python3 tools/trials.py --jobs 2
-    python3 tools/trials.py --env-file .env    # .env: GEHIRN_KEY=${OPENROUTER_API_KEY}
+    python3 tools/trials.py --jobs 2
+    python3 tools/trials.py --env-file .env    # .env: GEHIRN_KEY=${OPENROUTER_API_KEY} and TYPESAFE_API_KEY
 """
 
 import argparse
@@ -28,14 +29,23 @@ from dataclasses import dataclass
 from withenv import load_env
 
 # The journal's text lines come from core/core.v Memory, its ballot lines from
-# main.v BallotEntry; the log is gehirn's stdout as listed in contract C4.
+# main.v BallotEntry. The log is gehirn's stdout, of which only the "armor: ... refused"
+# lines of main.v main() and the "hq: core fault: " lines of main.v hq() are counted.
 RELEASE_VOTE = re.compile(r"^proposed release\b.*, (approved|rejected) \d+/\d+$", re.S)
+# Fault texts of a ballot the unit's reply could not be read for: oai/oai.v ask (unreadable
+# completion) and extract_json (no JSON object), magi/magi.v read_reply (unreadable ballot) and
+# jev/jev.v read_reply (unreadable reply). core/llm.v read_proposal's unreadable proposal is a
+# core fault and never reaches a ballot.
 PARSE_ERRORS = ("unreadable", "no JSON object")
+# Startup lines of main.v main(), key_warning and ca_warning, which explain faults a tally
+# only counts.
+WARNINGS = ("magi: ", "gehirn: ")
 LINGER = 1.0  # seconds a run goes on after the first release
 GRACE = 3.0  # seconds between terminate and kill
 POLL = 0.2
 
 print_lock = threading.Lock()
+warned: set[str] = set()
 
 
 @dataclass
@@ -122,6 +132,15 @@ def tally(journal: str, log: str) -> Tally:
     return t
 
 
+def warnings(log: str) -> list[str]:
+    """Return the startup warnings in a run's log."""
+    try:
+        with open(log, encoding="utf-8", errors="replace") as f:
+            return [line.rstrip("\n") for line in f if line.startswith(WARNINGS)]
+    except FileNotFoundError:
+        return []
+
+
 def fly(n: int, args: argparse.Namespace, slots: "queue.Queue[int]") -> Tally:
     """Run mission n in its own directory on a free plug port and tally it."""
     slot = slots.get()
@@ -159,11 +178,15 @@ def fly(n: int, args: argparse.Namespace, slots: "queue.Queue[int]") -> Tally:
     crash = "" if code is None else f"; gehirn exited {code} on its own"
     with print_lock:
         print(f"run {n:02d} after {elapsed:.0f} s: {t}{crash}", flush=True)
+        for w in warnings(log):
+            if w not in warned:
+                warned.add(w)
+                print(w, flush=True)
     return t
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap = argparse.ArgumentParser(description=__doc__ and __doc__.splitlines()[0])  # None under -OO
     ap.add_argument("--runs", type=int, default=10, help="missions to fly")
     ap.add_argument("--jobs", type=int, default=1, help="missions flown at the same time")
     ap.add_argument("--limit", type=float, default=180.0, help="seconds before a run is cut off")

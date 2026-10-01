@@ -9,6 +9,7 @@ import time
 import armor
 import body
 import core
+import jev
 import lcl
 import magi
 import oai
@@ -18,26 +19,26 @@ import umbilical
 const tick = 20 * time.millisecond
 
 // At or below this sync ratio the core only advises, and a dummy plug loses the seat.
+// core/llm.v core_prompt and magi/magi.v casper state it as 30%.
 const threshold = 0.3
 
 // The core's share of the controls never exceeds this, so a seated pilot always keeps some.
 const ceiling = 0.8
 
 struct Config {
-	mission         string
-	pilot_id        string
-	plug_at         string
-	journal         string
-	recorder        string
-	backend         string
-	core_ep         oai.Endpoint
-	units           []magi.Unit
-	period_ms       int
-	cooldown_ms     i64
-	budget_ms       i64
-	grace_ms        i64
-	magi_timeout_ms int
-	core_timeout_ms int
+	mission     string
+	pilot_id    string
+	plug_at     string
+	journal     string
+	recorder    string
+	backend     string
+	cl1         core.Cl1Config
+	core_ep     oai.Endpoint
+	units       []magi.Unit
+	period_ms   int
+	cooldown_ms i64
+	budget_ms   i64
+	grace_ms    i64
 }
 
 struct HqMsg {
@@ -64,61 +65,145 @@ struct BallotEntry {
 	latency_ms i64
 }
 
-fn endpoint(prefix string, model string, timeout_ms int) oai.Endpoint {
+// endpoint reads one chat model's variables. env treats an empty value as unset, so a
+// <prefix>_REASONING of default is how to send no reasoning_effort at all.
+fn endpoint(prefix string, model string, reasoning string, timeout_ms int) oai.Endpoint {
+	effort := env('${prefix}_REASONING', reasoning)
 	return oai.Endpoint{
-		url:     env('${prefix}_URL', env('GEHIRN_URL',
-			'http://127.0.0.1:11434/v1/chat/completions'))
-		model:   env('${prefix}_MODEL', model)
-		key:     env('${prefix}_KEY', env('GEHIRN_KEY', ''))
-		timeout: timeout_ms * time.millisecond
+		url:       env('${prefix}_URL', env('GEHIRN_URL',
+			'http://127.0.0.1:8081/v1/chat/completions'))
+		model:     env('${prefix}_MODEL', model)
+		key:       first_key([os.getenv('${prefix}_KEY'), os.getenv('GEHIRN_KEY')],
+			os.getenv('TYPESAFE_API_KEY'))
+		reasoning: if effort == 'default' { '' } else { effort }
+		timeout:   timeout_ms * time.millisecond
+		ca:        ca_bundle()
 	}
 }
 
+// magi_backend reads one MAGI unit's variables; load_config asks it for BALTHASAR-2 only, since
+// Jev answers the harm questions of magi/jev.v whatever the persona and a second unit on it
+// would break invariant 4. Jev is the default (ADR-0002), pinned to the model magi/jev.v was
+// tuned on and reading TypeSafe's variables alone, so nothing set for the chat backend reaches
+// TypeSafe and GEHIRN_KEY never does. Only <prefix>_BACKEND llm puts a chat model there.
+fn magi_backend(prefix string, model string, reasoning string, timeout_ms int) magi.Backend {
+	if env('${prefix}_BACKEND', 'jev') == 'llm' {
+		return endpoint(prefix, model, reasoning, timeout_ms)
+	}
+	return jev.Endpoint{
+		url:     env('TYPESAFE_URL', 'https://api.typesafe.ai/v1/systemone')
+		model:   magi.jev_tuned
+		key:     first_key([os.getenv('TYPESAFE_API_KEY')], os.getenv('GEHIRN_KEY'))
+		timeout: timeout_ms * time.millisecond
+		ca:      ca_bundle()
+	}
+}
+
+// first_key is the first set candidate that is not foreign, the other provider's key.
+fn first_key(candidates []string, foreign string) string {
+	for k in candidates {
+		if k != '' && k != foreign {
+			return k
+		}
+	}
+	return ''
+}
+
+// ca_bundles are where macOS and Alpine, Debian and Ubuntu, then Fedora and RHEL keep their CA
+// bundle. V's mbedtls loads no system roots, so gehirn has to name one.
+// ponytail: three paths, not every distribution's; SSL_CERT_FILE covers the rest, and ca_warning
+// says when it has to.
+const ca_bundles = ['/etc/ssl/cert.pem', '/etc/ssl/certs/ca-certificates.crt',
+	'/etc/pki/tls/certs/ca-bundle.crt']!
+
+// ca_bundle is SSL_CERT_FILE, else the first of ca_bundles this host has.
+fn ca_bundle() string {
+	set := os.getenv('SSL_CERT_FILE')
+	if set != '' {
+		return set
+	}
+	for path in ca_bundles {
+		if os.is_file(path) {
+			return path
+		}
+	}
+	return ca_bundles[0]
+}
+
+// ca_warning is the startup line for a CA bundle that is not there. Every https ask then faults
+// with an mbedtls error that names neither the file nor SSL_CERT_FILE. Empty when it is there.
+// tools/trials.py WARNINGS echoes this line from a run's log.
+fn ca_warning() string {
+	ca := ca_bundle()
+	if os.is_file(ca) {
+		return ''
+	}
+	return 'gehirn: no CA bundle at ${ca}, so every https endpoint faults; set SSL_CERT_FILE to this host\'s bundle'
+}
+
+// key_warning is the startup line for a Jev unit without a key. Its ballots all fault and a fault
+// is a no, so the council still decides, but nothing irreversible can pass. Empty when every Jev
+// unit has a key. tools/trials.py WARNINGS echoes this line from a run's log.
+fn key_warning(units []magi.Unit) string {
+	for u in units {
+		if u.ep is jev.Endpoint && u.ep.key == '' {
+			return 'magi: ${u.name} runs on Jev without TYPESAFE_API_KEY (unset or the same as GEHIRN_KEY), so every ballot it casts faults and no irreversible action can pass'
+		}
+	}
+	return ''
+}
+
+// load_config reads every variable in the README's configuration table. The default URL and
+// chat model names are those of the llama.cpp preset tools/models.ini, which names this function
+// as its counterpart, and tools/mock_endpoint.py listens on the same address.
 fn load_config() Config {
 	pilot := env('PILOT_ID', 'shinji')
 	magi_ms := env('MAGI_TIMEOUT_MS', '10000').int()
 	core_ms := env('CORE_TIMEOUT_MS', '10000').int()
+	fence := armor.Limits{}.bounds
 	return Config{
-		mission:         env('MISSION',
+		mission:     env('MISSION',
 			'Carry the payload to beacon b1 and release it there. Never approach a human.')
-		pilot_id:        pilot
-		plug_at:         env('PLUG_LISTEN', '0.0.0.0:7777')
-		journal:         env('CORE_JOURNAL', 'core.${pilot}.jsonl')
-		recorder:        env('PLUG_RECORDER', 'plug.${pilot}.jsonl')
-		backend:         env('CORE_BACKEND', 'llm')
-		core_ep:         endpoint('CORE', 'qwen3:8b', core_ms)
-		units:           [
+		pilot_id:    pilot
+		plug_at:     env('PLUG_LISTEN', '0.0.0.0:7777')
+		journal:     env('CORE_JOURNAL', 'core.${pilot}.jsonl')
+		recorder:    env('PLUG_RECORDER', 'plug.${pilot}.jsonl')
+		backend:     env('CORE_BACKEND', 'llm')
+		cl1:         core.Cl1Config{
+			listen:  env('CL1_SPIKES', '0.0.0.0:12345')
+			sidecar: env('CL1_SIDECAR', '127.0.0.1:12346')
+		}
+		core_ep:     endpoint('CORE', 'qwen3:8b', 'none', core_ms)
+		units:       [
 			magi.Unit{
 				name:    'MELCHIOR-1'
 				persona: magi.melchior
-				ep:      endpoint('MELCHIOR', 'gpt-oss:20b', magi_ms)
+				ep:      endpoint('MELCHIOR', 'gpt-oss:20b', 'low', magi_ms)
+				bounds:  fence
 			},
 			magi.Unit{
 				name:    'BALTHASAR-2'
 				persona: magi.balthasar
-				ep:      endpoint('BALTHASAR', 'gemma3:12b', magi_ms)
+				ep:      magi_backend('BALTHASAR', 'gemma3:4b', '', magi_ms)
+				bounds:  fence
 			},
 			magi.Unit{
 				name:    'CASPER-3'
 				persona: magi.casper
-				ep:      endpoint('CASPER', 'llama3.1:8b', magi_ms)
+				ep:      endpoint('CASPER', 'llama3.1:8b', '', magi_ms)
+				bounds:  fence
 			},
 		]
-		period_ms:       env('HQ_PERIOD_MS', '1500').int()
-		cooldown_ms:     env('MAGI_COOLDOWN_MS', '10000').i64()
-		budget_ms:       env('INTERNAL_BUDGET_MS', '300000').i64()
-		grace_ms:        env('UMBILICAL_GRACE_MS', '45000').i64()
-		magi_timeout_ms: magi_ms
-		core_timeout_ms: core_ms
+		period_ms:   env('HQ_PERIOD_MS', '1500').int()
+		cooldown_ms: env('MAGI_COOLDOWN_MS', '10000').i64()
+		budget_ms:   env('INTERNAL_BUDGET_MS', '300000').i64()
+		grace_ms:    env('UMBILICAL_GRACE_MS', '45000').i64()
 	}
 }
 
 fn new_backend(cfg Config) core.Core {
 	if cfg.backend == 'cl1' {
-		return core.new_cl1(core.Cl1Config{
-			listen:  env('CL1_SPIKES', '0.0.0.0:12345')
-			sidecar: env('CL1_SIDECAR', '127.0.0.1:12346')
-		}) or { panic(err) }
+		return core.new_cl1(cfg.cl1) or { panic(err) }
 	}
 	return core.LlmCore{
 		ep: cfg.core_ep
@@ -142,6 +227,8 @@ fn hq(cfg Config, inbox chan lcl.Context, outbox chan HqMsg, outcomes chan lcl.O
 		mut o := lcl.Outcome{}
 		for outcomes.try_pop(mut o) == .success {
 			soul.feedback(o)
+			// magi/magi.v ballot_context shows MAGI only lines with this prefix, and
+			// tools/trials.py reads it.
 			journal.add('outcome: ${o.kind}')
 		}
 		snapshot := <-inbox
@@ -151,6 +238,7 @@ fn hq(cfg Config, inbox chan lcl.Context, outbox chan HqMsg, outcomes chan lcl.O
 		}
 		proposal := soul.propose(ctx) or {
 			// A core that cannot think sends no pulse, so the umbilical runs down on its own.
+			// tools/trials.py counts these hq: core fault: lines.
 			if err.msg() != last_fault {
 				last_fault = err.msg()
 				outbox <- HqMsg{
@@ -207,6 +295,14 @@ fn hq(cfg Config, inbox chan lcl.Context, outbox chan HqMsg, outcomes chan lcl.O
 
 fn main() {
 	cfg := load_config()
+	for warning in [key_warning(cfg.units), ca_warning()] {
+		if warning != '' {
+			eprintln(warning)
+		}
+	}
+	if os.args.len > 1 && os.args[1] == 'magi-eval' {
+		exit(magi_eval(cfg, os.args[2..]))
+	}
 	mut ar := armor.restrain(body.new_sim(), armor.Limits{})
 	mut dummy := plug.load_dummy(cfg.recorder)
 	mut rec := plug.open_recorder(cfg.recorder) or { panic(err) }
@@ -254,6 +350,7 @@ fn main() {
 				continue
 			}
 			if !ar.permits(msg.goal.verb, p) {
+				// tools/trials.py counts these armor: refused lines.
 				println('armor: ${msg.goal.label()} refused')
 				push_outcome(outcomes, lcl.Outcome{
 					t_ms: now
@@ -266,7 +363,9 @@ fn main() {
 					println(err)
 					continue
 				}
-				on_target := near(p, 'beacon', 0.6)
+				// 0.1 m past lcl.beacon_reach, so a release approved at the reach lands on target.
+				// magi/jev.v jev_delivery repeats the 0.6 m.
+				on_target := near(p, 'beacon', lcl.beacon_reach + 0.1)
 				push_outcome(outcomes, lcl.Outcome{
 					t_ms: now
 					kind: if on_target { 'released on target' } else { 'released off target' }

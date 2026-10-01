@@ -7,12 +7,20 @@ import time
 
 // Verbs the stack knows. Anything unknown counts as irreversible, so it needs all three MAGI
 // and still has to pass the armor's capability list. Irreversibility is policy, never
-// something a proposal gets to declare about itself.
+// something a proposal gets to declare about itself. core/llm.v core_prompt and the magi/magi.v
+// personas name these verbs in prose, magi/jev.v means describes each, and
+// tools/mock_endpoint.py VERBS copies them.
 pub const known_verbs = ['goto', 'hold', 'release']
 pub const irreversible_verbs = ['release']
 
-// A goto counts as reached inside this radius, in meters.
+// A goto counts as reached inside this radius, in meters. tools/pilot.py ARRIVE copies it.
 pub const arrive = 0.35
+
+// beacon_reach is how close to a beacon's center, in meters, the body counts as at the beacon,
+// where a release may happen. core/llm.v core_prompt and the magi/magi.v personas state it in
+// prose and tools/mock_endpoint.py BEACON_REACH copies it; main.v counts a release on target
+// 0.1 m further out, as magi/jev.v jev_delivery does.
+pub const beacon_reach = 0.5
 
 pub struct Entity {
 pub:
@@ -77,6 +85,7 @@ pub fn now_ms() i64 {
 }
 
 // label renders an intent as verb(x, y) for logs and prompts.
+// tools/mock_endpoint.py PROPOSAL parses this layout.
 pub fn (i Intent) label() string {
 	if i.target.len >= 2 {
 		return '${i.verb}(${i.target[0]:.2f}, ${i.target[1]:.2f})'

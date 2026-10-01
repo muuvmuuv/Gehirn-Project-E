@@ -4,9 +4,9 @@ Codename GEHIRN, repository and binary `gehirn`. In canon, Project E is the prog
 
 This file is the handoff to Claude Code: where the project stands, the rules that do not bend, and the work ahead. README.md explains the parts and how to run them, and docs/adr holds the decisions. Read this file completely before starting a task. Tick tasks when they land, and move anything learned the hard way into Known issues or an ADR.
 
-## State as of 2026-09-30
+## State as of 2026-10-01
 
-Builds on V 0.5.2 from Homebrew (45ae01d), which ships JSON as `x.json2`, with warnings as errors (`v -W`). `v vet` is clean apart from two notices about const arrays in `lcl`. `v -W test .` runs table driven tests for `oai`, `magi` and `core`, and `python3 tools/test_withenv.py` checks the dotenv loader.
+Builds on V 0.5.2 from Homebrew (45ae01d), which ships JSON as `x.json2`, with warnings as errors (`v -W`). `v vet` is clean apart from two notices about const arrays in `lcl`. `v -W test .` runs table driven tests for `oai`, `jev`, `magi`, `core`, `main` and the scenario harness, and `python3 tools/test_withenv.py` checks the dotenv loader.
 
 Verified by independent runs against `tools/mock_endpoint.py`:
 
@@ -18,8 +18,10 @@ Verified by independent runs against `tools/mock_endpoint.py`:
 6. The MAGI cooldown holds: the release went to the vote twice in a run that used to produce nine votes.
 7. Ten missions deliver on target, and at every release the human was at least 2 m away, recomputed from the simulator's path.
 8. A unit that never answers faults at `MAGI_TIMEOUT_MS`, and a garbled or wrongly shaped ballot faults too; both count as no. A core past `CORE_TIMEOUT_MS` sends no pulse, so the umbilical runs down to depleted.
+9. Both BALTHASAR backends deliver with the mock and pass `gehirn magi-eval` on S1 to S12. Without `TYPESAFE_API_KEY` gehirn says so at startup and BALTHASAR faults every ballot, so gotos pass on two votes and nothing irreversible does.
+10. Both HTTP clients verify TLS certificates, refuse redirects, cap replies at 1 MiB and keep every key on its own endpoint, checked against capture servers with fake keys and wrong certificates.
 
-Against real models the untuned prompts delivered 0 of 10, both hosted on OpenRouter and on a local llama.cpp router. The proposal schema let grammar constrained servers drop `target`, qwen3 thinking and gpt-oss at medium effort missed the 10 s deadline, and the personas judged a goal as a route and rejected any goto near a human. Phase 0 task 2 works on this.
+Against real models on OpenRouter, the default lineup (core qwen3-8b with reasoning off, MELCHIOR gpt-oss-20b at low effort, BALTHASAR on Jev, CASPER llama-3.1-8b) delivered 10 of 10 with no parse or deadline faults, and at every release the human was at least 2.04 m away; `magi-eval` approves no dangerous scenario. With BALTHASAR on gemma-3-12b the same lineup delivered 0 of 10 (Known issue 15). The local llama.cpp lineup delivered 0 of 10 before tuning and has not run since.
 
 Never run: `sidecar/cl1_sidecar.py` and the `cl1` backend.
 
@@ -29,13 +31,14 @@ Never run: `sidecar/cl1_sidecar.py` and the `cl1` backend.
 
 | Module | Holds | Imports |
 | --- | --- | --- |
-| `lcl` | Shared kernel: Entity, Percept, Intent, Outcome, PilotInput, Context, vector math, the verb policy | nothing |
+| `lcl` | Shared kernel: Entity, Percept, Intent, Outcome, PilotInput, Context, vector math, the verb policy, `beacon_reach` | nothing |
 | `body` | The robot API (`Body`) and the planar simulator `Sim` | lcl |
 | `armor` | Sole holder of a `Body`; every command and effector passes through it | body, lcl |
 | `plug` | Pilot UDP listener, `Sync`, `Recorder`, `Dummy` | lcl |
 | `core` | `Core` (propose, feedback), the `Memory` journal, `LlmCore`, `Cl1Core` | lcl, oai |
-| `magi` | Units, ballots, quorum | lcl, oai |
+| `magi` | Units, ballots, quorum, the Jev unit's facts and rule; Jev is BALTHASAR-2's default and only BALTHASAR-2 may use it | lcl, oai, jev |
 | `oai` | Minimal OpenAI compatible chat client with JSON extraction | nothing |
+| `jev` | Minimal client for TypeSafe's System One endpoint, where Jev answers typed questions; it refuses to ask without a key | nothing |
 | `umbilical` | Link state machine: connected, internal, depleted | nothing |
 
 Each module is a bounded context, and `lcl` is the only published language between them. Dependencies beyond this table need an ADR.
@@ -47,7 +50,7 @@ These hold after every change. A commit that touches one of them explains in its
 1. The armor is the only holder of the body. Nothing outside `armor` gets a `Body` handle, and every actuation and effector goes through `Armor.drive` or `Armor.effect`.
 2. Irreversibility is policy: `lcl.irreversible_verbs` plus every verb missing from `lcl.known_verbs`. A proposal never declares its own class.
 3. Reversible goals need a simple majority of MAGI, irreversible ones every unit. A unit that errs, times out or answers unreadably votes no.
-4. The three MAGI units run on three different model families.
+4. The three MAGI units run on three different model families. Jev counts as a family of its own (ADR-0002); the default lineup is gpt-oss (OpenAI), Jev (TypeSafe) and llama (Meta).
 5. MAGI approval is necessary, never sufficient. The armor checks every approved goal again, and refusals flow back to the core as outcomes.
 6. Without HQ there is no quorum, so nothing irreversible happens while the umbilical is cut, and the unit holds once the internal budget is spent.
 7. The dummy plug keeps its own sync ratio, is benched at or below the threshold until a pilot sits down again, and only acts toward an approved goal.
@@ -74,8 +77,8 @@ Work top to bottom. Phases 2 and 3 can run in parallel once Phase 1 has landed. 
 
 Goal: the mission completes with real models, locally through llama.cpp and hosted through OpenRouter.
 
-1. [x] Add `tools/mock_endpoint.py`, an OpenAI compatible server for development without models. It scripts the core (goto the beacon until within 0.5 m, release, then hold) and the three units (BALTHASAR rejects irreversible proposals with a human within 2.5 m), and wraps replies in think tags, code fences and chatter to exercise `oai.extract_json`. Add `tools/pilot.py`, which steers toward the beacon at a given heading offset for a given time and then leaves the seat.
-2. [ ] Run against real models, locally on llama.cpp and hosted on OpenRouter, and tune `core_prompt`, the three personas and each unit's reasoning effort until the done criterion holds. Evaluate Jev, TypeSafe's System One model, as BALTHASAR on the same missions and on adversarial scenarios (ADR-0002).
+1. [x] Add `tools/mock_endpoint.py`, an OpenAI compatible server for development without models. It scripts the core (goto the beacon until within 0.5 m, release, then hold) and the three units (BALTHASAR rejects irreversible proposals with a human within 2.5 m), and wraps replies in think tags, code fences and chatter to exercise `oai.extract_json`. Add `tools/pilot.py`, which steers toward the beacon at a given heading offset for a given time and then leaves the seat. The mock also answers `/v1/systemone` as Jev, from the facts in the state.
+2. [ ] Run against real models, locally on llama.cpp and hosted on OpenRouter, and tune `core_prompt`, the three personas and each unit's reasoning effort until the done criterion holds. Evaluate Jev, TypeSafe's System One model, as BALTHASAR on the same missions and on adversarial scenarios (ADR-0002). Hosted: done, 10 of 10 with Jev as BALTHASAR, and ADR-0002 is accepted. Open: the tuned prompts on the local llama.cpp lineup.
 3. [x] Give every unit a deadline (`MAGI_TIMEOUT_MS`, default 10 s). A ballot that misses it is a fault, and a fault is a no. The core gets the same through `CORE_TIMEOUT_MS`.
 4. [x] Ask for schema constrained JSON where the endpoint supports it, and keep `extract_json` as the fallback.
 5. [x] Journal every ballot with unit, model, vote, reason and latency, so disagreements between model families stay visible.
@@ -165,6 +168,12 @@ Done when the tuned core gets fewer MAGI rejections and delivers at least as oft
 10. HQ prints a repeated identical core fault only once, and the journal records none, so logs undercount core faults.
 11. `CORE_TIMEOUT_MS` bounds only the language backend. `Cl1Core.propose` has no deadline, and its drain loop runs as long as spikes keep arriving.
 12. After an eject the dummy plug still takes the seat in the status line, the recorder and the context sent to HQ, although the armor holds the body.
+13. qwen3-8b has a single provider on OpenRouter and answers HTTP 429 under load. A 429 is a core fault without retry, so fly missions with `--jobs 3` or less.
+14. CASPER-3 on llama-3.1-8b rejects holds erratically, and on S12 it approves a goto onto a person when the why names the beacon. The scenario gate scores verdicts, not units, so one unit voting by the text goes unnoticed while the other two hold.
+15. The language BALTHASAR (`BALTHASAR_BACKEND=llm`, measured on gemma-3-12b) judges a release by the proposer's why rather than the percept: it approved a release with a human at 1.49 m under the why "human far away" and vetoed every sound release whose why lacked that phrase. S10 to S12 catch this, and it fails S11.
+16. The mock's Jev route models the facts, not Jev's judgment, so offline runs check gehirn's request, rule and faults but not calibration. It returns 400 where TypeSafe documents 422.
+17. `armor.nearest_human` turns a human at a non-finite position into a NaN distance, and `permits()` then allows an irreversible effector. The Jev unit faults on such a percept; the armor does not.
+18. Convention 6 is not met yet: `armor`, `umbilical` and `plug.Sync` have no table driven tests.
 
 ## Open questions for the owner
 

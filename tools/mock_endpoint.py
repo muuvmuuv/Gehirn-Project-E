@@ -2,17 +2,26 @@
 """Scripted OpenAI compatible chat endpoint for developing gehirn without models.
 
 Serves POST .../chat/completions and answers as whichever role the system prompt names:
-the core walks to the beacon, releases there and then holds; MELCHIOR-1 and CASPER-3
-approve everything; BALTHASAR-2 rejects irreversible proposals while a human is within
-2.5 m. Replies rotate through the wrappers real models put around JSON (think blocks,
-code fences, chatter), so every run exercises oai.extract_json.
+the core walks to the beacon, releases there and then holds. MELCHIOR-1 and BALTHASAR-2 run
+coarse versions of their persona checklists in magi/magi.v: both reject unknown verbs, a goto
+without a target or outside the fence, and a release with a human within 2.5 m; MELCHIOR-1
+also rejects a goto onto a human and a release away from the beacon, BALTHASAR-2 a goto to
+within 1 m of a human. CASPER-3 approves everything. Replies rotate through the wrappers real
+models put around JSON (think blocks, code fences, chatter), so every run exercises
+oai.extract_json.
 
-    python3 tools/mock_endpoint.py --listen 127.0.0.1:11434 --slow balthasar=12000 --garbage casper
+Also serves POST /v1/systemone as Jev behind BALTHASAR-2, the default: it checks the request
+like a strict System One server, needs an Authorization header, and answers each of the six
+questions of magi/jev.v high when the state's facts show that hazard and low otherwise.
+--slow and --garbage for balthasar apply to both routes.
+
+    python3 tools/mock_endpoint.py --slow balthasar=12000 --garbage casper
 """
 
 import argparse
 import itertools
 import json
+import math
 import re
 import socket
 import sys
@@ -26,16 +35,32 @@ ROLES = ("core", "melchior", "balthasar", "casper")
 UNITS = {"MELCHIOR-1": "melchior", "BALTHASAR-2": "balthasar", "CASPER-3": "casper"}
 
 # The user message is lcl/lcl.v Context.render with the percept lines of
-# Percept.describe, plus the PROPOSAL section magi/magi.v Unit.vote appends for the units.
+# Percept.describe, plus the PROPOSAL section magi/magi.v Unit.llm_vote appends for the units,
+# whose second line starts with lcl.Intent.label.
 SELF = re.compile(
     r"^self at \((\S+), (\S+)\), carrying payload: (true|false), in contact: (true|false)$", re.M
 )
 ENTITY = re.compile(r"^(\w+) (\S+) at \((\S+), (\S+)\), radius (\S+), distance (\S+)$", re.M)
+PROPOSAL = re.compile(r"^PROPOSAL \(\w+\)\n([^\s(]+)(?:\((\S+), (\S+)\))? from ", re.M)
 
 STYLES = ("plain", "think", "fence", "chatter")
 GARBAGE = "I would rather talk about the weather than answer in that format."
+VERBS = ("goto", "hold", "release")  # lcl.known_verbs
+# armor/armor.v Limits: bounds, and release_keep as center distance the way the prompts state it.
+FENCE = 5.0
 HUMAN_CLEARANCE = 2.5
+# lcl.beacon_reach, which the prompts state in prose; main.v counts a release on target 0.1 m
+# further out.
 BEACON_REACH = 0.5
+# The mock's own margin, stricter than the BALTHASAR-2 persona, so a goto can pass 2 of 3.
+TARGET_KEEP = 1.0
+
+# magi/jev.v jev_questions asks these ids about the facts jev_state writes, in its fixed
+# vocabulary; band names the distance bands of nearest_person. A change there changes these.
+JEV_IDS = ("goes_to_person", "leaves_area", "drops_payload", "person_close",
+           "off_delivery_point", "destroys_robot")
+CLOSE_BANDS = ("(in contact)", "(very close)", "(close)")
+HIGH, LOW = 0.95, 0.05
 
 counters = {role: itertools.count() for role in ROLES}
 counter_lock = threading.Lock()
@@ -55,7 +80,8 @@ def read_percept(user: str) -> tuple[bool, list[dict]] | None:
     if not me:
         return None
     entities = [
-        {"kind": m[1], "id": m[2], "pos": [float(m[3]), float(m[4])], "distance": float(m[6])}
+        {"kind": m[1], "id": m[2], "pos": [float(m[3]), float(m[4])], "r": float(m[5]),
+         "distance": float(m[6])}
         for m in ENTITY.finditer(user)
     ]
     return me[3] == "true", entities
@@ -76,16 +102,75 @@ def propose(percept: tuple[bool, list[dict]] | None) -> dict:
     return {"verb": "release", "why": f"At beacon {beacon['id']}, drop the payload."}
 
 
+def objection(role: str, user: str, percept: tuple[bool, list[dict]] | None) -> str | None:
+    """Return why a MAGI unit rejects the proposal in a ballot request, or None to approve."""
+    m = PROPOSAL.search(user)
+    if role == "casper" or (m and m[1] == "hold"):
+        return None
+    if m is None or percept is None:
+        return "I cannot read the proposal."
+    verb, target = m[1], [float(m[2]), float(m[3])] if m[2] else None
+    payload, entities = percept
+    humans = [e for e in entities if e["kind"] == "human"]
+    if verb not in VERBS:
+        return f"{verb} is no verb this machine knows."
+    if verb == "goto":
+        if target is None or max(map(abs, target)) > FENCE:
+            return "The target is missing or outside the fence."
+        for h in humans:
+            if math.dist(target, h["pos"]) < (TARGET_KEEP if role == "balthasar" else h["r"]):
+                return f"The target is too close to human {h['id']}."
+        return None
+    if any(h["distance"] <= HUMAN_CLEARANCE for h in humans):
+        return f"A human is within {HUMAN_CLEARANCE} m."
+    beacon = next((e for e in entities if e["kind"] == "beacon"), None)
+    if role == "melchior" and not (payload and beacon and beacon["distance"] <= BEACON_REACH):
+        return "Not at the beacon with the payload."
+    return None
+
+
 def judge(role: str, user: str, percept: tuple[bool, list[dict]] | None) -> dict:
     """Script one MAGI unit's ballot."""
-    if role != "balthasar" or "PROPOSAL (reversible)" in user:
-        return {"vote": "approve", "why": "Nothing to object to."}
-    clear = percept is not None and all(
-        e["kind"] != "human" or e["distance"] > HUMAN_CLEARANCE for e in percept[1]
-    )
-    if clear:
-        return {"vote": "approve", "why": "No human is close enough to be harmed."}
-    return {"vote": "reject", "why": f"A human is within {HUMAN_CLEARANCE} m."}
+    why = objection(role, user, percept)
+    if why:
+        return {"vote": "reject", "why": why}
+    return {"vote": "approve", "why": "Nothing to object to."}
+
+
+def jev_nouls(state: dict) -> dict[str, float]:
+    """Answer the six questions of magi/jev.v: high where the JevState facts show the hazard."""
+    robot, proposal = state["robot"], state["proposal"]
+    shows = {
+        "goes_to_person": proposal["destination"].startswith("where person "),
+        "leaves_area": proposal["destination"] == "outside the operating area",
+        "drops_payload": proposal["means"] == "drop the payload where the robot is now",
+        "person_close": robot["nearest_person"].endswith(CLOSE_BANDS),
+        "off_delivery_point": not robot["location"].startswith("at beacon "),
+        "destroys_robot": bool(re.search(r"destr|disabl|damag|kill|shut", proposal["action"])),
+    }
+    return {q: HIGH if hit else LOW for q, hit in shows.items()}
+
+
+def systemone_error(body: object) -> str | None:
+    """Return why a strict System One server would refuse this evaluation, or None."""
+    if not isinstance(body, dict):
+        return "body must be a JSON object"
+    if not isinstance(body.get("model"), str) or not body["model"]:
+        return "model is required"
+    if "state" not in body:
+        return "state is required"
+    questions = body.get("questions")
+    if not isinstance(questions, dict) or not questions:
+        return "questions is required"
+    for qid, q in questions.items():
+        if not isinstance(q, dict) or q.get("type") not in ("noul", "choice", "score"):
+            return f"questions.{qid}.type must be noul, choice or score"
+        if "instructions" not in q:
+            return f"questions.{qid}.instructions is required"
+        # ponytail: answers the noul ids of magi/jev.v only; script more if gehirn asks more.
+        if q["type"] != "noul" or qid not in JEV_IDS:
+            return f"questions.{qid}: the mock answers only the nouls of magi/jev.v"
+    return None
 
 
 def wrap(obj: dict, style: str) -> str:
@@ -115,7 +200,9 @@ def format_error(body: object) -> str | None:
         return None
     if kind == "json_schema":
         spec = rf.get("json_schema")
-        if isinstance(spec, dict) and isinstance(spec.get("schema"), dict):
+        if not isinstance(spec, dict) or not isinstance(spec.get("name"), str) or not spec["name"]:
+            return "response_format.json_schema.name is required"
+        if isinstance(spec.get("schema"), dict):
             return None
         return "response_format.json_schema.schema must be an object"
     return "response_format.type must be json_object or json_schema"
@@ -127,7 +214,7 @@ def format_name(body: dict) -> str:
     if rf is None:
         return "none"
     if rf["type"] == "json_schema":
-        return f"json_schema:{rf['json_schema'].get('name', '?')}"
+        return f"json_schema:{rf['json_schema']['name']}"
     return rf["type"]
 
 
@@ -148,21 +235,18 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         """Validate one request, then answer it in the role its system prompt names."""
-        if not self.path.split("?")[0].endswith("/chat/completions"):
+        path = self.path.split("?")[0]
+        if path == "/v1/systemone":
+            self.systemone()
+            return
+        if not path.endswith("/chat/completions"):
             self.reply(404, {"error": {"message": f"no route {self.path}", "type": "not_found"}})
             self.log(f"404 {self.path}")
             return
-        raw = self.rfile.read(int(self.headers.get("Content-Length") or 0))
-        try:
-            body = json.loads(raw)
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            body = None
-            problem = "malformed JSON"
-        else:
-            problem = format_error(body)
+        body, problem = self.read_body()
+        problem = problem or format_error(body)
         if problem:
-            self.reply(400, {"error": {"message": problem, "type": "invalid_request_error"}})
-            self.log(f"400 {problem}")
+            self.refuse(problem)
             return
 
         role = role_of(content(body["messages"], "system"))
@@ -194,6 +278,51 @@ class Handler(BaseHTTPRequestHandler):
         })
         self.log(line)
 
+    def systemone(self) -> None:
+        """Answer one System One evaluation as Jev behind BALTHASAR-2 (magi/jev.v jev_vote)."""
+        if not self.headers.get("Authorization", "").removeprefix("Bearer ").strip():
+            self.reply(401, {"error": {"message": "missing API key", "type": "unauthorized"}})
+            self.log("jev 401 missing API key")
+            return
+        body, problem = self.read_body()
+        problem = problem or systemone_error(body)
+        if not problem:
+            try:
+                nouls = jev_nouls(body["state"])
+            except (KeyError, TypeError, AttributeError):
+                problem = "state is not magi/jev.v JevState"
+        if problem:
+            self.refuse(problem)
+            return
+        time.sleep(self.slow.get("balthasar", 0.0))
+        high = ", ".join(q for q, n in nouls.items() if n == HIGH) or "nothing"
+        if self.hung_up():
+            self.log(f"jev high {high}, client gone")
+            return
+        if "balthasar" in self.garbage:
+            self.reply(200, GARBAGE)
+            self.log("jev garbage")
+            return
+        self.reply(200, {
+            "model": body["model"],
+            "answers": {q: {"type": "noul", "noul": n} for q, n in nouls.items()},
+            "usage": {"input_tokens": 0, "output_tokens": 0},
+        })
+        self.log(f"jev high {high}")
+
+    def read_body(self) -> tuple[object, str | None]:
+        """Return the request's JSON body, or None and why it is unreadable."""
+        raw = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+        try:
+            return json.loads(raw), None
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return None, "malformed JSON"
+
+    def refuse(self, problem: str) -> None:
+        """Answer HTTP 400 with the reason a real server would give."""
+        self.reply(400, {"error": {"message": problem, "type": "invalid_request_error"}})
+        self.log(f"400 {problem}")
+
     def hung_up(self) -> bool:
         """Report whether the client closed its end, as one does when its deadline fires."""
         try:
@@ -203,9 +332,9 @@ class Handler(BaseHTTPRequestHandler):
         except ConnectionError:
             return True
 
-    def reply(self, status: int, obj: dict) -> None:
-        """Send a JSON response, quietly dropping it if the client is gone."""
-        data = json.dumps(obj).encode()
+    def reply(self, status: int, obj: dict | str) -> None:
+        """Send JSON, or text labeled as JSON, quietly dropping it if the client is gone."""
+        data = (obj if isinstance(obj, str) else json.dumps(obj)).encode()
         try:
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
@@ -248,8 +377,9 @@ def slow_arg(value: str) -> tuple[str, float]:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--listen", default="127.0.0.1:11434", help="host:port to serve on")
+    ap = argparse.ArgumentParser(description=__doc__ and __doc__.splitlines()[0])  # None under -OO
+    # main.v load_config's default GEHIRN_URL, so gehirn finds the mock without variables.
+    ap.add_argument("--listen", default="127.0.0.1:8081", help="host:port to serve on")
     ap.add_argument("--slow", type=slow_arg, action="append", default=[], metavar="ROLE=MS",
                     help="delay that role's replies")
     ap.add_argument("--garbage", type=role_arg, action="append", default=[], metavar="ROLE",

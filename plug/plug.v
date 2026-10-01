@@ -38,6 +38,7 @@ pub fn (s Sync) authority(threshold f64, ceiling f64) f64 {
 	return ceiling * math.min(1.0, (s.ratio - threshold) / (1.0 - threshold))
 }
 
+// Wire is one pilot datagram. tools/pilot.py datagram() writes the same fields.
 struct Wire {
 	pilot string
 	u     []f64

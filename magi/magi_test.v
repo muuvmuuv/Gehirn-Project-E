@@ -41,6 +41,36 @@ fn test_tally() {
 	}
 }
 
+fn test_read_reply() {
+	cases := {
+		'{"vote": "approve", "why": "fine"}':     'approve'
+		'{"vote": " Reject ", "why": "a human"}': 'reject'
+		'{"decision": "approve"}':                ''
+		'{"vote": "approved", "why": "ok"}':      ''
+		'{"vote": null}':                         ''
+		'{"vote": 1}':                            ''
+		'{}':                                     ''
+	}
+	for raw, want in cases {
+		got := read_reply(raw) or { Reply{} }
+		assert got.vote == want, raw
+	}
+}
+
+fn test_ballot_asks_why_before_vote() {
+	for s in [ballot_format, ballot_schema.schema] {
+		assert s.index('"why"') or { -1 } < s.index('"vote"') or { -1 }, s
+	}
+}
+
+fn test_ballot_context_keeps_only_outcomes() {
+	ctx := lcl.Context{
+		memory: ['proposed release (all clear), rejected 2/3', 'outcome: armor refused release',
+			'proposed hold (a human is close), approved 3/3', 'outcome: reached']
+	}
+	assert ballot_context(ctx).memory == ['outcome: armor refused release', 'outcome: reached']
+}
+
 fn test_unreachable_unit_votes_fault() {
 	mut l := net.listen_tcp(.ip, '127.0.0.1:0')!
 	addr := l.addr()!
