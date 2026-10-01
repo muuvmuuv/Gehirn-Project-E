@@ -1,6 +1,7 @@
 module main
 
 import os
+import net
 import jev
 import lcl
 import magi
@@ -186,5 +187,40 @@ fn test_load_config() {
 		got := if cfg := load_config() { config_value(cfg, c.key) } else { err.msg() }
 		assert got == c.want, '${c}'
 		os.unsetenv(c.key)
+	}
+}
+
+struct BackendCase {
+	backend string
+	spikes  string
+	sidecar string
+	want    string // the start of the core's name, or of the line new_backend refuses it with
+}
+
+// A CL1 core that cannot bind its spike port or dial its sidecar is an error naming the variable
+// and the cause, which main prints before it spawns anything.
+fn test_new_backend() {
+	// net.listen_udp sets SO_REUSEADDR on every UDP socket, and Linux lets two such sockets bind
+	// one port, so with it left on here new_cl1 would bind too. macOS refuses either way.
+	mut taken := net.listen_udp('127.0.0.1:0')!
+	taken.sock.set_option_bool(.reuse_addr, false)!
+	defer {
+		taken.close() or {}
+	}
+	bound := net.addr_from_socket_handle(taken.sock.handle).str()
+	cases := [
+		BackendCase{'', '', '', 'llm:'},
+		BackendCase{'cl1', bound, '', 'cl1: cannot listen on CL1_SPIKES ${bound}: net: socket error: '},
+		BackendCase{'cl1', '127.0.0.1:0', '127.0.0.1:99999', 'cl1: cannot dial CL1_SIDECAR 127.0.0.1:99999: net: port out of range'},
+	]
+	for c in cases {
+		os.setenv('CORE_BACKEND', c.backend, true)
+		os.setenv('CL1_SPIKES', c.spikes, true)
+		os.setenv('CL1_SIDECAR', c.sidecar, true)
+		got := if b := new_backend(load_config()!) { b.name() } else { err.msg() }
+		assert got.starts_with(c.want), '${c}: ${got}'
+	}
+	for key in ['CORE_BACKEND', 'CL1_SPIKES', 'CL1_SIDECAR'] {
+		os.unsetenv(key)
 	}
 }

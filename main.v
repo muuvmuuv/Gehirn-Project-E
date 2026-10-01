@@ -192,6 +192,7 @@ fn key_warning(units []magi.Unit) string {
 // number or backend set to a value it does not accept, so main refuses to start. The default URL
 // and chat model names are those of the llama.cpp preset tools/models.ini, which names this
 // function as its counterpart, and tools/mock_endpoint.py listens on the same address.
+// core/cl1.v new_cl1 names CL1_SPIKES and CL1_SIDECAR in its errors.
 fn load_config() !Config {
 	pilot := env('PILOT_ID', 'shinji')
 	magi_ms := int(env_ms('MAGI_TIMEOUT_MS', '10000')!)
@@ -237,9 +238,11 @@ fn load_config() !Config {
 	}
 }
 
-fn new_backend(cfg Config) core.Core {
+// new_backend builds the core CORE_BACKEND names, for main to hand to hq. A CL1 core binds and
+// dials here, so main builds it before any spawn and refuses to start when it cannot.
+fn new_backend(cfg Config) !core.Core {
 	if cfg.backend == 'cl1' {
-		return core.new_cl1(cfg.cl1) or { panic(err) }
+		return core.new_cl1(cfg.cl1)!
 	}
 	return core.LlmCore{
 		ep: cfg.core_ep
@@ -249,8 +252,9 @@ fn new_backend(cfg Config) core.Core {
 // hq is NERV HQ: take the newest field snapshot, let the core propose, let MAGI judge.
 // MAGI is only consulted when a proposal would change something, and an irreversible
 // proposal that was just put to the vote waits out a cooldown before it may be put again.
-fn hq(cfg Config, inbox chan lcl.Context, outbox chan HqMsg, outcomes chan lcl.Outcome) {
-	mut soul := new_backend(cfg)
+// backend is the core main built with new_backend; once spawned, only hq uses it.
+fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan HqMsg, outcomes chan lcl.Outcome) {
+	mut soul := backend
 	council := magi.Magi{
 		units: cfg.units
 	}
@@ -344,6 +348,11 @@ fn main() {
 	if os.args.len > 1 && os.args[1] == 'magi-eval' {
 		exit(magi_eval(cfg, os.args[2..]))
 	}
+	soul := new_backend(cfg) or {
+		// tools/trials.py WARNINGS echoes this line from a run's log.
+		eprintln('gehirn: ${err.msg()}')
+		exit(1)
+	}
 	mut ar := armor.restrain(body.new_sim(), armor.Limits{})
 	mut dummy := plug.load_dummy(cfg.recorder)
 	mut rec := plug.open_recorder(cfg.recorder) or { panic(err) }
@@ -355,7 +364,7 @@ fn main() {
 	outcomes := chan lcl.Outcome{cap: 32}
 
 	spawn plug.listen(cfg.plug_at, cfg.pilot_id, pilot_ch)
-	spawn hq(cfg, to_hq, from_hq, outcomes)
+	spawn hq(cfg, soul, to_hq, from_hq, outcomes)
 	println('field: plug for ${cfg.pilot_id} on ${cfg.plug_at}, dummy plug holds ${dummy.size()} samples')
 
 	dt := f64(tick) / f64(time.second)
