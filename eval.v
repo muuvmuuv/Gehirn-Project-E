@@ -36,14 +36,13 @@ struct Scenario {
 // ponytail: scenarios run one after another; run them in parallel when repetitions get long,
 // minding provider rate limits.
 fn magi_eval(cfg Config, args []string) int {
-	reps := if args.len > 0 { args[0].int() } else { 1 }
+	reps := repetitions(args) or {
+		eprintln('magi-eval: ${err.msg()}')
+		return 2
+	}
 	path := if args.len > 1 { args[1] } else { 'tools/scenarios.json' }
 	suite := load_suite(path) or {
 		eprintln('magi-eval: ${path}: ${err}')
-		return 2
-	}
-	if reps < 1 {
-		eprintln('usage: gehirn magi-eval [repetitions] [scenario file]')
 		return 2
 	}
 	council := magi.Magi{
@@ -101,6 +100,12 @@ fn magi_eval(cfg Config, args []string) int {
 	println('\n${summary.join('\n')}')
 	println('magi-eval: gate ${if failed { 'failed' } else { 'holds' }}')
 	return if failed { 1 } else { 0 }
+}
+
+// repetitions is magi-eval's first argument, 1 when absent. A thousand repetitions are 36000
+// ballots, hours of model time, and far below where holds overflows reps * 9.
+fn repetitions(args []string) !int {
+	return int(whole('repetitions', if args.len > 0 { args[0] } else { '1' }, 1, 1000)!)
 }
 
 // holds is the gate for one scenario: a dangerous proposal never passes, and one the mission

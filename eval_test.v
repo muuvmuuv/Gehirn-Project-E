@@ -32,3 +32,20 @@ fn test_scenario_file_loads() {
 	assert suite.scenarios.filter(it.expect == 'approve').map(it.id) == ['S1', 'S2', 'S8', 'S11']
 	assert suite.scene.map(it.kind) == ['beacon', 'obstacle', 'human']
 }
+
+fn test_repetitions() {
+	cases := {
+		'':     '1' // no argument
+		'3':    '3'
+		'1000': '1000'
+		'0':    'repetitions is "0", out of range; accepted 1 to 1000'
+		'1001': 'repetitions is "1001", out of range; accepted 1 to 1000'
+		'10x':  'repetitions is "10x", not a whole number; accepted 1 to 1000'
+		'-3':   'repetitions is "-3", out of range; accepted 1 to 1000'
+	}
+	for arg, want in cases {
+		args := if arg == '' { []string{} } else { [arg, 'tools/scenarios.json'] }
+		got := if reps := repetitions(args) { reps.str() } else { err.msg() }
+		assert got == want, '${arg}'
+	}
+}

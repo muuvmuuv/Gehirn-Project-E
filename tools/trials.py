@@ -38,7 +38,8 @@ RELEASE_VOTE = re.compile(r"^proposed release\b.*, (approved|rejected) \d+/\d+$"
 # core fault and never reaches a ballot.
 PARSE_ERRORS = ("unreadable", "no JSON object")
 # Startup lines of main.v main(), key_warning and ca_warning, which explain faults a tally
-# only counts.
+# only counts, and the line refusing a configuration load_config rejects, which explains a run
+# that exits at once.
 WARNINGS = ("magi: ", "gehirn: ")
 LINGER = 1.0  # seconds a run goes on after the first release
 GRACE = 3.0  # seconds between terminate and kill

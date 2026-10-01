@@ -5,6 +5,7 @@
 module main
 
 import os
+import strconv
 import time
 import armor
 import body
@@ -54,6 +55,38 @@ fn env(key string, fallback string) string {
 	return if val == '' { fallback } else { val }
 }
 
+// max_ms is the top of every _MS variable, one hour: twelve times the longest default, the five
+// minute internal budget, and longer than any mission runs.
+const max_ms = i64(3_600_000)
+
+// env_ms reads key as a whole number of milliseconds from 1 to max_ms.
+fn env_ms(key string, fallback string) !i64 {
+	return whole(key, env(key, fallback), 1, max_ms)
+}
+
+// env_choice reads key, which must be one of values.
+fn env_choice(key string, fallback string, values []string) !string {
+	val := env(key, fallback)
+	if val !in values {
+		return error('${key} is "${val}", not a known value; accepted ${values.join(', ')}')
+	}
+	return val
+}
+
+// whole parses s, the value of name, as a base 10 whole number from min to max, for load_config
+// and magi-eval's repetitions. Every max must stay below the i64 limit: V 0.5.2 parse_int returns
+// that limit without an error for any value from 2^63 to 2^64 - 1, and only the range check
+// catches it.
+fn whole(name string, s string, min i64, max i64) !i64 {
+	n := strconv.parse_int(s, 10, 64) or {
+		return error('${name} is "${s}", not a whole number; accepted ${min} to ${max}')
+	}
+	if n < min || n > max {
+		return error('${name} is "${s}", out of range; accepted ${min} to ${max}')
+	}
+	return n
+}
+
 // BallotEntry is one MAGI ballot as a journal line. tools/trials.py reads these lines.
 struct BallotEntry {
 	t_ms       i64
@@ -86,9 +119,10 @@ fn endpoint(prefix string, model string, reasoning string, timeout_ms int) oai.E
 // Jev answers the harm questions of magi/jev.v whatever the persona and a second unit on it
 // would break invariant 4. Jev is the default (ADR-0002), pinned to the model magi/jev.v was
 // tuned on and reading TypeSafe's variables alone, so nothing set for the chat backend reaches
-// TypeSafe and GEHIRN_KEY never does. Only <prefix>_BACKEND llm puts a chat model there.
-fn magi_backend(prefix string, model string, reasoning string, timeout_ms int) magi.Backend {
-	if env('${prefix}_BACKEND', 'jev') == 'llm' {
+// TypeSafe and GEHIRN_KEY never does. Only <prefix>_BACKEND llm puts a chat model there, and any
+// value but jev or llm is an error.
+fn magi_backend(prefix string, model string, reasoning string, timeout_ms int) !magi.Backend {
+	if env_choice('${prefix}_BACKEND', 'jev', ['jev', 'llm'])! == 'llm' {
 		return endpoint(prefix, model, reasoning, timeout_ms)
 	}
 	return jev.Endpoint{
@@ -154,13 +188,14 @@ fn key_warning(units []magi.Unit) string {
 	return ''
 }
 
-// load_config reads every variable in the README's configuration table. The default URL and
-// chat model names are those of the llama.cpp preset tools/models.ini, which names this function
-// as its counterpart, and tools/mock_endpoint.py listens on the same address.
-fn load_config() Config {
+// load_config reads every variable in the README's configuration table, and fails on the first
+// number or backend set to a value it does not accept, so main refuses to start. The default URL
+// and chat model names are those of the llama.cpp preset tools/models.ini, which names this
+// function as its counterpart, and tools/mock_endpoint.py listens on the same address.
+fn load_config() !Config {
 	pilot := env('PILOT_ID', 'shinji')
-	magi_ms := env('MAGI_TIMEOUT_MS', '10000').int()
-	core_ms := env('CORE_TIMEOUT_MS', '10000').int()
+	magi_ms := int(env_ms('MAGI_TIMEOUT_MS', '10000')!)
+	core_ms := int(env_ms('CORE_TIMEOUT_MS', '10000')!)
 	fence := armor.Limits{}.bounds
 	return Config{
 		mission:     env('MISSION',
@@ -169,7 +204,7 @@ fn load_config() Config {
 		plug_at:     env('PLUG_LISTEN', '0.0.0.0:7777')
 		journal:     env('CORE_JOURNAL', 'core.${pilot}.jsonl')
 		recorder:    env('PLUG_RECORDER', 'plug.${pilot}.jsonl')
-		backend:     env('CORE_BACKEND', 'llm')
+		backend:     env_choice('CORE_BACKEND', 'llm', ['llm', 'cl1'])!
 		cl1:         core.Cl1Config{
 			listen:  env('CL1_SPIKES', '0.0.0.0:12345')
 			sidecar: env('CL1_SIDECAR', '127.0.0.1:12346')
@@ -185,7 +220,7 @@ fn load_config() Config {
 			magi.Unit{
 				name:    'BALTHASAR-2'
 				persona: magi.balthasar
-				ep:      magi_backend('BALTHASAR', 'gemma3:4b', '', magi_ms)
+				ep:      magi_backend('BALTHASAR', 'gemma3:4b', '', magi_ms)!
 				bounds:  fence
 			},
 			magi.Unit{
@@ -195,10 +230,10 @@ fn load_config() Config {
 				bounds:  fence
 			},
 		]
-		period_ms:   env('HQ_PERIOD_MS', '1500').int()
-		cooldown_ms: env('MAGI_COOLDOWN_MS', '10000').i64()
-		budget_ms:   env('INTERNAL_BUDGET_MS', '300000').i64()
-		grace_ms:    env('UMBILICAL_GRACE_MS', '45000').i64()
+		period_ms:   int(env_ms('HQ_PERIOD_MS', '1500')!)
+		cooldown_ms: env_ms('MAGI_COOLDOWN_MS', '10000')!
+		budget_ms:   env_ms('INTERNAL_BUDGET_MS', '300000')!
+		grace_ms:    env_ms('UMBILICAL_GRACE_MS', '45000')!
 	}
 }
 
@@ -296,7 +331,11 @@ fn hq(cfg Config, inbox chan lcl.Context, outbox chan HqMsg, outcomes chan lcl.O
 }
 
 fn main() {
-	cfg := load_config()
+	cfg := load_config() or {
+		// tools/trials.py WARNINGS echoes this line from a run's log.
+		eprintln('gehirn: ${err.msg()}')
+		exit(2)
+	}
 	for warning in [key_warning(cfg.units), ca_warning()] {
 		if warning != '' {
 			eprintln(warning)
