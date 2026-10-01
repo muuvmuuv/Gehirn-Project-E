@@ -18,11 +18,12 @@ import umbilical
 
 const tick = 20 * time.millisecond
 
-// At or below this sync ratio the core only advises, and a dummy plug loses the seat.
-// core/llm.v core_prompt and magi/magi.v casper state it as 30%.
+// threshold is the sync ratio at or below which the core only advises and a dummy plug loses
+// the seat, for share and the field loop. core/llm.v core_prompt and magi/magi.v casper state it
+// as 30%.
 const threshold = 0.3
 
-// The core's share of the controls never exceeds this, so a seated pilot always keeps some.
+// ceiling caps the core's share of the controls in share, so a seated pilot always keeps some.
 const ceiling = 0.8
 
 struct Config {
@@ -227,6 +228,7 @@ fn hq(cfg Config, inbox chan lcl.Context, outbox chan HqMsg, outcomes chan lcl.O
 		mut o := lcl.Outcome{}
 		for outcomes.try_pop(mut o) == .success {
 			soul.feedback(o)
+
 			// magi/magi.v ballot_context shows MAGI only lines with this prefix, and
 			// tools/trials.py reads it.
 			journal.add('outcome: ${o.kind}')
@@ -322,6 +324,7 @@ fn main() {
 		verb: 'hold'
 		why:  'initial'
 	}
+
 	// Pilot and dummy plug each earn their own sync ratio. The dummy never inherits the pilot's.
 	mut pilot_sync := plug.Sync{}
 	mut dummy_sync := plug.Sync{}
@@ -363,6 +366,7 @@ fn main() {
 					println(err)
 					continue
 				}
+
 				// 0.1 m past lcl.beacon_reach, so a release approved at the reach lands on target.
 				// magi/jev.v jev_delivery repeats the 0.6 m.
 				on_target := near(p, 'beacon', lcl.beacon_reach + 0.1)

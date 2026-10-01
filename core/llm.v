@@ -23,12 +23,13 @@ While SEAT is pilot, SYNC above 30% means the pilot agrees with the active goto:
 Answer with one JSON object and nothing else: {"check": "...", "verb": "...", "target": [x, y], "why": "one short sentence"}. hold and release use "target": [].
 Write check first, filled in from PERCEPT: "payload <true or false>, beacon <its distance> m so at beacon <yes if 0.5 or less>, nearest human <the least human distance> m so safe to release <yes if above 2.5>: <hold if payload false, else goto if not at beacon, else release if safe to release, else hold>".'
 
-// Every property is required, check first and target before why: grammar constrained servers
-// such as llama.cpp write properties in this order and let a model close the object before an
-// optional one. qwen3 without thinking picks the verb from the facts it has already written, so
-// check comes first; read_proposal drops it, so MAGI judges PERCEPT, not the core's copy of it.
-// Called clear, the human check made qwen3 hold en route beside a walking human, and a body that
-// stops inside the human's loop never gets clear again.
+// proposal_schema is the reply shape LlmCore.propose asks the model for. Every property is
+// required, check first and target before why: grammar constrained servers such as llama.cpp
+// write properties in this order and let a model close the object before an optional one. qwen3
+// without thinking picks the verb from the facts it has already written, so check comes first;
+// read_proposal drops it, so MAGI judges PERCEPT, not the core's copy of it. Called clear, the
+// human check made qwen3 hold en route beside a walking human, and a body that stops inside the
+// human's loop never gets clear again.
 const proposal_schema = oai.Schema{
 	name:   'proposal'
 	schema: '{"type":"object","properties":{"check":{"type":"string"},"verb":{"type":"string","enum":${json2.encode(lcl.known_verbs)}},"target":{"type":"array","items":{"type":"number"}},"why":{"type":"string"}},"required":["check","verb","target","why"]}'

@@ -27,6 +27,8 @@ pub:
 	verbs        []string = ['goto', 'hold', 'release']
 }
 
+// Armor is the restraint that holds the body. main.v's field loop senses, drives and runs
+// effectors only through it, and checks every approved goal against it (Invariants 1 and 5).
 pub struct Armor {
 	limits Limits
 mut:
@@ -88,6 +90,7 @@ pub fn (mut a Armor) drive(u []f64, p lcl.Percept, dt f64, manned bool) []f64 {
 	}
 	vmax := if manned { a.limits.v_max } else { a.limits.v_unmanned }
 	mut v := lcl.clamp_norm(u, vmax * a.separation(p))
+
 	// Nothing pushes into anything solid, whoever is steering. What is left of the command
 	// slides along the surface, so a pilot leaning into a pillar gets walked around it.
 	for e in p.scene {

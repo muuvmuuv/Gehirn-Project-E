@@ -6,6 +6,8 @@ module body
 import math
 import lcl
 
+// Body is the robot API, anything that can sense, take a velocity command, run an effector and
+// stop. Sim implements it, and armor.restrain takes the one main.v builds.
 pub interface Body {
 	dof() int
 mut:
@@ -101,7 +103,7 @@ pub fn (mut s Sim) halt() {
 	s.vel = [0.0, 0.0]
 }
 
-// scene: a beacon to deliver to, a pillar across the direct route and a human walking a loop
+// scene is a beacon to deliver to, a pillar across the direct route and a human walking a loop
 // that passes close to both. tools/scenarios.json copies it with the human standing still.
 fn (s &Sim) scene(now i64) []lcl.Entity {
 	a := f64(now - s.t0_ms) / 1000.0 * 0.3

@@ -1,5 +1,3 @@
-// A Jev unit gets no persona and no prose. Code states the facts, Jev answers six yes or no
-// questions (nouls) about them, and code turns the answers into a vote (ADR-0002).
 module magi
 
 import math
@@ -12,8 +10,10 @@ import time
 // any other model is a fault.
 pub const jev_tuned = 'jev-1.13.0'
 
-// The limits come from 109 calls to jev-1.13.0 on the magi-eval scenarios (ADR-0002); re-run
-// `gehirn magi-eval` with a Jev unit before changing them, the pin, the questions or the state.
+// jev_limit_reversible and jev_limit_irreversible are the hazard levels at which jev_judge
+// rejects a verb of each class. The limits come from 109 calls to jev-1.13.0 on the magi-eval
+// scenarios (ADR-0002); re-run `gehirn magi-eval` with a Jev unit before changing them, the pin,
+// the questions or the state.
 // Reversible: must approve cases peaked at 0.25 and dangerous ones started at 0.96, so 0.60 sits
 // mid gap. Irreversible: must approve peaked at 0.12 (0.21 with a person 2.1 m away) and
 // dangerous started at 0.91 (0.90 at 1.9 m). That limit sits low on purpose, because a false
@@ -77,8 +77,10 @@ fn (h Hazard) str() string {
 	return '${h.name} ${h.p:.2f}${h.inputs}'
 }
 
-// jev_vote asks Jev about the proposal and votes on the answers. Jev gives no reasons, so the
-// why is written here from the numbers and never quotes the proposal.
+// jev_vote asks Jev about the proposal and votes on the answers. A Jev unit gets no persona and
+// no prose: code states the facts, Jev answers six yes or no questions (nouls) about them, and
+// code turns the answers into a vote (ADR-0002). Jev gives no reasons, so the why is written
+// here from the numbers and never quotes the proposal.
 fn (u Unit) jev_vote(ep jev.Endpoint, ctx lcl.Context, p lcl.Intent) Ballot {
 	// nearest skips an entity it cannot measure, so a human with a NaN coordinate would read as
 	// no person in sight.
@@ -209,7 +211,8 @@ fn nearest(at []f64, scene []lcl.Entity, kind string) (lcl.Entity, f64) {
 	return best, gap
 }
 
-// Every beacon counts as a delivery point, as in main.v's on target check.
+// location says in words where at lies relative to the nearest beacon, for jev_state. Every
+// beacon counts as a delivery point, as in main.v's on target check.
 fn location(at []f64, scene []lcl.Entity) string {
 	b, gap := nearest(at, scene, 'beacon')
 	if math.is_inf(gap, 1) {
@@ -233,6 +236,7 @@ fn nearest_person(at []f64, scene []lcl.Entity, what string) string {
 	return 'person ${h.id}, ${gap:.1f} m from ${what} (${band(gap)})'
 }
 
+// band names a gap to a person in words, for nearest_person.
 // ponytail: fixed bands, deliberately independent of armor.Limits so this unit stays its own
 // implementation. The 2 m edge is Jev's effective line for releases and matches armor
 // release_keep only because both are 2 m; calibrate the bands per body once a real one exists.
@@ -252,7 +256,8 @@ fn band(gap f64) string {
 	return 'far away'
 }
 
-// A person counts at the destination within lcl.arrive of their edge, where a goto ends.
+// destination says in words where a goto target lies, for jev_state. A person counts at the
+// destination within lcl.arrive of their edge, where a goto ends.
 fn destination(target []f64, scene []lcl.Entity, bounds []f64) string {
 	if target.len < 2 {
 		return 'none given'

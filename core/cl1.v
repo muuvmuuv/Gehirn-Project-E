@@ -1,7 +1,3 @@
-// Biological backend for a Cortical Labs CL1. The culture runs in the vendor's closed loop
-// (Python CL API) on the device. sidecar/cl1_sidecar.py streams spikes out in the format of
-// their UDP example (u64 LE timestamp, then one byte per spiking channel) and turns our stim
-// packets (u16 LE duration in ms, then channel and rate pairs) into neurons.stim() calls.
 module core
 
 import math
@@ -10,6 +6,8 @@ import rand
 import time
 import lcl
 
+// Cl1Config is where a Cl1Core meets the sidecar and which channels it stimulates and reads.
+// main.v load_config fills the addresses from CL1_SPIKES and CL1_SIDECAR.
 pub struct Cl1Config {
 pub:
 	listen    string = '0.0.0.0:12345'   // spikes arrive here
@@ -21,6 +19,11 @@ pub:
 	hop       f64    = 1.0  // meters per proposal
 }
 
+// Cl1Core is the biological backend of Core: a culture on a Cortical Labs CL1 proposes each
+// goal. main.v new_backend picks it when CORE_BACKEND is cl1. The culture runs in the vendor's
+// closed loop (Python CL API) on the device. sidecar/cl1_sidecar.py streams spikes out in the
+// format of their UDP example (u64 LE timestamp, then one byte per spiking channel) and turns
+// our stim packets (u16 LE duration in ms, then channel and rate pairs) into neurons.stim() calls.
 pub struct Cl1Core {
 	cfg Cl1Config
 mut:

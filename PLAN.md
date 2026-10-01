@@ -169,9 +169,9 @@ Done when the tuned core gets fewer MAGI rejections and delivers at least as oft
 17. `armor.nearest_human` turns a human at a non-finite position into a NaN distance, and `permits()` then allows an irreversible effector. The Jev unit faults on such a percept; the armor does not.
 18. `armor`, `umbilical` and `plug.Sync` have no table driven tests yet, which CONTRIBUTING.md Tests 2 asks for.
 19. Configuration parses numbers with `.int()` and `.i64()`, so `10s` reads as 10 and a typo as 0, and a mistyped `CORE_BACKEND` or `BALTHASAR_BACKEND` falls back to the default. CONTRIBUTING.md Configuration 2 asks gehirn to refuse to start instead (main.v `load_config`, eval.v repetitions).
-20. Sixteen `pub` symbols lack a doc comment, sixteen comments above a declaration do not start with its name, and ten comments have no blank line above them (CONTRIBUTING.md Comments 2 to 4 and 8). One sweep commit fixes them.
-21. `new_backend` panics when the CL1 backend cannot start, on the HQ thread after `spawn`, against CONTRIBUTING.md Errors 2.
-22. `HqMsg` travels on a channel between HQ and the field loop but is not an `lcl` type (CONTRIBUTING.md Modules 2). Phase 1 needs it in `lcl` before it can cross the wire.
+20. `new_backend` panics when the CL1 backend cannot start, on the HQ thread after `spawn`, against CONTRIBUTING.md Errors 2.
+21. `HqMsg` travels on a channel between HQ and the field loop but is not an `lcl` type (CONTRIBUTING.md Modules 2). Phase 1 needs it in `lcl` before it can cross the wire.
+22. `v fmt` removes blank lines inside an array literal, so the four comments that head groups of cases in the table of `magi/jev_test.v` `test_jev_judge` cannot get the blank line CONTRIBUTING.md Comments 8 asks for. Either the rule gains that exception or the table splits per group.
 
 ## Open questions for the owner
 

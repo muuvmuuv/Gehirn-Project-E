@@ -1,15 +1,17 @@
-// Dummy plug: the pilot's driving style, imitated. It never learns where the pilot wanted
-// to go, only how they drive toward a goal MAGI approved: k nearest neighbor behavior
-// cloning over the recorder's log. Every command is stored in the goal's own frame, as speed
-// along the way to the goal and speed across it, so an imitation that overshoots turns back
-// instead of holding a heading it memorized. Planar like the simulator, and crude on
-// purpose; a trained policy drops in behind the same methods.
 module plug
 
 import x.json2
 import os
 import lcl
 
+// Dummy is the dummy plug, which main.v's field loop seats while no pilot is present and which
+// learns from every tick a pilot flies. load_dummy builds it from the recorder's log. It imitates
+// the pilot's driving style: it never learns where the pilot wanted to go, only how they drive
+// toward a goal MAGI approved, by k nearest neighbor behavior cloning over that log. Every
+// command is stored in the goal's own frame, as speed along the way to the goal and speed across
+// it, so an imitation that overshoots turns back instead of holding a heading it memorized.
+// Planar like the simulator, and crude on purpose; a trained policy drops in behind the same
+// methods.
 pub struct Dummy {
 	k     int = 7
 	limit int = 20000

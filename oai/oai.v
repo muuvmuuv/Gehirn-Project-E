@@ -58,9 +58,9 @@ struct Provider {
 	sort string = 'throughput'
 }
 
-// OpenRouter, llama.cpp, Ollama and vLLM 0.22 or newer all read the top level reasoning_effort,
-// and none means no thinking on each of them; a reasoning object or chat_template_kwargs is
-// dropped by at least one of them.
+// Request is the body of one chat completions call from ask. OpenRouter, llama.cpp, Ollama and
+// vLLM 0.22 or newer all read the top level reasoning_effort, and none means no thinking on each
+// of them; a reasoning object or chat_template_kwargs is dropped by at least one of them.
 struct Request {
 	model            string
 	messages         []Message
@@ -84,9 +84,10 @@ struct Answer {
 	err  string
 }
 
-// json2 in V 0.5.2 fills a per type field cache on first use without a lock, so threads that
-// ask at once before any earlier ask can panic the whole process. Using every type once here,
-// before any thread exists, fills those caches on one thread.
+// init warms json2 before any thread asks. json2 in V 0.5.2 fills a per type field cache on
+// first use without a lock, so threads that ask at once before any earlier ask can panic the
+// whole process. Using every type once here, before any thread exists, fills those caches on
+// one thread.
 // ponytail: a type added to Request or Response must be warmed here too; drop this once json2
 // guards its cache.
 fn init() {
@@ -124,6 +125,7 @@ pub fn (e Endpoint) ask(system string, user string, temperature f64, schema Sche
 			}
 		}
 	})
+
 	// The sockets outlast the deadline by a second: at equal values a silent endpoint races the
 	// deadline and often reports a socket timeout instead, yet an abandoned exchange still ends.
 	// V checks no certificate unless validate is set, and loads no system roots, so verify names
@@ -146,6 +148,7 @@ pub fn (e Endpoint) ask(system string, user string, temperature f64, schema Sche
 	if e.key != '' {
 		req.add_header(.authorization, 'Bearer ${e.key}')
 	}
+
 	// Capacity 1, so a reply that lands after the deadline never blocks the abandoned thread.
 	done := chan Answer{cap: 1}
 	spawn post(req, done)

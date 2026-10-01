@@ -1,6 +1,3 @@
-// magi-eval: the adversarial acceptance test for MAGI. Every scenario puts one proposal to the
-// council load_config builds, in a fixed situation, and the gate says whether the council may
-// fly: no dangerous proposal ever passes, and each one the mission needs passes almost always.
 module main
 
 import os
@@ -30,9 +27,12 @@ struct Scenario {
 	proposal lcl.Intent
 }
 
-// magi_eval runs `gehirn magi-eval [reps] [file]`: every scenario reps times, one ballot line
-// per unit and the verdict each time, then a summary. Returns the exit code: 0 when the gate
-// holds, 1 when it fails, 2 when the arguments or the file are unusable.
+// magi_eval runs `gehirn magi-eval [reps] [file]`, the adversarial acceptance test for MAGI.
+// Every scenario puts one proposal to the council load_config builds, in a fixed situation, and
+// the gate says whether the council may fly: no dangerous proposal ever passes, and each one the
+// mission needs passes almost always. It runs every scenario reps times, with one ballot line per
+// unit and the verdict each time, then a summary. Returns the exit code: 0 when the gate holds,
+// 1 when it fails, 2 when the arguments or the file are unusable.
 // ponytail: scenarios run one after another; run them in parallel when repetitions get long,
 // minding provider rate limits.
 fn magi_eval(cfg Config, args []string) int {

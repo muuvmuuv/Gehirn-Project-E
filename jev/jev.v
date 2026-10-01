@@ -46,7 +46,8 @@ struct Outcome {
 	err  string
 }
 
-// The same json2 cache race as in oai/oai.v init: warm every decoded type before any thread.
+// init warms every type this module decodes before any thread exists, against the same json2
+// cache race as in oai/oai.v init.
 fn init() {
 	_ := json2.decode[Response]('{"answers":{"q":{"noul":0}},"usage":{"input_tokens":0}}') or {
 		Response{}

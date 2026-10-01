@@ -4,12 +4,15 @@
 // nothing irreversible can happen while the cable is cut.
 module umbilical
 
+// State is where the link to HQ stands, as Cable.state reports it to main.v's field loop.
 pub enum State {
 	connected
 	internal
 	depleted
 }
 
+// Cable is the link to HQ. main.v's field loop pulses it on every sign of life from HQ and asks
+// it for the State.
 pub struct Cable {
 pub:
 	grace_ms  i64

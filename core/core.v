@@ -7,6 +7,8 @@ import x.json2
 import os
 import lcl
 
+// Core is a backend that proposes goals and takes their outcomes back. main.v hq runs one,
+// an LlmCore or a Cl1Core, beside the pilot's Memory.
 pub interface Core {
 	name() string
 mut:
@@ -60,7 +62,8 @@ pub fn (m Memory) log[T](entry T) {
 	m.append(json2.encode(entry))
 }
 
-// Kept out of the generic log: an or block there trips the V 0.5.2 checker (too many expr levels).
+// append writes one line to the journal on disk. It is kept out of the generic log: an or block
+// there trips the V 0.5.2 checker (too many expr levels).
 fn (m Memory) append(line string) {
 	mut f := os.open_append(m.path) or { return }
 	defer {

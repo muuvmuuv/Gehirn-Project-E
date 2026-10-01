@@ -5,15 +5,19 @@ module lcl
 import math
 import time
 
-// Verbs the stack knows. Anything unknown counts as irreversible, so it needs all three MAGI
-// and still has to pass the armor's capability list. Irreversibility is policy, never
-// something a proposal gets to declare about itself. core/llm.v core_prompt and the magi/magi.v
-// personas name these verbs in prose, magi/jev.v means describes each, and
+// known_verbs are the verbs the stack knows. Anything unknown counts as irreversible, so it
+// needs all three MAGI and still has to pass the armor's capability list. Irreversibility is
+// policy, never something a proposal gets to declare about itself. core/llm.v core_prompt and
+// the magi/magi.v personas name these verbs in prose, magi/jev.v means describes each, and
 // tools/mock_endpoint.py VERBS copies them.
 pub const known_verbs = ['goto', 'hold', 'release']
+
+// irreversible_verbs are the known verbs that cannot be undone, so they need all three MAGI.
+// is_irreversible reads them.
 pub const irreversible_verbs = ['release']
 
-// A goto counts as reached inside this radius, in meters. tools/pilot.py ARRIVE copies it.
+// arrive is the radius, in meters, inside which a goto counts as reached, for main.v's field
+// loop, plug.Dummy and magi/jev.v destination. tools/pilot.py ARRIVE copies it.
 pub const arrive = 0.35
 
 // beacon_reach is how close to a beacon's center, in meters, the body counts as at the beacon,
@@ -22,6 +26,8 @@ pub const arrive = 0.35
 // 0.1 m further out, as magi/jev.v jev_delivery does.
 pub const beacon_reach = 0.5
 
+// Entity is one thing in a percept's scene: an obstacle, a beacon or a human, with its position
+// and radius in meters. body.Sim reports them, and the armor, the reflex and MAGI read them.
 pub struct Entity {
 pub:
 	id   string
@@ -30,6 +36,8 @@ pub:
 	r    f64
 }
 
+// Percept is one reading of the body: pose, velocity, scene, payload and contact. armor.Armor
+// passes it from the body to main.v's field loop, which hands it to HQ inside a Context.
 pub struct Percept {
 pub:
 	t_ms    i64
@@ -40,6 +48,8 @@ pub:
 	contact bool
 }
 
+// Intent is a goal: a verb, a target for goto, the proposer's why and its origin. A Core
+// proposes it, MAGI judge it, and main.v's field loop pursues it once approved.
 pub struct Intent {
 pub:
 	verb   string
@@ -48,6 +58,8 @@ pub:
 	origin string
 }
 
+// Outcome is what came of a goal, such as reached, contact or armor refused, and whether it was
+// good. main.v's field loop reports it to HQ, which feeds it to the Core and the journal.
 pub struct Outcome {
 pub:
 	t_ms i64
@@ -55,6 +67,8 @@ pub:
 	good bool
 }
 
+// PilotInput is one pilot command as plug.listen hands it to main.v's field loop: a velocity,
+// the eject flag and when it arrived.
 pub struct PilotInput {
 pub:
 	t_ms  i64
