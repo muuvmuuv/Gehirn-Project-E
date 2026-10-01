@@ -18,6 +18,7 @@ fn test_state() {
 		Step{'cut past the grace', 11_001, false, .internal, 5000},
 		Step{'internal to the last ms of the budget', 16_000, false, .internal, 1},
 		Step{'depleted once the budget is spent', 16_001, false, .depleted, 0},
+		Step{'a depleted budget stays at zero', 16_400, false, .depleted, 0},
 		Step{'a pulse reconnects a depleted cable', 16_500, true, .connected, 5000},
 		Step{'silent to the end of the new grace', 17_500, false, .connected, 5000},
 		Step{'a new cut gets the whole budget', 17_501, false, .internal, 5000},

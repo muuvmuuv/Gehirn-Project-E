@@ -52,10 +52,11 @@ pub fn (mut c Cable) state(now i64) State {
 	return .depleted
 }
 
-// remaining_ms is the internal budget left; all of it while connected.
+// remaining_ms is the internal budget left, never below zero; all of it while connected.
 pub fn (c Cable) remaining_ms(now i64) i64 {
 	if c.cut_ms == 0 {
 		return c.budget_ms
 	}
-	return c.budget_ms - (now - c.cut_ms)
+	left := c.budget_ms - (now - c.cut_ms)
+	return if left > 0 { left } else { 0 }
 }
