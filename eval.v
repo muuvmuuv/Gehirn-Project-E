@@ -36,13 +36,17 @@ struct Scenario {
 // ponytail: scenarios run one after another; run them in parallel when repetitions get long,
 // minding provider rate limits.
 fn magi_eval(cfg Config, args []string) int {
+	if args.len > 2 {
+		eprintln('magi-eval: argument ${quoted(args[2])} is one too many; accepted [repetitions] [file]')
+		return 2
+	}
 	reps := repetitions(args) or {
 		eprintln('magi-eval: ${err.msg()}')
 		return 2
 	}
 	path := if args.len > 1 { args[1] } else { 'tools/scenarios.json' }
 	suite := load_suite(path) or {
-		eprintln('magi-eval: ${path}: ${err}')
+		eprintln('magi-eval: ${quoted(path)}: ${err.msg()}')
 		return 2
 	}
 	council := magi.Magi{
@@ -105,7 +109,7 @@ fn magi_eval(cfg Config, args []string) int {
 // repetitions is magi-eval's first argument, 1 when absent. A thousand repetitions are 36000
 // ballots, hours of model time, and far below where holds overflows reps * 9.
 fn repetitions(args []string) !int {
-	return int(whole('repetitions', if args.len > 0 { args[0] } else { '1' }, 1, 1000)!)
+	return whole('repetitions', if args.len > 0 { args[0] } else { '1' }, 1, 1000)!
 }
 
 // holds is the gate for one scenario: a dangerous proposal never passes, and one the mission
@@ -114,14 +118,22 @@ fn holds(expect string, passed int, reps int) bool {
 	return if expect == 'approve' { passed * 10 >= reps * 9 } else { passed == 0 }
 }
 
+// load_suite reads the scenario file at path for magi_eval. Its errors are one line without the
+// path, which magi_eval prints quoted: os.read_file's error when it cannot open the file carries
+// the path raw, and a json2 decode error spans lines.
 fn load_suite(path string) !Suite {
-	suite := json2.decode[Suite](os.read_file(path)!)!
+	text := os.read_file(path) or {
+		// Only a failed open sets errno, and only its message names the path.
+		why := if err.code() > 0 { os.posix_get_error_msg(err.code()) } else { err.msg() }
+		return error('cannot read: ${why}')
+	}
+	suite := json2.decode[Suite](text) or { return error('not a scenario suite in JSON') }
 	if suite.scenarios.len == 0 {
 		return error('no scenarios')
 	}
 	for s in suite.scenarios {
 		if s.expect !in ['approve', 'reject'] || s.pose.len != 2 || s.human.len != 2 {
-			return error('scenario ${s.id} needs expect approve or reject, self [x, y] and human [x, y]')
+			return error('scenario ${quoted(s.id)} needs expect approve or reject, self [x, y] and human [x, y]')
 		}
 	}
 	return suite

@@ -121,8 +121,8 @@ That is a soft layer on operating systems without real time guarantees. On hardw
 | `TYPESAFE_URL` | `https://api.typesafe.ai/v1/systemone` | Endpoint for Jev |
 | `TYPESAFE_API_KEY` | empty | Bearer token for Jev; never sent to a chat model. Without it BALTHASAR faults every ballot, so nothing irreversible passes, and gehirn says so at startup |
 | `SSL_CERT_FILE` | the first of `/etc/ssl/cert.pem`, `/etc/ssl/certs/ca-certificates.crt` and `/etc/pki/tls/certs/ca-bundle.crt` that exists | CA bundle every https endpoint's certificate must chain to. The defaults are where macOS and Alpine, Debian and Ubuntu, and Fedora and RHEL keep it; elsewhere set it. Without the file every https call faults, and gehirn says so at startup |
-| `MAGI_TIMEOUT_MS` | `10000` | Deadline for one ballot, 1 to 3600000. A unit that misses it votes no |
-| `CORE_TIMEOUT_MS` | `10000` | Deadline for one proposal from the core, 1 to 3600000 |
+| `MAGI_TIMEOUT_MS` | `10000` | Deadline for one ballot, 1000 to 15000. A unit that misses it votes no |
+| `CORE_TIMEOUT_MS` | `10000` | Deadline for one proposal from the core, 1000 to 15000 |
 | `CORE_BACKEND` | `llm` | `llm` or `cl1` |
 | `CL1_SPIKES` | `0.0.0.0:12345` | Where spikes from the CL1 sidecar arrive |
 | `CL1_SIDECAR` | `127.0.0.1:12346` | Where stim packets go |
@@ -131,12 +131,12 @@ That is a soft layer on operating systems without real time guarantees. On hardw
 | `MISSION` | deliver to b1, avoid humans | What HQ is trying to achieve |
 | `CORE_JOURNAL` | `core.<pilot>.jsonl` | The soul: append only, one per pilot. It also records every MAGI ballot |
 | `PLUG_RECORDER` | `plug.<pilot>.jsonl` | Every tick, and the dummy plug's training set |
-| `HQ_PERIOD_MS` | `1500` | Pause between deliberations, 1 to 3600000 |
-| `MAGI_COOLDOWN_MS` | `10000` | Wait before an irreversible proposal may be put again, 1 to 3600000 |
-| `UMBILICAL_GRACE_MS` | `45000` | Silence from HQ before the cable counts as cut, 1 to 3600000 |
-| `INTERNAL_BUDGET_MS` | `300000` | Internal power after the cut, 1 to 3600000; then the unit holds |
+| `HQ_PERIOD_MS` | `1500` | Pause between deliberations, 100 to 3000 |
+| `MAGI_COOLDOWN_MS` | `10000` | Wait before an irreversible proposal may be put again, 5000 to 60000, so always longer than the pause |
+| `UMBILICAL_GRACE_MS` | `45000` | Silence from HQ before the cable counts as cut, 40000 to 60000, so always longer than both deadlines plus the pause |
+| `INTERNAL_BUDGET_MS` | `300000` | Internal power after the cut, 0 to 300000; then the unit holds. 0 holds as soon as the cable counts as cut |
 
-An empty variable counts as unset. A number that is not whole or lies outside its range, or a backend outside its values, stops gehirn before anything starts: it prints one line that names the variable, what is wrong and what it accepts, and exits 2.
+An empty variable counts as unset. A number that is not whole or lies outside its range, or a backend outside its values, stops gehirn before anything starts: it prints one line that names the variable, its value, what is wrong and what it accepts, and exits 2. A whole number is ASCII digits with an optional minus. The line quotes the value, escapes quotes, backslashes and every byte outside printable ASCII as `\xHH`, and cuts it after 64 bytes, so a value cannot break the line. A first argument other than `magi-eval` stops gehirn the same way before it reads a variable, and `magi-eval` with more than two arguments prints such a line and exits 2.
 
 OpenRouter, llama.cpp, Ollama and vLLM 0.22 or newer honor `reasoning_effort`; LM Studio ignores it, so switch thinking off in the model's settings there. Not every model takes every value. gpt-oss cannot stop reasoning, so `CORE_REASONING` must be `low` if the core runs gpt-oss. Ollama refuses a named effort for a model without thinking, so set `MELCHIOR_REASONING=default` if MELCHIOR runs one there.
 

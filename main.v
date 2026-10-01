@@ -48,36 +48,103 @@ fn env(key string, fallback string) string {
 	return if val == '' { fallback } else { val }
 }
 
-// max_ms is the top of every _MS variable, one hour: twelve times the longest default, the five
-// minute internal budget, and longer than any mission runs.
-const max_ms = i64(3_600_000)
+// Span is the whole numbers from min to max that one _MS variable accepts, for env_ms.
+struct Span {
+	min int
+	max int
+}
 
-// env_ms reads key as a whole number of milliseconds from 1 to max_ms.
-fn env_ms(key string, fallback string) !i64 {
-	return whole(key, env(key, fallback), 1, max_ms)
+// deadline_span bounds MAGI_TIMEOUT_MS and CORE_TIMEOUT_MS. A hosted ask is a TLS handshake plus
+// a completion, so below a second nearly every ballot and proposal would fault: the council could
+// only vote no and the core would hardly ever pulse the cable. Above 15 s both deadlines and the
+// HQ pause no longer fit inside the shortest grace, see grace_span.
+const deadline_span = Span{1000, 15000}
+
+// period_span bounds HQ_PERIOD_MS. It starts at five field ticks, so the field loop has applied
+// HQ's last verdict and sent a snapshot that shows it before HQ deliberates again, even when load
+// stretches the loop (PLAN Known issue 1); sooner, MAGI votes again on a goal already in force.
+// It stops at 3 s, twice the default, below the shortest cooldown and inside the grace.
+const period_span = Span{100, 3000}
+
+// cooldown_span bounds MAGI_COOLDOWN_MS. It starts above the longest HQ pause, or it would never
+// hold back the deliberation right after a vote. It stops at a minute: it only spaces out votes
+// on one irreversible act, and a longer one stalls a delivery whose first release vote failed,
+// say while a human walked past.
+const cooldown_span = Span{5000, 60000}
+
+// grace_span bounds UMBILICAL_GRACE_MS. A healthy HQ pulses once per deliberation, so its longest
+// silence is both deadlines plus the pause, 33 s at their tops; the grace starts well above that,
+// so a slow vote never counts as a cut cable. Past a minute it only delays noticing a dead HQ.
+const grace_span = Span{40000, 60000}
+
+// budget_span bounds INTERNAL_BUDGET_MS. 0 holds the moment the cable counts as cut, the most
+// careful setting. The top is the five minutes of the Eva's battery that umbilical.plug_in
+// states, the longest the unit may follow a goal without HQ.
+const budget_span = Span{0, 300000}
+
+// env_ms reads key as a whole number of milliseconds within span.
+fn env_ms(key string, fallback string, span Span) !int {
+	return whole(key, env(key, fallback), span.min, span.max)
 }
 
 // env_choice reads key, which must be one of values.
 fn env_choice(key string, fallback string, values []string) !string {
 	val := env(key, fallback)
 	if val !in values {
-		return error('${key} is "${val}", not a known value; accepted ${values.join(', ')}')
+		return error('${key} is ${quoted(val)}, not a known value; accepted ${values.join(', ')}')
 	}
 	return val
 }
 
 // whole parses s, the value of name, as a base 10 whole number from min to max, for load_config
-// and magi-eval's repetitions. Every max must stay below the i64 limit: V 0.5.2 parse_int returns
-// that limit without an error for any value from 2^63 to 2^64 - 1, and only the range check
-// catches it.
-fn whole(name string, s string, min i64, max i64) !i64 {
-	n := strconv.parse_int(s, 10, 64) or {
-		return error('${name} is "${s}", not a whole number; accepted ${min} to ${max}')
+// and magi-eval's repetitions. It takes an optional minus and ASCII digits only, so a plus, an
+// underscore or a space is not a whole number, and a number past the range is out of range however
+// large it is.
+fn whole(name string, s string, min int, max int) !int {
+	digits := s.trim_string_left('-')
+	if digits == '' || !digits.contains_only('0123456789') {
+		return error('${name} is ${quoted(s)}, not a whole number; accepted ${min} to ${max}')
 	}
+
+	// With the digits checked, atoi fails only past the int range.
+	n := strconv.atoi(s) or { max + 1 }
 	if n < min || n > max {
-		return error('${name} is "${s}", out of range; accepted ${min} to ${max}')
+		return error('${name} is ${quoted(s)}, out of range; accepted ${min} to ${max}')
 	}
 	return n
+}
+
+// quoted is s as a refusal line shows it: in double quotes, with a quote, a backslash and every
+// byte outside printable ASCII escaped, and cut after 64 bytes, so a value can neither break the
+// line nor forge another status line. For every refusal line that shows a value or an argument.
+fn quoted(s string) string {
+	mut out := '"'
+	for i, c in s {
+		if i == 64 {
+			return out + '"...'
+		}
+		out += if c == `"` || c == `\\` {
+			'\\' + c.ascii_str()
+		} else if c >= ` ` && c <= `~` {
+			c.ascii_str()
+		} else {
+			'\\x${c:02x}'
+		}
+	}
+	return out + '"'
+}
+
+// command is gehirn's first argument: empty flies a mission, magi-eval runs magi_eval, and
+// anything else is an error, so main refuses a mistyped command before it reads the
+// configuration, opens the journal or spawns a thread.
+fn command(args []string) !string {
+	if args.len == 0 {
+		return ''
+	}
+	if args[0] != 'magi-eval' {
+		return error('command is ${quoted(args[0])}, not a known value; accepted magi-eval, or none to fly a mission')
+	}
+	return args[0]
 }
 
 // BallotEntry is one MAGI ballot as a journal line. tools/trials.py reads these lines.
@@ -188,8 +255,8 @@ fn key_warning(units []magi.Unit) string {
 // core/cl1.v new_cl1 names CL1_SPIKES and CL1_SIDECAR in its errors.
 fn load_config() !Config {
 	pilot := env('PILOT_ID', 'shinji')
-	magi_ms := int(env_ms('MAGI_TIMEOUT_MS', '10000')!)
-	core_ms := int(env_ms('CORE_TIMEOUT_MS', '10000')!)
+	magi_ms := env_ms('MAGI_TIMEOUT_MS', '10000', deadline_span)!
+	core_ms := env_ms('CORE_TIMEOUT_MS', '10000', deadline_span)!
 	fence := armor.Limits{}.bounds
 	return Config{
 		mission:     env('MISSION',
@@ -224,10 +291,10 @@ fn load_config() !Config {
 				bounds:  fence
 			},
 		]
-		period_ms:   int(env_ms('HQ_PERIOD_MS', '1500')!)
-		cooldown_ms: env_ms('MAGI_COOLDOWN_MS', '10000')!
-		budget_ms:   env_ms('INTERNAL_BUDGET_MS', '300000')!
-		grace_ms:    env_ms('UMBILICAL_GRACE_MS', '45000')!
+		period_ms:   env_ms('HQ_PERIOD_MS', '1500', period_span)!
+		cooldown_ms: i64(env_ms('MAGI_COOLDOWN_MS', '10000', cooldown_span)!)
+		budget_ms:   i64(env_ms('INTERNAL_BUDGET_MS', '300000', budget_span)!)
+		grace_ms:    i64(env_ms('UMBILICAL_GRACE_MS', '45000', grace_span)!)
 	}
 }
 
@@ -328,6 +395,10 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqM
 }
 
 fn main() {
+	cmd := command(os.args[1..]) or {
+		eprintln('gehirn: ${err.msg()}')
+		exit(2)
+	}
 	cfg := load_config() or {
 		// tools/trials.py WARNINGS echoes this line from a run's log.
 		eprintln('gehirn: ${err.msg()}')
@@ -338,7 +409,7 @@ fn main() {
 			eprintln(warning)
 		}
 	}
-	if os.args.len > 1 && os.args[1] == 'magi-eval' {
+	if cmd == 'magi-eval' {
 		exit(magi_eval(cfg, os.args[2..]))
 	}
 	soul := new_backend(cfg) or {
