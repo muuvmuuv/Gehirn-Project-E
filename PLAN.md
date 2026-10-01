@@ -4,7 +4,7 @@ Codename GEHIRN, repository and binary `gehirn`. In canon, Project E is the prog
 
 This file is the handoff to Claude Code: where the project stands, the rules that do not bend, and the work ahead. README.md explains the parts and how to run them, and docs/adr holds the decisions. Read this file completely before starting a task. Tick tasks when they land, and move anything learned the hard way into Known issues or an ADR.
 
-## State as of 2026-10-01
+## State as of 2026-10-02
 
 Builds on V 0.5.2 from Homebrew (45ae01d), which ships JSON as `x.json2`, with warnings as errors (`v -W`). `v vet` is clean apart from two notices about const arrays in `lcl`. `v -W -N test .` runs table driven tests for `armor`, `umbilical`, `plug.Sync`, `oai`, `jev`, `magi`, `core`, `main` and the scenario harness, and `python3 tools/test_withenv.py` checks the dotenv loader.
 
@@ -22,6 +22,8 @@ Verified by independent runs against `tools/mock_endpoint.py`:
 10. Both HTTP clients verify TLS certificates, refuse redirects, cap replies at 1 MiB and keep every key on its own endpoint, checked against capture servers with fake keys and wrong certificates.
 
 Against real models on OpenRouter, the default lineup (core qwen3-8b with reasoning off, MELCHIOR gpt-oss-20b at low effort, BALTHASAR on Jev, CASPER llama-3.1-8b) delivered 10 of 10 with no parse or deadline faults, and at every release the human was at least 2.04 m away; `magi-eval` approves no dangerous scenario. With BALTHASAR on gemma-3-12b the same lineup delivered 0 of 10 (Known issue 15). The local llama.cpp lineup delivered 0 of 10 before tuning and has not run since; it is deferred while the proof of concept runs on cloud models.
+
+On 2026-10-02 Jev held all 63 ballots of a recalibration on S1 to S12 and nine edge probes, with the limits of ADR-0002 unchanged. Cloudflare's Clef and Clef-flash, System One models that take Jev's request, were considered as BALTHASAR and not adopted: Workers AI wraps the answer in an envelope the `jev` client does not read, the model id carries no version, so calibrated limits could drift unseen, both are Qwen fine tunes like the core, and their free daily allocation is shared with other projects. Revisit with a pinned, self hosted Clef on the HQ GPU, for example once Phase 3 brings camera frames, which Clef can read and Jev cannot.
 
 Never run: `sidecar/cl1_sidecar.py` and the `cl1` backend.
 
@@ -65,7 +67,11 @@ CONTRIBUTING.md holds them: the V and Python coding guide, the checks to run bef
 
 ## Phases
 
-Work top to bottom. Phases 2 and 3 can run in parallel once Phase 1 has landed. Phase 7 is blocked on hardware access.
+Work top to bottom. Phases 2, 3 and 9 can run in parallel once Phase 1 has landed, and Phase 6 task 4 waits for Phase 9. Phase 7 is blocked on hardware access.
+
+### Tooling
+
+1. [ ] A Justfile as the one entry point: `just check` for the checks, `just missions` for the mock missions, `just build` for the binary, and later the image pipeline of Phase 6. CONTRIBUTING.md, `lefthook.yml` and the README then call the recipes instead of repeating the commands.
 
 ### Phase 0: Real models
 
@@ -96,9 +102,9 @@ Done when killing HQ moves the field unit to internal power after the grace peri
 
 1. [ ] Gamepad bridge in V on the game controller API of `vlang/sdl`: sticks to `u`, a guarded button combination to `eject`, signed datagrams at 50 Hz.
 2. [ ] A10 back channel: the field unit publishes contact, human proximity and sync, and the bridge turns them into rumble.
-3. [ ] Bridge display in `term.ui`: the MAGI panel with 可決, 否決 and 故障 per unit, the sync ratio, the seat, and the umbilical counting down from 5:00 once the cable is cut.
+3. [ ] The bridge display moves to Phase 9, a graphical bridge instead of `term.ui`.
 
-Done when a pilot flies the mission from a gamepad, feels contact, and the display follows MAGI and the umbilical live.
+Done when a pilot flies the mission from a gamepad and feels contact.
 
 ### Phase 3: A better body
 
@@ -129,8 +135,9 @@ Done when pulling the network cable, killing the field process and pressing the 
 1. [ ] Run the field unit on Vinix in a VM, aarch64 on Apple Silicon or amd64 under KVM, with HQ on Linux.
 2. [ ] `/dev/eva0`: a kernel driver in V implementing `Resource`, with an in kernel copy of the planar simulator standing in for hardware. `read` returns percepts, `write` takes velocity commands, `ioctl` runs effectors and halt. Only the armor's process may open it.
 3. [ ] `body.Device`, a `Body` over `/dev/eva0`.
+4. [ ] Two images from one pipeline: the field image, headless, with Vinix, the field unit and `/dev/eva0`; and the bridge image, which boots straight into the Phase 9 bridge, on Vinix where its graphics hold on the target hardware and on a minimal Linux kiosk otherwise.
 
-Done when the field unit on Vinix completes the mission through `/dev/eva0` while HQ runs on Linux.
+Done when the field unit on Vinix completes the mission through `/dev/eva0` while HQ runs on Linux, and the bridge image boots into the bridge and follows that mission.
 
 ### Phase 7: CL1 on hardware (blocked on access)
 
@@ -147,6 +154,17 @@ Done when the culture's proposals bring the body to the beacon more often than r
 3. [ ] A/B against the base model.
 
 Done when the tuned core gets fewer MAGI rejections and delivers at least as often.
+
+### Phase 9: The bridge
+
+Goal: a graphical bridge in the look of NERV's command center, the operator's view of MAGI, the core, the seat and the umbilical. It shows the stack and never steers or decides.
+
+1. [ ] ADR-0006 on the bridge, extending ADR-0001: it runs on its own machine or image, never on the field unit, because Vinix has no real time scheduling and its graphics stack is young; the toolkit, V's `gg` on sokol, Metal on the Mac and OpenGL elsewhere, so one codebase runs on the Mac and on the target; which streams it reads; and that it holds no safety role.
+2. [ ] Read only subscriptions to the Phase 1 streams (context, goal, outcome, HQ liveliness) plus a new verdict stream that carries every ballot. The bridge sends nothing that steers, approves or ejects; pilot input stays with the plug and the gamepad bridge.
+3. [ ] Panels: MAGI with 可決, 否決 and 故障 per unit and its reason, the active goal and each proposal, the sync ratio and the seat, the umbilical counting down from 5:00 once the cable is cut, armor refusals, and the scene from the percept.
+4. [ ] Runs on the Mac against the mock and the hosted lineup.
+
+Done when the bridge follows a full mission live on the Mac, from goto to release, including a MAGI rejection and a cut cable, and closing the bridge changes nothing in the mission.
 
 ## Known issues
 
@@ -177,3 +195,4 @@ Done when the tuned core gets fewer MAGI rejections and delivers at least as oft
 2. Is CL1 access realistic, on a device or remotely? That decides whether Phase 7 stays.
 3. Where does the field unit run first: a Mac on Vinix, or a single board computer on Linux?
 4. ADR-0001, still Proposed, puts HQ on a Linux machine with a GPU that holds the four models, while the proof of concept runs them hosted on OpenRouter and TypeSafe. Does HQ keep that GPU plan for later, or does ADR-0001 change before it is accepted?
+5. Which hardware runs the bridge image: an Apple Silicon Mac, where Vinix's graphics stack works, or a Linux machine as a kiosk? ADR-0006 depends on it.
