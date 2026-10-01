@@ -1,0 +1,62 @@
+# Git hooks for gehirn. Activate once per clone with `lefthook install`.
+#
+# pre-commit checks what is staged, so unstaged work in progress cannot fail a
+# commit. The tests run on a copy of the staged tree that git checkout-index
+# writes, and take 4 to 8 seconds whenever a .v file is staged.
+# CONTRIBUTING.md "Checks" lists the same commands; change both together.
+
+pre-commit:
+  parallel: true
+  jobs:
+    - name: secrets
+      run: gitleaks git --pre-commit --redact --staged --verbose
+      fail_text: a staged change looks like a key; keys live in .env only
+
+    - name: v fmt
+      glob: "*.{v,vsh}"
+      run: v fmt -verify {staged_files}
+      fail_text: run `v fmt -w` on the files listed
+
+    # Warnings fail here: a pub fn without a doc comment that starts with its name.
+    - name: v vet
+      glob: "*.v"
+      run: v vet -W {staged_files}
+
+    - name: v test
+      glob: "*.v"
+      run: d=$(mktemp -d) && git checkout-index --all --prefix="$d/" && (cd "$d" && v -W -N test .); s=$?; rm -rf "$d"; exit $s
+
+    - name: withenv
+      glob: "tools/*withenv.py"
+      run: python3 tools/test_withenv.py
+
+    - name: python syntax
+      glob: "*.py"
+      run: python3 -m py_compile {staged_files}
+
+commit-msg:
+  jobs:
+    - name: conventional commit
+      run: |
+        subject=$(grep -v '^#' {1} | grep -m1 . || true)
+        case "$subject" in
+          Merge*|Revert*|fixup!*|squash!*) exit 0 ;;
+        esac
+        if ! printf '%s' "$subject" | grep -qE '^(build|chore|ci|docs|feat|fix|perf|refactor|style|test)(\([a-z0-9/_-]+\))?!?: .+'; then
+          echo "Not a Conventional Commit:"
+          echo
+          echo "    $subject"
+          echo
+          echo "  <type>[(scope)][!]: <subject>"
+          echo "  type:  build chore ci docs feat fix perf refactor style test"
+          echo "  scope: optional, from the list in CONTRIBUTING.md, Commits"
+          exit 1
+        fi
+
+    # Claude Code adds a Co-authored-by trailer unless told not to.
+    - name: no trailers
+      run: |
+        if grep -qiE '^(co-authored-by|signed-off-by):' {1}; then
+          echo "Drop the Co-authored-by and Signed-off-by trailers; commits here carry none."
+          exit 1
+        fi

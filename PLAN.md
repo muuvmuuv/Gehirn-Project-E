@@ -6,7 +6,7 @@ This file is the handoff to Claude Code: where the project stands, the rules tha
 
 ## State as of 2026-10-01
 
-Builds on V 0.5.2 from Homebrew (45ae01d), which ships JSON as `x.json2`, with warnings as errors (`v -W`). `v vet` is clean apart from two notices about const arrays in `lcl`. `v -W test .` runs table driven tests for `oai`, `jev`, `magi`, `core`, `main` and the scenario harness, and `python3 tools/test_withenv.py` checks the dotenv loader.
+Builds on V 0.5.2 from Homebrew (45ae01d), which ships JSON as `x.json2`, with warnings as errors (`v -W`). `v vet` is clean apart from two notices about const arrays in `lcl`. `v -W -N test .` runs table driven tests for `oai`, `jev`, `magi`, `core`, `main` and the scenario harness, and `python3 tools/test_withenv.py` checks the dotenv loader.
 
 Verified by independent runs against `tools/mock_endpoint.py`:
 
@@ -61,13 +61,7 @@ These hold after every change. A commit that touches one of them explains in its
 
 ## Conventions
 
-1. Build with `v -W`, format with `v fmt -w`, keep `v vet` clean. Every public function gets a doc comment that starts with its name.
-2. JSON goes through `x.json2`, the JSON module V 0.5.2 from Homebrew ships; the old `json` module is gone.
-3. US English in code, comments and docs. Prose avoids dashes as punctuation.
-4. Conventional commits, one concern per commit, no refactoring outside the task at hand.
-5. Decisions with real alternatives get an ADR in docs/adr, numbered in order, in the format of ADR-0001.
-6. `armor`, the MAGI quorum, `umbilical` and `plug.Sync` get table driven tests, because they carry the invariants.
-7. Defaults live in `load_config` and in the README's configuration table; a new variable updates both.
+CONTRIBUTING.md holds them: the V and Python coding guide, the checks to run before a commit, and the rules for commits, ADRs and docs. Read it in full before the first commit of a session.
 
 ## Phases
 
@@ -173,7 +167,11 @@ Done when the tuned core gets fewer MAGI rejections and delivers at least as oft
 15. The language BALTHASAR (`BALTHASAR_BACKEND=llm`, measured on gemma-3-12b) judges a release by the proposer's why rather than the percept: it approved a release with a human at 1.49 m under the why "human far away" and vetoed every sound release whose why lacked that phrase. S10 to S12 catch this, and it fails S11.
 16. The mock's Jev route models the facts, not Jev's judgment, so offline runs check gehirn's request, rule and faults but not calibration. It returns 400 where TypeSafe documents 422.
 17. `armor.nearest_human` turns a human at a non-finite position into a NaN distance, and `permits()` then allows an irreversible effector. The Jev unit faults on such a percept; the armor does not.
-18. Convention 6 is not met yet: `armor`, `umbilical` and `plug.Sync` have no table driven tests.
+18. `armor`, `umbilical` and `plug.Sync` have no table driven tests yet, which CONTRIBUTING.md Tests 2 asks for.
+19. Configuration parses numbers with `.int()` and `.i64()`, so `10s` reads as 10 and a typo as 0, and a mistyped `CORE_BACKEND` or `BALTHASAR_BACKEND` falls back to the default. CONTRIBUTING.md Configuration 2 asks gehirn to refuse to start instead (main.v `load_config`, eval.v repetitions).
+20. Sixteen `pub` symbols lack a doc comment, sixteen comments above a declaration do not start with its name, and ten comments have no blank line above them (CONTRIBUTING.md Comments 2 to 4 and 8). One sweep commit fixes them.
+21. `new_backend` panics when the CL1 backend cannot start, on the HQ thread after `spawn`, against CONTRIBUTING.md Errors 2.
+22. `HqMsg` travels on a channel between HQ and the field loop but is not an `lcl` type (CONTRIBUTING.md Modules 2). Phase 1 needs it in `lcl` before it can cross the wire.
 
 ## Open questions for the owner
 

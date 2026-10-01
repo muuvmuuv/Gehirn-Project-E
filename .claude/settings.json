@@ -1,0 +1,21 @@
+{
+  "attribution": { "commit": "", "pr": "" },
+  "permissions": {
+    "allow": [
+      "Bash(v fmt:*)",
+      "Bash(v vet:*)",
+      "Bash(v -W -check:*)",
+      "Bash(v -W -N test .)",
+      "Bash(python3 tools/test_withenv.py)"
+    ],
+    "deny": ["Bash(git push:*)"]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/v-check.sh" }]
+      }
+    ]
+  }
+}

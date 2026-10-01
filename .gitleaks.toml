@@ -1,0 +1,8 @@
+# gitleaks' default rules miss a bare OpenRouter key, as in a V const or a Bearer header.
+[extend]
+useDefault = true
+
+[[rules]]
+id = "openrouter-api-key"
+description = "OpenRouter API key"
+regex = '''sk-or-v1-[0-9a-f]{64}'''
