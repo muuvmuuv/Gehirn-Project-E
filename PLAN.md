@@ -21,7 +21,7 @@ Verified by independent runs against `tools/mock_endpoint.py`:
 9. Both BALTHASAR backends deliver with the mock and pass `gehirn magi-eval` on S1 to S12. Without `TYPESAFE_API_KEY` gehirn says so at startup and BALTHASAR faults every ballot, so gotos pass on two votes and nothing irreversible does.
 10. Both HTTP clients verify TLS certificates, refuse redirects, cap replies at 1 MiB and keep every key on its own endpoint, checked against capture servers with fake keys and wrong certificates.
 
-Against real models on OpenRouter, the default lineup (core qwen3-8b with reasoning off, MELCHIOR gpt-oss-20b at low effort, BALTHASAR on Jev, CASPER llama-3.1-8b) delivered 10 of 10 with no parse or deadline faults, and at every release the human was at least 2.04 m away; `magi-eval` approves no dangerous scenario. With BALTHASAR on gemma-3-12b the same lineup delivered 0 of 10 (Known issue 15). The local llama.cpp lineup delivered 0 of 10 before tuning and has not run since.
+Against real models on OpenRouter, the default lineup (core qwen3-8b with reasoning off, MELCHIOR gpt-oss-20b at low effort, BALTHASAR on Jev, CASPER llama-3.1-8b) delivered 10 of 10 with no parse or deadline faults, and at every release the human was at least 2.04 m away; `magi-eval` approves no dangerous scenario. With BALTHASAR on gemma-3-12b the same lineup delivered 0 of 10 (Known issue 15). The local llama.cpp lineup delivered 0 of 10 before tuning and has not run since; it is deferred while the proof of concept runs on cloud models.
 
 Never run: `sidecar/cl1_sidecar.py` and the `cl1` backend.
 
@@ -69,10 +69,10 @@ Work top to bottom. Phases 2 and 3 can run in parallel once Phase 1 has landed. 
 
 ### Phase 0: Real models
 
-Goal: the mission completes with real models, locally through llama.cpp and hosted through OpenRouter.
+Goal: the mission completes with real models, hosted through OpenRouter and TypeSafe for the proof of concept.
 
 1. [x] Add `tools/mock_endpoint.py`, an OpenAI compatible server for development without models. It scripts the core (goto the beacon until within 0.5 m, release, then hold) and the three units (BALTHASAR rejects irreversible proposals with a human within 2.5 m), and wraps replies in think tags, code fences and chatter to exercise `oai.extract_json`. Add `tools/pilot.py`, which steers toward the beacon at a given heading offset for a given time and then leaves the seat. The mock also answers `/v1/systemone` as Jev, from the facts in the state.
-2. [ ] Run against real models, locally on llama.cpp and hosted on OpenRouter, and tune `core_prompt`, the three personas and each unit's reasoning effort until the done criterion holds. Evaluate Jev, TypeSafe's System One model, as BALTHASAR on the same missions and on adversarial scenarios (ADR-0002). Hosted: done, 10 of 10 with Jev as BALTHASAR, and ADR-0002 is accepted. Open: the tuned prompts on the local llama.cpp lineup.
+2. [x] Run against real models hosted on OpenRouter, and tune `core_prompt`, the three personas and each unit's reasoning effort until the done criterion holds. Evaluate Jev, TypeSafe's System One model, as BALTHASAR on the same missions and on adversarial scenarios (ADR-0002). Done: 10 of 10 with Jev as BALTHASAR, the `magi-eval` gate holds, and ADR-0002 is accepted. Deferred: the tuned prompts on the local llama.cpp lineup, because the proof of concept runs on cloud models.
 3. [x] Give every unit a deadline (`MAGI_TIMEOUT_MS`, default 10 s). A ballot that misses it is a fault, and a fault is a no. The core gets the same through `CORE_TIMEOUT_MS`.
 4. [x] Ask for schema constrained JSON where the endpoint supports it, and keep `extract_json` as the fallback.
 5. [x] Journal every ballot with unit, model, vote, reason and latency, so disagreements between model families stay visible.
@@ -173,3 +173,4 @@ Done when the tuned core gets fewer MAGI rejections and delivers at least as oft
 1. What is the first real body: an existing robot base or a custom build? Phases 3 and 5 depend on it.
 2. Is CL1 access realistic, on a device or remotely? That decides whether Phase 7 stays.
 3. Where does the field unit run first: a Mac on Vinix, or a single board computer on Linux?
+4. ADR-0001, still Proposed, puts HQ on a Linux machine with a GPU that holds the four models, while the proof of concept runs them hosted on OpenRouter and TypeSafe. Does HQ keep that GPU plan for later, or does ADR-0001 change before it is accepted?
