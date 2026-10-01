@@ -29,7 +29,7 @@ Never run: `sidecar/cl1_sidecar.py` and the `cl1` backend.
 
 ## Architecture in one screen
 
-`main.v` is the composition root. It runs both tiers in one process: `hq()` deliberates on its own thread at about 1 Hz, and the field loop runs at 50 Hz. They exchange only `lcl` types through channels, which Phase 1 replaces with Zenoh.
+`main.v` is the composition root. It runs both tiers in one process: `hq()` deliberates on its own thread at about 1 Hz, and the field loop runs at 50 Hz. They exchange only `lcl` types through channels, which Phase 1 carries over Zenoh (ADR-0003).
 
 | Module | Holds | Imports |
 | --- | --- | --- |
@@ -89,11 +89,11 @@ Done when ten runs from the default start deliver on target at least eight times
 
 Goal: HQ and the field unit on separate machines, linked through Zenoh.
 
-1. [ ] ADR-0003 on LCL over the wire: encoding (JSON with a schema version field first, CBOR only if measurements ask for it), key expressions, and reliability per stream.
-2. [ ] A `zenoh` module wrapping zenoh-c through V's C interop: session, publisher, subscriber, liveliness. Behind a small interface, so tests run on an in process fake. Confirm zenoh-c builds for aarch64 musl, or the field tier loses its Vinix path.
-3. [ ] Streams: `gehirn/<unit>/context` from field to HQ, newest only; `gehirn/<unit>/goal` from HQ to field, reliable; `gehirn/<unit>/outcome` from field to HQ, reliable; HQ liveliness as the umbilical's pulse.
+1. [x] ADR-0003 on LCL over the wire: encoding (JSON with a schema version field first, CBOR only if measurements ask for it), key expressions, and reliability per stream. Proposed; it also signs every message and replaces the liveliness pulse.
+2. [ ] A `zenoh` module wrapping zenoh-c through V's C interop: session, publisher, and subscribers that receive through zenoh-c's channel handlers, so no V code runs on a Zenoh thread. Behind a small interface, so tests run on an in process fake. Confirm zenoh-c builds for aarch64 musl, or the field tier loses its Vinix path.
+3. [ ] The streams of ADR-0003: `gehirn/<unit>/context` from field to HQ, newest only; `gehirn/<unit>/outcome` from field to HQ; `gehirn/<unit>/goal` from HQ to field, approved goals only; `gehirn/<unit>/pulse` from HQ to field once per deliberation, as the umbilical's sign of life. Every message carries an HMAC under the unit's link key and a sequence number, and HQ's an echo of the newest percept's time.
 4. [ ] Split `main.v` into an HQ executable and a field executable over the same modules, and keep the combined binary for development.
-5. [ ] Sign pilot datagrams with HMAC SHA256 under a per pilot key, with a sequence number against replay. Unsigned, stale or replayed datagrams are dropped like foreign ones.
+5. [ ] Sign pilot datagrams with HMAC SHA256 under a per pilot key, with a sequence number against replay, as ADR-0003 signs the streams. Unsigned, stale or replayed datagrams are dropped like foreign ones.
 6. [ ] Decide whether a core fault should keep stopping the pulse once HQ reports its own health.
 
 Done when killing HQ moves the field unit to internal power after the grace period and to hold after the budget, restarting HQ reconnects without touching the field unit, and nothing irreversible happens in between.
@@ -160,7 +160,7 @@ Done when the tuned core gets fewer MAGI rejections and delivers at least as oft
 Goal: a graphical bridge in the look of NERV's command center, the operator's view of MAGI, the core, the seat and the umbilical. It shows the stack and never steers or decides.
 
 1. [ ] ADR-0006 on the bridge, extending ADR-0001: it runs on its own machine or image, never on the field unit, because Vinix has no real time scheduling and its graphics stack is young; the toolkit, V's `gg` on sokol, Metal on the Mac and OpenGL elsewhere, so one codebase runs on the Mac and on the target; which streams it reads; and that it holds no safety role.
-2. [ ] Read only subscriptions to the Phase 1 streams (context, goal, outcome, HQ liveliness) plus a new verdict stream that carries every ballot. The bridge sends nothing that steers, approves or ejects; pilot input stays with the plug and the gamepad bridge.
+2. [ ] Read only subscriptions to the Phase 1 streams (context, goal, outcome, pulse) plus a new verdict stream that carries every ballot. The bridge sends nothing that steers, approves or ejects; pilot input stays with the plug and the gamepad bridge.
 3. [ ] Panels: MAGI with 可決, 否決 and 故障 per unit and its reason, the active goal and each proposal, the sync ratio and the seat, the umbilical counting down from 5:00 once the cable is cut, armor refusals, and the scene from the percept.
 4. [ ] Runs on the Mac against the mock and the hosted lineup.
 
