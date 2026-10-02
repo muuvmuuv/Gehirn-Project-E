@@ -165,5 +165,5 @@ Revisit when a measurement makes JSON too costly, such as CPU on the field compu
 ## Action Items
 
 1. [x] Phase 1 task 2: the `zenoh` module receives through zenoh-c's channel handlers, never through V callbacks on Zenoh threads, and links zenoh-c for aarch64 musl. V names zenoh-c's structs without laying them out, so the C compiler takes their layout, unstable fields included, from the header shipped with the library.
-2. [ ] Phase 1 task 3: the four streams of the table; `UNIT_ID` and `UMBILICAL_KEY` in `load_config`, the README and `.env.example`; table tests for the HMAC, `seq`, `echo_ms`, version and size checks; and `lcl.HqMsg`'s doc, which still names liveliness.
+2. [x] Phase 1 task 3: the four streams of the table; `UNIT_ID` and `UMBILICAL_KEY` in `load_config`, the README and `.env.example`; table tests for the HMAC, `seq`, `echo_ms`, version and size checks; and `lcl.HqMsg`'s doc, which still names liveliness.
 3. [ ] Phase 1 task 5: pilot datagrams carry the same HMAC and `seq`, under each pilot's key.

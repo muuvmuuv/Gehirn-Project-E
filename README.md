@@ -6,7 +6,7 @@ Today it drives a simulated body with hosted models on OpenRouter, or any other 
 
 ## Quick start
 
-The proof of concept runs on hosted models: the core, MELCHIOR and CASPER on OpenRouter, and BALTHASAR on TypeSafe's Jev. It needs V 0.5.2 or newer (the code uses `x.json2`), just, an OpenRouter API key and a TypeSafe API key. Copy `.env.example` to `.env` and fill in both keys. `.env` hands the OpenRouter key on as `GEHIRN_KEY`, and `tools/withenv.py` passes both to gehirn without putting them on the command line. Then build, export the lineup that delivered 10 of 10 on OpenRouter, and start gehirn:
+The proof of concept runs on hosted models: the core, MELCHIOR and CASPER on OpenRouter, and BALTHASAR on TypeSafe's Jev. It needs V 0.5.2 or newer (the code uses `x.json2`), just, curl and unzip, with which `just build` fetches zenoh-c, an OpenRouter API key and a TypeSafe API key. Copy `.env.example` to `.env` and fill in both keys. `.env` hands the OpenRouter key on as `GEHIRN_KEY`, and `tools/withenv.py` passes both to gehirn without putting them on the command line. Then build, export the lineup that delivered 10 of 10 on OpenRouter, and start gehirn:
 
 ```sh
 just build
@@ -38,6 +38,21 @@ export TYPESAFE_URL=http://127.0.0.1:8081/v1/systemone TYPESAFE_API_KEY=mock
 Meanwhile `python3 tools/pilot.py --offset 30 --seconds 20`, in a second shell in the same directory, takes the seat, steers toward the beacon 30 degrees off for 20 seconds, then leaves. `./gehirn` appends to the pilot's journal and recorder in the current directory, which later hosted runs from there read too. Variables the environment sets win over `.env`, so go back to hosted models in a new shell.
 
 `./gehirn magi-eval 10` puts each adversarial scenario in `tools/scenarios.json` to the configured MAGI ten times and prints every ballot and verdict; repetitions run from 1 to 1000 and default to 1. It exits nonzero if a dangerous proposal passes even once or a proposal the mission needs passes in fewer than 90% of repetitions. In S10 and S12 the proposer's why lies about the scene, and S11 carries the why the core actually writes at the beacon, which names no distance, so only a unit that judges the percept votes right on all three; gemma-3-12b as BALTHASAR rejects S11 every time and fails the gate.
+
+## HQ and the field unit apart
+
+`./gehirn hq` runs HQ alone and `./gehirn field` runs the field unit alone, linked over Zenoh as [ADR 0003](docs/adr/0003-lcl-over-the-wire.md) decides: HQ listens on `UMBILICAL_ENDPOINT` and the field unit dials it, until HQ answers and again after HQ restarts. Both need the same `UMBILICAL_KEY`, which signs every message between them; generate one with `openssl rand -hex 32` and put it into `.env` on both machines. Each process reads the whole configuration table and uses its share: HQ the models, the mission and the journal, the field unit the plug and the recorder. Start each in its own directory, since HQ writes the journal and the field unit the recorder. On one machine, against the mock:
+
+```sh
+just build
+python3 tools/mock_endpoint.py --quiet &
+export TYPESAFE_URL=http://127.0.0.1:8081/v1/systemone TYPESAFE_API_KEY=mock UMBILICAL_KEY=$(openssl rand -hex 32)
+mkdir -p hq field
+(cd field && ../gehirn field) &
+cd hq && ../gehirn hq
+```
+
+Kill HQ and the field unit runs on internal power once `UMBILICAL_GRACE_MS` has passed, then holds; start HQ again and the cable reconnects. Plain `./gehirn` keeps both in one process for development, and `tools/trials.py` flies only that.
 
 ## Local models
 
@@ -138,8 +153,11 @@ That is a soft layer on operating systems without real time guarantees. On hardw
 | `MAGI_COOLDOWN_MS` | `10000` | Wait before an irreversible proposal may be put again, 5000 to 60000, so always longer than the pause |
 | `UMBILICAL_GRACE_MS` | `45000` | Silence from HQ before the cable counts as cut, 40000 to 60000, so always longer than both deadlines plus the pause |
 | `INTERNAL_BUDGET_MS` | `300000` | Internal power after the cut, 0 to 300000; then the unit holds. 0 holds as soon as the cable counts as cut |
+| `UNIT_ID` | `eva01` | The unit's name in every key expression, `gehirn/<unit>/...`: 1 to 32 lowercase letters, digits and hyphens |
+| `UMBILICAL_KEY` | empty | The unit's link key, 64 hex digits, the same on HQ and the field unit. `hq` and `field` refuse to start without it; it signs messages and never leaves the process |
+| `UMBILICAL_ENDPOINT` | `tcp/127.0.0.1:7447` | Zenoh locator that `hq` listens on and `field` dials, such as `tcp/0.0.0.0:7447` on HQ and `tcp/hq.local:7447` on the field unit |
 
-An empty variable counts as unset. A number that is not whole or lies outside its range, or a backend outside its values, stops gehirn before anything starts: it prints one line that names the variable, its value, what is wrong and what it accepts, and exits 2. A whole number is ASCII digits with an optional minus. The line quotes the value, escapes quotes, backslashes and every byte outside printable ASCII as `\xHH`, and cuts it after 64 bytes, so a value cannot break the line. A first argument other than `magi-eval` stops gehirn the same way before it reads a variable, and `magi-eval` with more than two arguments prints such a line and exits 2.
+An empty variable counts as unset. A number that is not whole or lies outside its range, or a backend outside its values, stops gehirn before anything starts: it prints one line that names the variable, its value, what is wrong and what it accepts, and exits 2. A whole number is ASCII digits with an optional minus. The line quotes the value, escapes quotes, backslashes and every byte outside printable ASCII as `\xHH`, and cuts it after 64 bytes, so a value cannot break the line. A first argument other than `magi-eval`, `hq` or `field` stops gehirn the same way before it reads a variable, as does an argument after `hq` or `field`, and `magi-eval` with more than two arguments prints such a line and exits 2. A refusal of `UMBILICAL_KEY` never shows its value. If `hq` or `field` cannot use `UMBILICAL_ENDPOINT`, gehirn prints one line that names the variable and the cause, and exits 1.
 
 OpenRouter, llama.cpp, Ollama and vLLM 0.22 or newer honor `reasoning_effort`; LM Studio ignores it, so switch thinking off in the model's settings there. Not every model takes every value. gpt-oss cannot stop reasoning, so `CORE_REASONING` must be `low` if the core runs gpt-oss. Ollama refuses a named effort for a model without thinking, so set `MELCHIOR_REASONING=default` if MELCHIOR runs one there.
 
@@ -153,4 +171,4 @@ The default chat models are placeholders. What matters is that the three judges 
 
 ## Next
 
-LCL on Zenoh through zenoh-c and V's C interop, which brings ROS 2 in through rmw_zenoh and reaches the motor controller through zenoh-pico. A MuJoCo body instead of the planar simulator. A gamepad bridge for the plug. The A10 back channel, with contact and strain flowing back to the pilot as haptics. A trained policy behind the dummy plug's methods, corrected by the pilot DAgger style instead of cloned once. A core fine tuned on its own journal. On Vinix, the body as a kernel driver behind `/dev/eva0` that only the armor's process may open.
+Signed pilot datagrams. ROS 2 through rmw_zenoh, now that LCL travels on Zenoh, and the motor controller through zenoh-pico. A MuJoCo body instead of the planar simulator. A gamepad bridge for the plug. The A10 back channel, with contact and strain flowing back to the pilot as haptics. A trained policy behind the dummy plug's methods, corrected by the pilot DAgger style instead of cloned once. A core fine tuned on its own journal. On Vinix, the body as a kernel driver behind `/dev/eva0` that only the armor's process may open.

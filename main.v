@@ -4,6 +4,7 @@
 // channels between them can become network links without touching either side.
 module main
 
+import encoding.hex
 import os
 import strconv
 import time
@@ -16,6 +17,8 @@ import magi
 import oai
 import plug
 import umbilical
+import wire
+import zenoh
 
 const tick = 20 * time.millisecond
 
@@ -41,6 +44,9 @@ struct Config {
 	cooldown_ms i64
 	budget_ms   i64
 	grace_ms    i64
+	unit        string
+	link        []u8 // UMBILICAL_KEY's 32 bytes, empty when unset
+	endpoint    string
 }
 
 fn env(key string, fallback string) string {
@@ -134,17 +140,44 @@ fn quoted(s string) string {
 	return out + '"'
 }
 
-// command is gehirn's first argument: empty flies a mission, magi-eval runs magi_eval, and
-// anything else is an error, so main refuses a mistyped command before it reads the
-// configuration, opens the journal or spawns a thread.
+// command is gehirn's first argument: empty flies a mission with HQ and the field unit in one
+// process, hq and field run one of them alone, linked over Zenoh (ADR-0003), magi-eval runs
+// magi_eval, and anything else is an error, so main refuses a mistyped command before it reads
+// the configuration, opens the journal or spawns a thread. hq and field take no further argument.
 fn command(args []string) !string {
 	if args.len == 0 {
 		return ''
 	}
-	if args[0] != 'magi-eval' {
-		return error('command is ${quoted(args[0])}, not a known value; accepted magi-eval, or none to fly a mission')
+	if args[0] !in ['magi-eval', 'hq', 'field'] {
+		return error('command is ${quoted(args[0])}, not a known value; accepted magi-eval, hq, field, or none to fly a mission')
+	}
+	if args[0] != 'magi-eval' && args.len > 1 {
+		return error('${args[0]} takes no argument, not ${quoted(args[1])}')
 	}
 	return args[0]
+}
+
+// unit_id reads UNIT_ID, the unit's segment in every key expression of ADR-0003. Zenoh reads `*`,
+// `$`, `?`, `#` and `/` as syntax, so a unit named `*` would hear every unit.
+fn unit_id() !string {
+	val := env('UNIT_ID', 'eva01')
+	if val.len > 32 || !val.contains_only('abcdefghijklmnopqrstuvwxyz0123456789-') {
+		return error('UNIT_ID is ${quoted(val)}, not a unit name; accepted 1 to 32 lowercase letters, digits and hyphens')
+	}
+	return val
+}
+
+// link_key reads UMBILICAL_KEY, the unit's link key as 64 hex digits, or none when unset. Its
+// refusal never shows the value, which is a key.
+fn link_key() ![]u8 {
+	val := os.getenv('UMBILICAL_KEY')
+	if val == '' {
+		return []u8{}
+	}
+	if val.len != 64 || !val.contains_only('0123456789abcdefABCDEF') {
+		return error('UMBILICAL_KEY is not 64 hex digits; generate one with `openssl rand -hex 32`')
+	}
+	return hex.decode(val)!
 }
 
 // BallotEntry is one MAGI ballot as a journal line. tools/trials.py reads these lines.
@@ -295,6 +328,9 @@ fn load_config() !Config {
 		cooldown_ms: i64(env_ms('MAGI_COOLDOWN_MS', '10000', cooldown_span)!)
 		budget_ms:   i64(env_ms('INTERNAL_BUDGET_MS', '300000', budget_span)!)
 		grace_ms:    i64(env_ms('UMBILICAL_GRACE_MS', '45000', grace_span)!)
+		unit:        unit_id()!
+		link:        link_key()!
+		endpoint:    env('UMBILICAL_ENDPOINT', 'tcp/127.0.0.1:7447')
 	}
 }
 
@@ -335,7 +371,8 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqM
 		snapshot := <-inbox
 		ctx := lcl.Context{
 			...snapshot
-			memory: journal.recent(12)
+			mission: cfg.mission
+			memory:  journal.recent(12)
 		}
 		proposal := soul.propose(ctx) or {
 			// A core that cannot think sends no pulse, so the umbilical runs down on its own.
@@ -394,6 +431,49 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqM
 	}
 }
 
+// serve_hq runs HQ alone, linked to the field unit over Zenoh: the core and MAGI deliberate on
+// hq's thread, the link's pump runs on another, and this thread prints HQ's notes, which the
+// field loop prints when both share a process. It exits like main when it cannot start.
+fn serve_hq(cfg Config) {
+	soul := new_backend(cfg) or {
+		// tools/trials.py WARNINGS echoes this line from a run's log.
+		eprintln('gehirn: ${err.msg()}')
+		exit(1)
+	}
+	mut link := link_hq(cfg) or {
+		eprintln('gehirn: ${err.msg()}')
+		exit(1)
+	}
+	inbox := chan lcl.Context{cap: 1}
+	outbox := chan lcl.HqMsg{cap: 8}
+	outcomes := chan lcl.Outcome{cap: 32}
+	notes := chan string{cap: 64}
+	println('hq: unit ${cfg.unit}, listening for the field at ${quoted(cfg.endpoint)}')
+	spawn hq(cfg, soul, inbox, outbox, outcomes)
+	spawn link.run(inbox, outcomes, outbox, notes)
+	for {
+		println(<-notes)
+	}
+}
+
+// link_hq opens HQ's end of the link: a session listening on UMBILICAL_ENDPOINT, and its pump.
+fn link_hq(cfg Config) !&wire.Hq {
+	s := zenoh.open(zenoh.Config{ listen: [cfg.endpoint] }) or {
+		return error('UMBILICAL_ENDPOINT is ${quoted(cfg.endpoint)}; ${err.msg()}')
+	}
+	return wire.new_hq(wire.hq_ports(s, cfg.unit)!, cfg.link, cfg.unit)!
+}
+
+// link_field opens the field unit's end of the link: a session dialing UMBILICAL_ENDPOINT, and
+// its pump. Zenoh keeps dialing until HQ answers and again after HQ restarts, so the field unit
+// starts without HQ and the umbilical decides what the silence means.
+fn link_field(cfg Config) !&wire.Field {
+	s := zenoh.open(zenoh.Config{ connect: [cfg.endpoint] }) or {
+		return error('UMBILICAL_ENDPOINT is ${quoted(cfg.endpoint)}; ${err.msg()}')
+	}
+	return wire.new_field(wire.field_ports(s, cfg.unit)!, cfg.link, cfg.unit, cfg.grace_ms)!
+}
+
 fn main() {
 	cmd := command(os.args[1..]) or {
 		eprintln('gehirn: ${err.msg()}')
@@ -412,10 +492,13 @@ fn main() {
 	if cmd == 'magi-eval' {
 		exit(magi_eval(cfg, os.args[2..]))
 	}
-	soul := new_backend(cfg) or {
-		// tools/trials.py WARNINGS echoes this line from a run's log.
-		eprintln('gehirn: ${err.msg()}')
-		exit(1)
+	if cmd in ['hq', 'field'] && cfg.link.len == 0 {
+		eprintln('gehirn: UMBILICAL_KEY is unset, and ${cmd} needs the unit\'s link key; generate one with `openssl rand -hex 32`')
+		exit(2)
+	}
+	if cmd == 'hq' {
+		serve_hq(cfg)
+		return
 	}
 	mut ar := armor.restrain(body.new_sim(), armor.Limits{})
 	mut dummy := plug.load_dummy(cfg.recorder)
@@ -427,8 +510,23 @@ fn main() {
 	from_hq := chan lcl.HqMsg{cap: 8}
 	outcomes := chan lcl.Outcome{cap: 32}
 
+	// The other end of these channels: the link to HQ, or HQ on a thread of its own.
+	if cmd == 'field' {
+		mut link := link_field(cfg) or {
+			eprintln('gehirn: ${err.msg()}')
+			exit(1)
+		}
+		println('field: unit ${cfg.unit}, dialing HQ at ${quoted(cfg.endpoint)}')
+		spawn link.run(to_hq, outcomes, from_hq)
+	} else {
+		soul := new_backend(cfg) or {
+			// tools/trials.py WARNINGS echoes this line from a run's log.
+			eprintln('gehirn: ${err.msg()}')
+			exit(1)
+		}
+		spawn hq(cfg, soul, to_hq, from_hq, outcomes)
+	}
 	spawn plug.listen(cfg.plug_at, cfg.pilot_id, pilot_ch)
-	spawn hq(cfg, soul, to_hq, from_hq, outcomes)
 	println('field: plug for ${cfg.pilot_id} on ${cfg.plug_at}, dummy plug holds ${dummy.size()} samples')
 
 	dt := f64(tick) / f64(time.second)
@@ -577,7 +675,6 @@ fn main() {
 		touching = p.contact
 
 		push_context(to_hq, lcl.Context{
-			mission: cfg.mission
 			percept: p
 			goal:    goal
 			seat:    seat

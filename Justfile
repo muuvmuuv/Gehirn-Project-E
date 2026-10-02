@@ -55,7 +55,7 @@ py *paths="tools/*.py sidecar/*.py":
     python3 -m py_compile {{ paths }}
 
 # Builds the release binary ./gehirn.
-build:
+build: zenoh
     v -prod -o gehirn .
 
 # Flies the mock missions and puts the adversarial scenarios to the mock MAGI.

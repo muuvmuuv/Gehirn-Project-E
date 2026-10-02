@@ -27,6 +27,8 @@ On 2026-10-02 Jev held all 63 ballots of a recalibration on S1 to S12 and nine e
 
 On 2026-10-02 the `zenoh` module's tests passed against zenoh-c 1.10.1 on macOS and as a static aarch64 musl binary on Alpine 3.22, which keeps Invariant 9's Vinix path open. V generated the C on macOS with `-os linux -gc none` and Alpine's gcc linked it, because building V inside the container ran out of memory; nothing has run V itself on musl yet.
 
+On 2026-10-02 `gehirn hq` and `gehirn field`, two processes linked over Zenoh on one Mac, flew the mock mission to "released on target". Killing HQ moved the field unit to internal power after the grace and to depleted after the budget, and restarting HQ reconnected it untouched.
+
 Never run: `sidecar/cl1_sidecar.py` and the `cl1` backend.
 
 ## Architecture in one screen
@@ -96,7 +98,7 @@ Goal: HQ and the field unit on separate machines, linked through Zenoh.
 1. [x] ADR-0003 on LCL over the wire: encoding (JSON with a schema version field first, CBOR only if measurements ask for it), key expressions, and reliability per stream. Accepted on 2026-10-02; it also signs every message and replaces the liveliness pulse.
 2. [x] A `zenoh` module wrapping zenoh-c through V's C interop: session, publisher, and subscribers that receive through zenoh-c's channel handlers, so no V code runs on a Zenoh thread. Behind a small interface, so tests run on an in process fake. Confirm zenoh-c builds for aarch64 musl, or the field tier loses its Vinix path. No interface or fake: the tests run real sessions in process and over loopback in milliseconds.
 3. [x] The streams of ADR-0003: `gehirn/<unit>/context` from field to HQ, newest only; `gehirn/<unit>/outcome` from field to HQ; `gehirn/<unit>/goal` from HQ to field, approved goals only; `gehirn/<unit>/pulse` from HQ to field once per deliberation, as the umbilical's sign of life. Every message carries an HMAC under the unit's link key and a sequence number, and HQ's an echo of the newest percept's time. The `wire` module seals and opens them, declares each side's ports and pumps between the tiers' channels and Zenoh; nothing runs it until task 4.
-4. [ ] Split `main.v` into an HQ executable and a field executable over the same modules, and keep the combined binary for development. Both read `UNIT_ID`, `UMBILICAL_KEY` and their Zenoh endpoints (ADR-0003 action item 2), and HQ fills in the mission, which no longer travels.
+4. [x] Split `main.v` into an HQ executable and a field executable over the same modules, and keep the combined binary for development. Both read `UNIT_ID`, `UMBILICAL_KEY` and their Zenoh endpoints (ADR-0003 action item 2), and HQ fills in the mission, which no longer travels. One binary with two commands, `gehirn hq` and `gehirn field`; a field binary without HQ's code can come with the Phase 6 image if it needs one.
 5. [ ] Sign pilot datagrams with HMAC SHA256 under a per pilot key, with a sequence number against replay, as ADR-0003 signs the streams. Unsigned, stale or replayed datagrams are dropped like foreign ones.
 6. [ ] Decide whether a core fault should keep stopping the pulse once HQ reports its own health.
 
@@ -192,6 +194,7 @@ Done when the bridge follows a full mission live on the Mac, from goto to releas
 18. A UDP dial never contacts its peer: `net.dial_udp` resolves the address and binds a local socket, nothing more. So `new_cl1` fails only on a `CL1_SIDECAR` vlib cannot resolve, such as an unknown host or a port past 65535. A wrong but resolvable address starts, as does a port that is not a number, which vlib reads as 0, or a value without a colon, which vlib takes as a Unix socket path. `Cl1Core.send` drops every write error, so the stim packets then vanish unnoticed.
 19. `core/cl1.v` `new_cl1` puts `CL1_SPIKES` and `CL1_SIDECAR` into its error unquoted, and `main` prints that error, so a newline in either value still breaks the one line refusal that CONTRIBUTING.md Configuration 2 promises.
 20. Status lines print values from the environment unquoted: `eval.v`'s `magi-eval:` line per unit with its model, URL and reasoning effort, in `main.v` the `hq:` and `field:` startup lines and `ca_warning`, and `plug.listen`'s failure line. None of them is a refusal, so the risk is lower, but a newline in a value still forges a line in the log that `tools/trials.py` reads.
+21. `tools/trials.py` flies only the combined binary, so missions over the wire are checked by hand, as in State.
 
 ## Open questions for the owner
 

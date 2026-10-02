@@ -133,6 +133,9 @@ fn config_value(cfg Config, key string) string {
 		'UMBILICAL_GRACE_MS' { cfg.grace_ms.str() }
 		'CORE_BACKEND' { cfg.backend }
 		'BALTHASAR_BACKEND' { cfg.units[1].ep.type_name() }
+		'UNIT_ID' { cfg.unit }
+		'UMBILICAL_KEY' { cfg.link.hex() }
+		'UMBILICAL_ENDPOINT' { cfg.endpoint }
 		else { 'no such variable' }
 	}
 }
@@ -215,6 +218,25 @@ fn test_load_config() {
 		ConfigCase{'BALTHASAR_BACKEND', 'j\xc3\xa9v', 'BALTHASAR_BACKEND is "j\\xc3\\xa9v", not a known value; accepted jev, llm'},
 		ConfigCase{'BALTHASAR_BACKEND', 'jev"\\', 'BALTHASAR_BACKEND is "jev\\"\\\\", not a known value; accepted jev, llm'},
 		ConfigCase{'BALTHASAR_BACKEND', 'jev\r\nmagi: forged', 'BALTHASAR_BACKEND is "jev\\x0d\\x0amagi: forged", not a known value; accepted jev, llm'},
+		ConfigCase{'UNIT_ID', '', 'eva01'},
+		ConfigCase{'UNIT_ID', 'eva-02', 'eva-02'},
+		ConfigCase{'UNIT_ID', 'u'.repeat(32), 'u'.repeat(32)},
+		ConfigCase{'UNIT_ID', 'u'.repeat(33), 'UNIT_ID is "${'u'.repeat(33)}", not a unit name; accepted 1 to 32 lowercase letters, digits and hyphens'},
+		ConfigCase{'UNIT_ID', 'Eva01', 'UNIT_ID is "Eva01", not a unit name; accepted 1 to 32 lowercase letters, digits and hyphens'},
+		ConfigCase{'UNIT_ID', '*', 'UNIT_ID is "*", not a unit name; accepted 1 to 32 lowercase letters, digits and hyphens'},
+		ConfigCase{'UNIT_ID', 'eva01/goal', 'UNIT_ID is "eva01/goal", not a unit name; accepted 1 to 32 lowercase letters, digits and hyphens'},
+		ConfigCase{'UNIT_ID', '$*', 'UNIT_ID is "$*", not a unit name; accepted 1 to 32 lowercase letters, digits and hyphens'},
+		ConfigCase{'UNIT_ID', 'eva 01', 'UNIT_ID is "eva 01", not a unit name; accepted 1 to 32 lowercase letters, digits and hyphens'},
+		ConfigCase{'UNIT_ID', 'eva01\nhq: forged', 'UNIT_ID is "eva01\\x0ahq: forged", not a unit name; accepted 1 to 32 lowercase letters, digits and hyphens'},
+		ConfigCase{'UMBILICAL_KEY', '', ''},
+		ConfigCase{'UMBILICAL_KEY', '0f'.repeat(32), '0f'.repeat(32)},
+		ConfigCase{'UMBILICAL_KEY', 'A1b2'.repeat(16), 'a1b2'.repeat(16)},
+		ConfigCase{'UMBILICAL_KEY', 'a'.repeat(63), 'UMBILICAL_KEY is not 64 hex digits; generate one with `openssl rand -hex 32`'},
+		ConfigCase{'UMBILICAL_KEY', 'a'.repeat(65), 'UMBILICAL_KEY is not 64 hex digits; generate one with `openssl rand -hex 32`'},
+		ConfigCase{'UMBILICAL_KEY', 'g'.repeat(64), 'UMBILICAL_KEY is not 64 hex digits; generate one with `openssl rand -hex 32`'},
+		ConfigCase{'UMBILICAL_KEY', 'sk-or-v1-secret', 'UMBILICAL_KEY is not 64 hex digits; generate one with `openssl rand -hex 32`'},
+		ConfigCase{'UMBILICAL_ENDPOINT', '', 'tcp/127.0.0.1:7447'},
+		ConfigCase{'UMBILICAL_ENDPOINT', 'tcp/0.0.0.0:7447', 'tcp/0.0.0.0:7447'},
 	]
 	for c in cases {
 		os.unsetenv(c.key)
@@ -249,11 +271,16 @@ fn test_command() {
 		CommandCase{[]string{}, ''},
 		CommandCase{['magi-eval'], 'magi-eval'},
 		CommandCase{['magi-eval', '3', 'tools/scenarios.json'], 'magi-eval'},
-		CommandCase{['magi-evl', '3'], 'command is "magi-evl", not a known value; accepted magi-eval, or none to fly a mission'},
-		CommandCase{['--help'], 'command is "--help", not a known value; accepted magi-eval, or none to fly a mission'},
-		CommandCase{[''], 'command is "", not a known value; accepted magi-eval, or none to fly a mission'},
-		CommandCase{['3', 'magi-eval'], 'command is "3", not a known value; accepted magi-eval, or none to fly a mission'},
-		CommandCase{['magi-eval\nmagi: approved'], 'command is "magi-eval\\x0amagi: approved", not a known value; accepted magi-eval, or none to fly a mission'},
+		CommandCase{['hq'], 'hq'},
+		CommandCase{['field'], 'field'},
+		CommandCase{['hq', 'field'], 'hq takes no argument, not "field"'},
+		CommandCase{['field', '--verbose\nfield: forged'], 'field takes no argument, not "--verbose\\x0afield: forged"'},
+		CommandCase{['HQ'], 'command is "HQ", not a known value; accepted magi-eval, hq, field, or none to fly a mission'},
+		CommandCase{['magi-evl', '3'], 'command is "magi-evl", not a known value; accepted magi-eval, hq, field, or none to fly a mission'},
+		CommandCase{['--help'], 'command is "--help", not a known value; accepted magi-eval, hq, field, or none to fly a mission'},
+		CommandCase{[''], 'command is "", not a known value; accepted magi-eval, hq, field, or none to fly a mission'},
+		CommandCase{['3', 'magi-eval'], 'command is "3", not a known value; accepted magi-eval, hq, field, or none to fly a mission'},
+		CommandCase{['magi-eval\nmagi: approved'], 'command is "magi-eval\\x0amagi: approved", not a known value; accepted magi-eval, hq, field, or none to fly a mission'},
 	]
 	for c in cases {
 		got := command(c.args) or { err.msg() }
@@ -313,4 +340,23 @@ fn test_new_backend() {
 	for key in ['CORE_BACKEND', 'CL1_SPIKES', 'CL1_SIDECAR'] {
 		os.unsetenv(key)
 	}
+}
+
+// Either end of the link refuses an endpoint Zenoh cannot read, naming the variable, before it
+// starts a thread.
+fn test_link_refuses_an_endpoint_zenoh_cannot_read() {
+	cfg := Config{
+		unit:     'eva01'
+		link:     []u8{len: 32}
+		endpoint: 'hq.local'
+	}
+	link_hq(cfg) or {
+		assert err.msg() == 'UMBILICAL_ENDPOINT is "hq.local"; zenoh: config rejects listen/endpoints'
+		link_field(cfg) or {
+			assert err.msg() == 'UMBILICAL_ENDPOINT is "hq.local"; zenoh: config rejects connect/endpoints'
+			return
+		}
+		assert false, 'the field linked to "hq.local"'
+	}
+	assert false, 'HQ listened on "hq.local"'
 }
