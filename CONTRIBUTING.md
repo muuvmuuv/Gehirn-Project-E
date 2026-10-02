@@ -6,7 +6,7 @@ Rules are numbered per section, so a review can cite one: Errors 2, Tests 3. The
 
 ## Set up
 
-gehirn builds with V 0.5.2 from Homebrew, commit 45ae01d. The tools under `tools/` need Python 3.10 or newer and nothing else. The `Justfile` is the one entry point for the checks, the build and the mock missions, so it needs just. The git hooks need lefthook and gitleaks; wire them once per clone:
+gehirn builds with V 0.5.2 from Homebrew, commit 45ae01d. The tools under `tools/` need Python 3.10 or newer and nothing else. The `Justfile` is the one entry point for the checks, the build and the mock missions, so it needs just. `just zenoh` fetches zenoh-c, pinned to 1.10.1 and checked against its sha256, into `thirdparty/zenoh-c`, which git ignores; it needs curl and unzip, runs before `just test`, and covers macOS on Apple Silicon and musl Linux. Moving the pin is its own commit that updates the version and every checksum in the recipe and runs every check. The git hooks need lefthook and gitleaks; wire them once per clone:
 
 ```sh
 lefthook install
@@ -62,7 +62,7 @@ A failing check is never unrelated. Fix it, or stop and report it.
 
 1. The module table in PLAN.md is the dependency rule, and an import outside it needs an ADR. V rejects import cycles but not a forbidden edge, so review compares every new `import` line with the table.
 2. What one bounded context hands another while running (percepts, goals, outcomes, pilot input, context) is an `lcl` type. A module's own API (config structs, clients, results such as `magi.Verdict`) is used by `main.v`, `eval.v` and the modules the table lets import it. A model reply, a Jev answer or a datagram is decoded into a typed struct inside the module that received it, by that module's one parser (`oai.extract_json`, `magi.read_reply`, `plug.listen`). A `json2.Any` never leaves the function that decoded it.
-3. Each boundary has one door. Only `oai` and `jev` import `net.http`. Outside tests, only `plug` and `core/cl1.v` import `net`. Only `armor` holds a `Body` (Invariant 1). A new door is a new row in the module table.
+3. Each boundary has one door. Only `oai` and `jev` import `net.http`. Outside tests, only `plug` and `core/cl1.v` import `net`. Only `zenoh` links zenoh-c. Only `armor` holds a `Body` (Invariant 1). A new door is a new row in the module table.
 4. C interop (`C.` declarations, `#flag`, `#include`) lives only in `.c.v` files, and field tier code follows Invariant 9.
 
 ### Concurrency
@@ -119,7 +119,7 @@ A failing check is never unrelated. Fix it, or stop and report it.
 <type>[(scope)][!]: <subject>
 
 type   build chore ci docs feat fix perf refactor style test
-scope  optional: a module (lcl body armor plug core magi oai jev umbilical),
+scope  optional: a module (lcl body armor plug core magi oai jev umbilical zenoh),
        or eval, tools, sidecar, adr, vscode
 ```
 

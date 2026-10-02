@@ -6,7 +6,7 @@ This file is the handoff to Claude Code: where the project stands, the rules tha
 
 ## State as of 2026-10-02
 
-Builds on V 0.5.2 from Homebrew (45ae01d), which ships JSON as `x.json2`, with warnings as errors (`v -W`). `v vet` is clean apart from two notices about const arrays in `lcl`. `just check` runs every check: table driven tests for `armor`, `umbilical`, `plug.Sync`, `oai`, `jev`, `magi`, `core`, `main` and the scenario harness, and `tools/test_withenv.py` for the dotenv loader. `just missions` flies the mock missions.
+Builds on V 0.5.2 from Homebrew (45ae01d), which ships JSON as `x.json2`, with warnings as errors (`v -W`). `v vet` is clean apart from two notices about const arrays in `lcl`. `just check` runs every check: table driven tests for `armor`, `umbilical`, `plug.Sync`, `oai`, `jev`, `magi`, `core`, `zenoh`, `main` and the scenario harness, and `tools/test_withenv.py` for the dotenv loader. `just missions` flies the mock missions.
 
 Verified by independent runs against `tools/mock_endpoint.py`:
 
@@ -25,6 +25,8 @@ Against real models on OpenRouter, the default lineup (core qwen3-8b with reason
 
 On 2026-10-02 Jev held all 63 ballots of a recalibration on S1 to S12 and nine edge probes, with the limits of ADR-0002 unchanged. Cloudflare's Clef and Clef-flash, System One models that take Jev's request, were considered as BALTHASAR and not adopted: Workers AI wraps the answer in an envelope the `jev` client does not read, the model id carries no version, so calibrated limits could drift unseen, both are Qwen fine tunes like the core, and their free daily allocation is shared with other projects. Revisit with a pinned, self hosted Clef on the HQ GPU, for example once Phase 3 brings camera frames, which Clef can read and Jev cannot.
 
+On 2026-10-02 the `zenoh` module's tests passed against zenoh-c 1.10.1 on macOS and as a static aarch64 musl binary on Alpine 3.22, which keeps Invariant 9's Vinix path open. V generated the C on macOS with `-os linux -gc none` and Alpine's gcc linked it, because building V inside the container ran out of memory; nothing has run V itself on musl yet.
+
 Never run: `sidecar/cl1_sidecar.py` and the `cl1` backend.
 
 ## Architecture in one screen
@@ -42,6 +44,7 @@ Never run: `sidecar/cl1_sidecar.py` and the `cl1` backend.
 | `oai` | Minimal OpenAI compatible chat client with JSON extraction | nothing |
 | `jev` | Minimal client for TypeSafe's System One endpoint, where Jev answers typed questions; it refuses to ask without a key | nothing |
 | `umbilical` | Link state machine: connected, internal, depleted | nothing |
+| `zenoh` | Session, publishers and subscribers over zenoh-c, which moves bytes between the tiers and knows nothing of LCL | nothing |
 
 Each module is a bounded context, and `lcl` is the only published language between them. Dependencies beyond this table need an ADR.
 
@@ -90,7 +93,7 @@ Done when ten runs from the default start deliver on target at least eight times
 Goal: HQ and the field unit on separate machines, linked through Zenoh.
 
 1. [x] ADR-0003 on LCL over the wire: encoding (JSON with a schema version field first, CBOR only if measurements ask for it), key expressions, and reliability per stream. Proposed; it also signs every message and replaces the liveliness pulse.
-2. [ ] A `zenoh` module wrapping zenoh-c through V's C interop: session, publisher, and subscribers that receive through zenoh-c's channel handlers, so no V code runs on a Zenoh thread. Behind a small interface, so tests run on an in process fake. Confirm zenoh-c builds for aarch64 musl, or the field tier loses its Vinix path.
+2. [x] A `zenoh` module wrapping zenoh-c through V's C interop: session, publisher, and subscribers that receive through zenoh-c's channel handlers, so no V code runs on a Zenoh thread. Behind a small interface, so tests run on an in process fake. Confirm zenoh-c builds for aarch64 musl, or the field tier loses its Vinix path. The interface and the fake come with task 3's transport, their first user.
 3. [ ] The streams of ADR-0003: `gehirn/<unit>/context` from field to HQ, newest only; `gehirn/<unit>/outcome` from field to HQ; `gehirn/<unit>/goal` from HQ to field, approved goals only; `gehirn/<unit>/pulse` from HQ to field once per deliberation, as the umbilical's sign of life. Every message carries an HMAC under the unit's link key and a sequence number, and HQ's an echo of the newest percept's time.
 4. [ ] Split `main.v` into an HQ executable and a field executable over the same modules, and keep the combined binary for development.
 5. [ ] Sign pilot datagrams with HMAC SHA256 under a per pilot key, with a sequence number against replay, as ADR-0003 signs the streams. Unsigned, stale or replayed datagrams are dropped like foreign ones.

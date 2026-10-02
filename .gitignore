@@ -2,3 +2,4 @@
 *.jsonl
 __pycache__/
 /gehirn
+/thirdparty/

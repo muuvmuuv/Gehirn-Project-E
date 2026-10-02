@@ -3,7 +3,8 @@
 # pre-commit checks what is staged, so unstaged work in progress cannot fail a
 # commit. It calls the Justfile's recipes, which hold the commands, on the staged
 # files. The tests run on a copy of the staged tree that git checkout-index
-# writes, and take 4 to 8 seconds whenever a .v file is staged.
+# writes, with thirdparty/ linked in so zenoh-c is fetched once, and take 4 to
+# 8 seconds whenever a .v file is staged.
 
 pre-commit:
   parallel: true
@@ -23,7 +24,7 @@ pre-commit:
 
     - name: v test
       glob: "*.v"
-      run: d=$(mktemp -d) && git checkout-index --all --prefix="$d/" && (cd "$d" && just test); s=$?; rm -rf "$d"; exit $s
+      run: just zenoh && d=$(mktemp -d) && git checkout-index --all --prefix="$d/" && ln -s "$PWD/thirdparty" "$d/thirdparty" && (cd "$d" && just test); s=$?; rm -rf "$d"; exit $s
 
     - name: python
       glob: "*.py"
