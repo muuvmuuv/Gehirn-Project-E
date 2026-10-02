@@ -177,7 +177,7 @@ Done when the bridge follows a full mission live on the Mac, from goto to releas
 
 ## Known issues
 
-1. The field loop sleeps a fixed tick after its work, so its period stretches with load. Schedule on absolute deadlines.
+1. Resolved on 2026-10-02: the field loop sleeps until absolute deadlines (`main.v` `pace`). It ran at 42 ticks per second and now at 50.
 2. `Cl1Core.feedback` blocks the HQ thread for about four seconds after a failure.
 3. The recorder writes 50 JSON lines per second with no rotation.
 4. Pilot datagrams prove freshness by the pilot's clock, so a pilot whose clock is more than 500 ms off the field unit's can neither steer nor eject, and the plug says nothing about it. A back channel to echo, as ADR-0003 does for HQ, would remove the clock from the check (Phase 2, task 2).

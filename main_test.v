@@ -433,3 +433,27 @@ fn test_a_faulting_core_keeps_hq_pulsing_and_approves_nothing() {
 	assert e.fault == 'core: model down' && e.proposal.verb == ''
 	assert events.try_pop(mut e) == .not_ready
 }
+
+struct PaceCase {
+	name string
+	last u64
+	now  u64
+	next u64
+	nap  u64
+}
+
+fn test_pace() {
+	ms := u64(time.millisecond)
+	cases := [
+		PaceCase{'early in the tick sleeps the rest', 0, 5 * ms, 20 * ms, 15 * ms},
+		PaceCase{'on the deadline sleeps nothing', 0, 20 * ms, 20 * ms, 0},
+		PaceCase{'less than a tick late catches up', 0, 30 * ms, 20 * ms, 0},
+		PaceCase{'a whole tick late keeps the beat', 0, 40 * ms, 20 * ms, 0},
+		PaceCase{'more than a tick late starts again from now', 0, 41 * ms, 41 * ms, 0},
+	]
+	for c in cases {
+		next, nap := pace(c.last, c.now)
+		assert next == c.next, c.name
+		assert nap == c.nap, c.name
+	}
+}

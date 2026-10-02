@@ -70,7 +70,7 @@ const deadline_span = Span{1000, 15000}
 
 // period_span bounds HQ_PERIOD_MS. It starts at five field ticks, so the field loop has applied
 // HQ's last verdict and sent a snapshot that shows it before HQ deliberates again, even when load
-// stretches the loop (PLAN Known issue 1); sooner, MAGI votes again on a goal already in force.
+// delays a tick or two; sooner, MAGI votes again on a goal already in force.
 // It stops at 3 s, twice the default, below the shortest cooldown and inside the grace.
 const period_span = Span{100, 3000}
 
@@ -597,6 +597,7 @@ fn main() {
 	mut last_status := i64(0)
 	mut ticks := u64(0)
 	mut seen := []lcl.Outcome{} // outcomes since the last view for the bridge
+	mut deadline := time.sys_mono_now()
 
 	for {
 		now := lcl.now_ms()
@@ -757,8 +758,27 @@ fn main() {
 			pct := ratio * 100.0
 			println('field: ${goal.label()} pose (${p.pose[0]:.2f}, ${p.pose[1]:.2f}) seat ${seat} sync ${pct:.0f}% authority ${authority:.2f} umbilical ${link}')
 		}
-		time.sleep(tick)
+		next, nap := pace(deadline, time.sys_mono_now())
+		deadline = next
+		if nap > 0 {
+			time.sleep(time.Duration(nap))
+		}
 	}
+}
+
+// pace is the field loop's schedule: from the deadline the last tick aimed for and the monotonic
+// time now, both in nanoseconds, it returns the next deadline and how long to sleep until then.
+// Deadlines are absolute, so the loop keeps its 50 Hz under load; one more than a tick behind
+// starts again from now instead of running ticks back to back to catch up.
+fn pace(last u64, now u64) (u64, u64) {
+	next := last + u64(tick)
+	if next >= now {
+		return next, next - now
+	}
+	if now - next > u64(tick) {
+		return now, 0
+	}
+	return next, 0
 }
 
 // share is the core's part of the controls. A core with nowhere to go takes none; otherwise
