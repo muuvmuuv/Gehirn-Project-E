@@ -377,13 +377,14 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqM
 			memory:  journal.recent(12)
 		}
 		proposal := soul.propose(ctx) or {
-			// A core that cannot think sends no pulse, so the umbilical runs down on its own.
+			// A core that cannot think still lets HQ pulse, so the unit keeps its last approved
+			// goal while HQ deliberates, and without a proposal MAGI approves nothing (ADR-0004).
 			// tools/trials.py counts these hq: core fault: lines.
-			if err.msg() != last_fault {
-				last_fault = err.msg()
-				outbox <- lcl.HqMsg{
-					note: 'hq: core fault: ${last_fault}'
-				}
+			note := if err.msg() != last_fault { 'hq: core fault: ${err.msg()}' } else { '' }
+			last_fault = err.msg()
+			outbox <- lcl.HqMsg{
+				alive: true
+				note:  note
 			}
 			time.sleep(pause)
 			continue

@@ -2,6 +2,8 @@ module main
 
 import os
 import net
+import time
+import core
 import jev
 import lcl
 import magi
@@ -363,4 +365,53 @@ fn test_link_refuses_an_endpoint_zenoh_cannot_read() {
 		assert false, 'the field linked to "hq.local"'
 	}
 	assert false, 'HQ listened on "hq.local"'
+}
+
+// FaultyCore never proposes, as a core whose model is down.
+struct FaultyCore {}
+
+fn (c FaultyCore) name() string {
+	return 'faulty'
+}
+
+fn (mut c FaultyCore) propose(ctx lcl.Context) !lcl.Intent {
+	return error('core: model down')
+}
+
+fn (mut c FaultyCore) feedback(o lcl.Outcome) {}
+
+// A core that keeps faulting still lets HQ pulse after every deliberation, so the cable stays
+// connected, but HQ sends no goal, so MAGI approves nothing (ADR-0004). The fault is said once.
+fn test_a_faulting_core_keeps_hq_pulsing_and_approves_nothing() {
+	journal := os.join_path(os.vtmp_dir(), 'gehirn_faulty_core_${os.getpid()}.jsonl')
+	defer {
+		os.rm(journal) or {}
+	}
+	inbox := chan lcl.Context{cap: 1}
+	outbox := chan lcl.HqMsg{cap: 8}
+	outcomes := chan lcl.Outcome{cap: 32}
+
+	// V 0.5.2 emits C that does not compile for a struct literal spawned as an interface argument;
+	// pass the literal directly once a V release compiles it.
+	soul := core.Core(FaultyCore{})
+	spawn hq(Config{ journal: journal, period_ms: 100 }, soul, inbox, outbox, outcomes)
+	mut notes := []string{}
+	for _ in 0 .. 3 {
+		inbox <- lcl.Context{
+			percept: lcl.Percept{
+				pose: [0.0, 0.0]
+			}
+		}
+		select {
+			m := <-outbox {
+				assert m.alive
+				assert !m.approved
+				notes << m.note
+			}
+			3 * time.second {
+				assert false, 'HQ sent nothing after a core fault'
+			}
+		}
+	}
+	assert notes == ['hq: core fault: core: model down', '', '']
 }

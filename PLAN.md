@@ -17,7 +17,7 @@ Verified by independent runs against `tools/mock_endpoint.py`:
 5. When the pilot leaves, the dummy plug takes the seat, overshoots the beacon by about 30 cm and turns back. Cloned from a pilot who steers 120 degrees off the core's goal, it is benched right after taking the seat and the core drives alone.
 6. The MAGI cooldown holds: the release went to the vote twice in a run that used to produce nine votes.
 7. Ten missions deliver on target, and at every release the human was at least 2 m away, recomputed from the simulator's path.
-8. A unit that never answers faults at `MAGI_TIMEOUT_MS`, and a garbled or wrongly shaped ballot faults too; both count as no. A core past `CORE_TIMEOUT_MS` sends no pulse, so the umbilical runs down to depleted.
+8. A unit that never answers faults at `MAGI_TIMEOUT_MS`, and a garbled or wrongly shaped ballot faults too; both count as no. A core past `CORE_TIMEOUT_MS` faults and proposes nothing, while HQ still pulses (ADR-0004): on 2026-10-02, with the core's endpoint unreachable for 52 s, the cable stayed connected past a 40 s grace and HQ printed the fault once.
 9. Both BALTHASAR backends deliver with the mock and pass `gehirn magi-eval` on S1 to S12. Without `TYPESAFE_API_KEY` gehirn says so at startup and BALTHASAR faults every ballot, so gotos pass on two votes and nothing irreversible does.
 10. Both HTTP clients verify TLS certificates, refuse redirects, cap replies at 1 MiB and keep every key on its own endpoint, checked against capture servers with fake keys and wrong certificates.
 
@@ -100,7 +100,7 @@ Goal: HQ and the field unit on separate machines, linked through Zenoh.
 3. [x] The streams of ADR-0003: `gehirn/<unit>/context` from field to HQ, newest only; `gehirn/<unit>/outcome` from field to HQ; `gehirn/<unit>/goal` from HQ to field, approved goals only; `gehirn/<unit>/pulse` from HQ to field once per deliberation, as the umbilical's sign of life. Every message carries an HMAC under the unit's link key and a sequence number, and HQ's an echo of the newest percept's time. The `wire` module seals and opens them, declares each side's ports and pumps between the tiers' channels and Zenoh; nothing runs it until task 4.
 4. [x] Split `main.v` into an HQ executable and a field executable over the same modules, and keep the combined binary for development. Both read `UNIT_ID`, `UMBILICAL_KEY` and their Zenoh endpoints (ADR-0003 action item 2), and HQ fills in the mission, which no longer travels. One binary with two commands, `gehirn hq` and `gehirn field`; a field binary without HQ's code can come with the Phase 6 image if it needs one.
 5. [x] Sign pilot datagrams with HMAC SHA256 under a per pilot key, with a sequence number against replay, as ADR-0003 signs the streams. Unsigned, stale or replayed datagrams are dropped like foreign ones. A datagram has no echo to prove it fresh, so its seq is the pilot's clock in microseconds and the plug drops one more than the seat's 500 ms from its own clock (Known issue 4).
-6. [ ] Decide whether a core fault should keep stopping the pulse once HQ reports its own health.
+6. [x] Decide whether a core fault should keep stopping the pulse once HQ reports its own health. It no longer does: HQ pulses after every deliberation, and a fault sends no goal (ADR-0004).
 
 Done when killing HQ moves the field unit to internal power after the grace period and to hold after the budget, restarting HQ reconnects without touching the field unit, and nothing irreversible happens in between.
 
@@ -114,7 +114,7 @@ Done when a pilot flies the mission from a gamepad and feels contact.
 
 ### Phase 3: A better body
 
-1. [ ] ADR-0004 on the simulator: MuJoCo through its C API, or Gazebo through ROS 2 and rmw_zenoh.
+1. [ ] ADR-0005 on the simulator: MuJoCo through its C API, or Gazebo through ROS 2 and rmw_zenoh.
 2. [ ] A `Body` for the chosen simulator with a differential drive base. The stack above stays holonomic; the body adapter maps planar velocity onto the drive. `Sim` stays for fast runs.
 3. [ ] Obstacles from a range sensor instead of ground truth. Humans may stay ground truth behind a detector stub for now.
 
@@ -130,7 +130,7 @@ Done when, from start positions outside the training set, the new dummy arrives 
 
 ### Phase 5: Hard restraints on a microcontroller
 
-1. [ ] ADR-0005 on the microcontroller and firmware language: C with zenoh-pico as the default, Rust with embassy if a no_std Zenoh client fits.
+1. [ ] ADR-0006 on the microcontroller and firmware language: C with zenoh-pico as the default, Rust with embassy if a no_std Zenoh client fits.
 2. [ ] Firmware: the armor's speed and acceleration limits, a geofence from odometry, the 200 ms command watchdog, and an e-stop that cuts motor power in hardware.
 3. [ ] Hardware in the loop on a bench motor driver.
 
@@ -165,9 +165,9 @@ Done when the tuned core gets fewer MAGI rejections and delivers at least as oft
 
 Goal: a graphical bridge in the look of NERV's command center, the operator's view of MAGI, the core, the seat and the umbilical. It shows the stack and never steers or decides.
 
-1. [ ] ADR-0006 on the bridge, extending ADR-0001: it runs on its own machine or image, never on the field unit, because Vinix has no real time scheduling and its graphics stack is young; the toolkit, V's `gg` on sokol, Metal on the Mac and OpenGL elsewhere, so one codebase runs on the Mac and on the target; which streams it reads; and that it holds no safety role.
+1. [ ] ADR-0007 on the bridge, extending ADR-0001: it runs on its own machine or image, never on the field unit, because Vinix has no real time scheduling and its graphics stack is young; the toolkit, V's `gg` on sokol, Metal on the Mac and OpenGL elsewhere, so one codebase runs on the Mac and on the target; which streams it reads; and that it holds no safety role.
 2. [ ] Read only subscriptions to the Phase 1 streams (context, goal, outcome, pulse) plus a new verdict stream that carries every ballot. The bridge sends nothing that steers, approves or ejects; pilot input stays with the plug and the gamepad bridge.
-3. [ ] Panels: MAGI with 可決, 否決 and 故障 per unit and its reason, the active goal and each proposal, the sync ratio and the seat, the umbilical counting down from 5:00 once the cable is cut, armor refusals, and the scene from the percept.
+3. [ ] Panels: MAGI with 可決, 否決 and 故障 per unit and its reason, the active goal and each proposal, the sync ratio and the seat, the umbilical counting down from 5:00 once the cable is cut, the core's last fault (ADR-0004), armor refusals, and the scene from the percept.
 4. [ ] Runs on the Mac against the mock and the hosted lineup.
 
 Done when the bridge follows a full mission live on the Mac, from goto to release, including a MAGI rejection and a cut cable, and closing the bridge changes nothing in the mission.
@@ -202,4 +202,4 @@ Done when the bridge follows a full mission live on the Mac, from goto to releas
 2. Is CL1 access realistic, on a device or remotely? That decides whether Phase 7 stays.
 3. Where does the field unit run first: a Mac on Vinix, or a single board computer on Linux?
 4. ADR-0001, still Proposed, puts HQ on a Linux machine with a GPU that holds the four models, while the proof of concept runs them hosted on OpenRouter and TypeSafe. Does HQ keep that GPU plan for later, or does ADR-0001 change before it is accepted?
-5. Which hardware runs the bridge image: an Apple Silicon Mac, where Vinix's graphics stack works, or a Linux machine as a kiosk? ADR-0006 depends on it.
+5. Which hardware runs the bridge image: an Apple Silicon Mac, where Vinix's graphics stack works, or a Linux machine as a kiosk? ADR-0007 depends on it.
