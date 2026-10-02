@@ -58,6 +58,10 @@ py *paths="tools/*.py sidecar/*.py":
 build: zenoh
     v -prod -o gehirn .
 
+# Builds the bridge, ./gehirn-bridge, which runs on its own machine (ADR-0005).
+bridge: zenoh
+    v -prod -o gehirn-bridge bridge/
+
 # Flies the mock missions and puts the adversarial scenarios to the mock MAGI.
 missions runs="10": build
     #!/usr/bin/env bash

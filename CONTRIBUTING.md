@@ -92,7 +92,7 @@ A failing check is never unrelated. Fix it, or stop and report it.
 
 ### Logging
 
-1. Only `main.v` and `eval.v` print. Modules return values and errors, and the caller that decides logs once. A thread with nothing to return to, such as `plug.listen`, logs its own failure once and ends.
+1. Only `main.v`, `eval.v` and `bridge/main.v` print, and the bridge draws. Modules return values and errors, and the caller that decides logs once. A thread with nothing to return to, such as `plug.listen`, logs its own failure once and ends.
 2. A status line starts with its source and a colon: `hq:`, `field:`, `armor:`, `magi:`. A line that `tools/trials.py` parses names the parser in a comment, the parser names the line, and one commit changes both.
 3. The journal and the recorder are data, not logs. Only `core.Memory` writes the journal and only `plug.Recorder` writes the recorder, both by appending (Invariant 11). No tool and no person edits a `.jsonl` file.
 
@@ -103,7 +103,8 @@ A failing check is never unrelated. Fix it, or stop and report it.
 3. JSON goes through `x.json2`. The cJSON `json` module still ships with 0.5.2 but is removed upstream, so nothing imports it.
 4. In a generic function, a `defer` after an `or { return }` trips the 0.5.2 checker ("too many expr levels"). Move both into a non generic helper, as `core.Memory.append` does.
 5. A suspected race is checked with ThreadSanitizer: build with `-cflags -fsanitize=thread -gc none`.
-6. Upgrading V is its own commit. It updates every mention of the release (`rg -n '0\.5\.2|45ae01d'`), runs every check and the mock missions, retests the json2 warm up (Concurrency 6) and the generic `defer` (rule 4), and moves `x.json2` to `json2` if the new release deprecates the old path.
+6. The bridge's frames are checked from PNGs that `gg` saves: build with `-d gg_record -d darwin_sokol_glcore33` and run with `VGG_SCREENSHOT_FOLDER`, `VGG_SCREENSHOT_FRAMES` and `VGG_STOP_AT_FRAME`. On Metal, sokol's screenshot readback fails with code -100, hence OpenGL; macOS also slows the frames of a covered window, so a frame number is not a time.
+7. Upgrading V is its own commit. It updates every mention of the release (`rg -n '0\.5\.2|45ae01d'`), runs every check and the mock missions, retests the json2 warm up (Concurrency 6) and the generic `defer` (rule 4), and moves `x.json2` to `json2` if the new release deprecates the old path.
 
 ## Python tools
 
@@ -120,6 +121,7 @@ A failing check is never unrelated. Fix it, or stop and report it.
 
 type   build chore ci docs feat fix perf refactor style test
 scope  optional: a module (lcl body armor plug core magi oai jev umbilical zenoh wire),
+       or bridge,
        or eval, tools, sidecar, adr, vscode
 ```
 

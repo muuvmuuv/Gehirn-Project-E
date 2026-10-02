@@ -114,5 +114,5 @@ Revisit when an operator needs to act from the bridge, such as an e-stop or a re
 ## Action Items
 
 1. [x] `wire` seals and opens the two watch messages under `WATCH_KEY`; HQ and the field unit publish them and dial `BRIDGE_ENDPOINT` when the key is set (Phase 9 task 2).
-2. [ ] `gehirn-bridge` in `bridge/`, with its panels drawn from a state that table tests cover (Phase 9 task 3).
+2. [x] `gehirn-bridge` in `bridge/`, with its panels drawn from a state that table tests cover (Phase 9 task 3).
 3. [ ] Follow a mission on the Mac against the mock, with a rejection and a cut cable, then against the hosted lineup (Phase 9 task 4).

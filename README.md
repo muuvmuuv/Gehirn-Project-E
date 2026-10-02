@@ -54,6 +54,16 @@ cd hq && ../gehirn hq
 
 Kill HQ and the field unit runs on internal power once `UMBILICAL_GRACE_MS` has passed, then holds; start HQ again and the cable reconnects. Plain `./gehirn` keeps both in one process for development, and `tools/trials.py` flies only that.
 
+## The bridge
+
+`./gehirn-bridge` is the operator's view of one unit in the look of NERV's command center: MAGI's three units with 可決, 否決 or 故障 and each one's why, the proposals and their verdicts, the core's last fault, the scene, the seat and sync, the umbilical counting down once the cable is cut, armor refusals and outcomes. It runs on a machine of its own and only watches ([ADR 0005](docs/adr/0005-the-bridge.md)): it listens on `BRIDGE_ENDPOINT` for the watch streams that `gehirn hq` and `gehirn field` publish under `WATCH_KEY`, declares no publisher, and holds no key that approves or pulses, so closing it changes nothing. A bridge that starts late misses what came before; it shows the newest from then on. It reads `UNIT_ID`, `WATCH_KEY` and `BRIDGE_ENDPOINT`, and `VUI_FONT` for a font with CJK glyphs where macOS's Arial Unicode is missing, as on Linux. Next to the run above, with the same `WATCH_KEY` exported in all three shells:
+
+```sh
+just bridge
+export WATCH_KEY=$(openssl rand -hex 32)   # once, then the same value for hq, field and the bridge
+./gehirn-bridge
+```
+
 ## Local models
 
 The alternative to hosted chat models runs the core, MELCHIOR and CASPER on this machine through llama.cpp, while BALTHASAR still asks Jev. It is not verified since the prompts were tuned: the local lineup delivered 0 of 10 before tuning and has not run since. It needs llama.cpp's `llama-server`. The preset `tools/models.ini` serves the core, MELCHIOR and CASPER from one router on port 8081, because Docker often holds 8080, plus gemma3:4b for an LLM BALTHASAR. The first start downloads the four, about 25 GB, and all four stay resident. gehirn's default URL and chat models are the preset's.

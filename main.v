@@ -4,7 +4,6 @@
 // channels between them can become network links without touching either side.
 module main
 
-import encoding.hex
 import os
 import strconv
 import time
@@ -164,9 +163,7 @@ fn command(args []string) !string {
 // `$`, `?`, `#` and `/` as syntax, so a unit named `*` would hear every unit.
 fn unit_id() !string {
 	val := env('UNIT_ID', 'eva01')
-	if val.len > 32 || !val.contains_only('abcdefghijklmnopqrstuvwxyz0123456789-') {
-		return error('UNIT_ID is ${quoted(val)}, not a unit name; accepted 1 to 32 lowercase letters, digits and hyphens')
-	}
+	wire.check_unit(val) or { return error('UNIT_ID is ${quoted(val)}, ${err.msg()}') }
 	return val
 }
 
@@ -177,10 +174,7 @@ fn hex_key(name string) ![]u8 {
 	if val == '' {
 		return []u8{}
 	}
-	if val.len != 64 || !val.contains_only('0123456789abcdefABCDEF') {
-		return error('${name} is not 64 hex digits; generate one with `openssl rand -hex 32`')
-	}
-	return hex.decode(val)!
+	return wire.decode_key(val) or { error('${name} is ${err.msg()}') }
 }
 
 // BallotEntry is one MAGI ballot as a journal line. tools/trials.py reads these lines.

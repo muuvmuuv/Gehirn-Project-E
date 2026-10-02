@@ -47,6 +47,7 @@ Never run: `sidecar/cl1_sidecar.py` and the `cl1` backend.
 | `jev` | Minimal client for TypeSafe's System One endpoint, where Jev answers typed questions; it refuses to ask without a key | nothing |
 | `umbilical` | Link state machine: connected, internal, depleted | nothing |
 | `zenoh` | Session, publishers and subscribers over zenoh-c, which moves bytes between the tiers and knows nothing of LCL | nothing |
+| `bridge/` | The executable `gehirn-bridge` of ADR-0005: the watch streams' state and its panels, drawn with `gg` | lcl, wire, zenoh |
 | `wire` | ADR-0003's messages: sealing and opening them, each side's ports, and the pumps between the tiers' channels and Zenoh | lcl, zenoh |
 
 Each module is a bounded context, and `lcl` is the only published language between them. Dependencies beyond this table need an ADR.
@@ -167,7 +168,7 @@ Goal: a graphical bridge in the look of NERV's command center, the operator's vi
 
 1. [x] ADR-0005 on the bridge, extending ADR-0001: it runs on its own machine or image, never on the field unit, because Vinix has no real time scheduling and its graphics stack is young; the toolkit, V's `gg` on sokol, Metal on the Mac and OpenGL elsewhere, so one codebase runs on the Mac and on the target; which streams it reads; and that it holds no safety role.
 2. [x] Read only subscriptions to the watch streams of ADR-0005, which HQ and the field unit publish under `WATCH_KEY` beside the Phase 1 streams: the field's state at 10 Hz and every verdict with its ballots. The bridge holds no key that approves or pulses. `wire` seals and opens them and declares the bridge's ports; `gehirn hq` and `gehirn field` publish them from a session of their own when `WATCH_KEY` is set. The bridge sends nothing that steers, approves or ejects; pilot input stays with the plug and the gamepad bridge.
-3. [ ] Panels: MAGI with 可決, 否決 and 故障 per unit and its reason, the active goal and each proposal, the sync ratio and the seat, the umbilical counting down from 5:00 once the cable is cut, the core's last fault (ADR-0004), armor refusals, and the scene from the percept.
+3. [x] Panels: MAGI with 可決, 否決 and 故障 per unit and its reason, the active goal and each proposal, the sync ratio and the seat, the umbilical counting down from 5:00 once the cable is cut, the core's last fault (ADR-0004), armor refusals, and the scene from the percept.
 4. [ ] Runs on the Mac against the mock and the hosted lineup.
 
 Done when the bridge follows a full mission live on the Mac, from goto to release, including a MAGI rejection and a cut cable, and closing the bridge changes nothing in the mission.

@@ -6,6 +6,7 @@ module wire
 
 import crypto.hmac
 import crypto.sha256
+import encoding.hex
 import time
 import x.json2
 import lcl
@@ -102,6 +103,24 @@ fn mac(link []u8, k string, payload []u8) []u8 {
 	mut data := '${k}\n'.bytes()
 	data << payload
 	return hmac.new(link, data, sha256.sum, sha256.block_size)
+}
+
+// check_unit fails unless unit can name a unit in a key expression: 1 to 32 lowercase letters,
+// digits and hyphens. Zenoh reads `*`, `$`, `?`, `#` and `/` as syntax, so a unit named `*` would
+// hear every unit. main.v and the bridge check UNIT_ID with it.
+pub fn check_unit(unit string) ! {
+	if unit == '' || unit.len > 32 || !unit.contains_only('abcdefghijklmnopqrstuvwxyz0123456789-') {
+		return error('not a unit name; accepted 1 to 32 lowercase letters, digits and hyphens')
+	}
+}
+
+// decode_key reads a key of 64 hex digits, such as UMBILICAL_KEY or WATCH_KEY, as 32 bytes. Its
+// error never shows the value, which is a key.
+pub fn decode_key(digits string) ![]u8 {
+	if digits.len != 64 || !digits.contains_only('0123456789abcdefABCDEF') {
+		return error('not 64 hex digits; generate one with `openssl rand -hex 32`')
+	}
+	return hex.decode(digits)!
 }
 
 fn check_link(link []u8) ! {
