@@ -292,7 +292,8 @@ class Handler(BaseHTTPRequestHandler):
             except (KeyError, TypeError, AttributeError):
                 problem = "state is not magi/jev.v JevState"
         if problem:
-            self.refuse(problem)
+            # TypeSafe documents 422 for a request it cannot validate, where OpenAI uses 400.
+            self.refuse(problem, 422)
             return
         time.sleep(self.slow.get("balthasar", 0.0))
         high = ", ".join(q for q, n in nouls.items() if n == HIGH) or "nothing"
@@ -318,10 +319,10 @@ class Handler(BaseHTTPRequestHandler):
         except (json.JSONDecodeError, UnicodeDecodeError):
             return None, "malformed JSON"
 
-    def refuse(self, problem: str) -> None:
-        """Answer HTTP 400 with the reason a real server would give."""
-        self.reply(400, {"error": {"message": problem, "type": "invalid_request_error"}})
-        self.log(f"400 {problem}")
+    def refuse(self, problem: str, status: int = 400) -> None:
+        """Answer an invalid request with status and the reason a real server would give."""
+        self.reply(status, {"error": {"message": problem, "type": "invalid_request_error"}})
+        self.log(f"{status} {problem}")
 
     def hung_up(self) -> bool:
         """Report whether the client closed its end, as one does when its deadline fires."""
