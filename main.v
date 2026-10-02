@@ -189,6 +189,14 @@ struct BallotEntry {
 	latency_ms i64
 }
 
+// FaultEntry is one core fault as a journal line, written for every fault while HQ prints only a
+// new one. It never enters the core's memory. tools/trials.py tally counts these lines.
+struct FaultEntry {
+	t_ms i64
+	kind string
+	why  string
+}
+
 // endpoint reads one chat model's variables. env treats an empty value as unset, so a
 // <prefix>_REASONING of default is how to send no reasoning_effort at all.
 fn endpoint(prefix string, model string, reasoning string, timeout_ms int) oai.Endpoint {
@@ -377,7 +385,11 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqM
 		proposal := soul.propose(ctx) or {
 			// A core that cannot think still lets HQ pulse, so the unit keeps its last approved
 			// goal while HQ deliberates, and without a proposal MAGI approves nothing (ADR-0004).
-			// tools/trials.py counts these hq: core fault: lines.
+			journal.log(FaultEntry{
+				t_ms: lcl.now_ms()
+				kind: 'core fault'
+				why:  err.msg()
+			})
 			note := if err.msg() != last_fault { 'hq: core fault: ${err.msg()}' } else { '' }
 			last_fault = err.msg()
 			if note != '' {

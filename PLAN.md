@@ -186,7 +186,7 @@ Done when the bridge follows a full mission live on the Mac, from goto to releas
 7. The dummy plug scans every sample on every tick. Fine at 20000 samples; Phase 4 replaces it.
 8. Status output is free text on stdout, with no structured log.
 9. MAGI judges the snapshot the core saw, which is stale by the core's latency, up to `CORE_TIMEOUT_MS`. The armor checks the live percept again, so this costs judgment quality, not safety.
-10. HQ prints a repeated identical core fault only once, and the journal records none, so logs undercount core faults.
+10. Resolved on 2026-10-02: HQ still prints a repeated core fault once, but the journal records every one as a structured line outside the core's memory, and `tools/trials.py` counts those.
 11. `CORE_TIMEOUT_MS` bounds only the language backend. `Cl1Core.propose` has no deadline, and its drain loop runs as long as spikes keep arriving.
 12. After an eject the dummy plug still takes the seat in the status line, the recorder and the context sent to HQ, although the armor holds the body.
 13. qwen3-8b has a single provider on OpenRouter and answers HTTP 429 under load. A 429 is a core fault without retry, so fly missions with `--jobs 3` or less.

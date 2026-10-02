@@ -29,8 +29,8 @@ from dataclasses import dataclass
 from withenv import load_env
 
 # The journal's text lines come from core/core.v Memory, its ballot lines from
-# main.v BallotEntry. The log is gehirn's stdout, of which only the "armor: ... refused"
-# lines of main.v main() and the "hq: core fault: " lines of main.v hq() are counted.
+# main.v BallotEntry and its core fault lines from main.v FaultEntry. The log is gehirn's
+# stdout, of which only the "armor: ... refused" lines of main.v main() are counted.
 RELEASE_VOTE = re.compile(r"^proposed release\b.*, (approved|rejected) \d+/\d+$", re.S)
 # Fault texts of a ballot the unit's reply could not be read for: oai/oai.v ask (unreadable
 # completion) and extract_json (no JSON object), magi/magi.v read_reply (unreadable ballot) and
@@ -111,7 +111,9 @@ def tally(journal: str, log: str) -> Tally:
     t.on_target, t.off_target = int(where == "on target"), int(where == "off target")
     t.no_release = int(where is None)
     for e in entries:
-        if e.get("kind") == "ballot":
+        if e.get("kind") == "core fault":
+            t.core_faults += 1
+        elif e.get("kind") == "ballot":
             t.ballots += 1
             if e.get("vote") == "fault":
                 why = str(e.get("why") or "")
@@ -127,7 +129,6 @@ def tally(journal: str, log: str) -> Tally:
             for line in f:
                 line = line.rstrip("\n")
                 t.refusals += line.startswith("armor: ") and line.endswith(" refused")
-                t.core_faults += line.startswith("hq: core fault: ")
     except FileNotFoundError:
         pass
     return t

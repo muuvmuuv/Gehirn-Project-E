@@ -159,7 +159,7 @@ That is a soft layer on operating systems without real time guarantees. On hardw
 | `PLUG_LISTEN` | `0.0.0.0:7777` | UDP address for pilot input |
 | `PILOT_KEY` | empty | The pilot's key, 64 hex digits, that signs every datagram; `tools/pilot.py` reads the same variable. Without it no pilot can steer or eject |
 | `MISSION` | deliver to b1, avoid humans | What HQ is trying to achieve |
-| `CORE_JOURNAL` | `core.<pilot>.jsonl` | The soul: append only, one per pilot. It also records every MAGI ballot |
+| `CORE_JOURNAL` | `core.<pilot>.jsonl` | The soul: append only, one per pilot. It also records every MAGI ballot and every core fault |
 | `PLUG_RECORDER` | `plug.<pilot>.jsonl` | Every tick, and the dummy plug's training set |
 | `HQ_PERIOD_MS` | `1500` | Pause between deliberations, 100 to 3000 |
 | `MAGI_COOLDOWN_MS` | `10000` | Wait before an irreversible proposal may be put again, 5000 to 60000, so always longer than the pause |

@@ -427,6 +427,12 @@ fn test_a_faulting_core_keeps_hq_pulsing_and_approves_nothing() {
 	}
 	assert notes == ['hq: core fault: core: model down', '', '']
 
+	// The journal counts every fault, and none enters the core's memory.
+	faults := os.read_lines(journal)!.filter(it.contains('"kind":"core fault"'))
+	assert faults.len == 3
+	assert faults[0].contains('"why":"core: model down"')
+	assert core.open_memory(journal, 256).recent(12).len == 0
+
 	// The bridge hears of the fault once too.
 	mut e := lcl.HqEvent{}
 	assert events.try_pop(mut e) == .success
