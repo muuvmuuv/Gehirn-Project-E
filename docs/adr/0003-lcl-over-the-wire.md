@@ -1,6 +1,6 @@
 # ADR-0003: LCL over the wire
 
-**Status:** Proposed
+**Status:** Accepted on 2026-10-02
 **Date:** 2026-10-02
 **Deciders:** repository owner
 

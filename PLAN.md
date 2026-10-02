@@ -92,7 +92,7 @@ Done when ten runs from the default start deliver on target at least eight times
 
 Goal: HQ and the field unit on separate machines, linked through Zenoh.
 
-1. [x] ADR-0003 on LCL over the wire: encoding (JSON with a schema version field first, CBOR only if measurements ask for it), key expressions, and reliability per stream. Proposed; it also signs every message and replaces the liveliness pulse.
+1. [x] ADR-0003 on LCL over the wire: encoding (JSON with a schema version field first, CBOR only if measurements ask for it), key expressions, and reliability per stream. Accepted on 2026-10-02; it also signs every message and replaces the liveliness pulse.
 2. [x] A `zenoh` module wrapping zenoh-c through V's C interop: session, publisher, and subscribers that receive through zenoh-c's channel handlers, so no V code runs on a Zenoh thread. Behind a small interface, so tests run on an in process fake. Confirm zenoh-c builds for aarch64 musl, or the field tier loses its Vinix path. The interface and the fake come with task 3's transport, their first user.
 3. [ ] The streams of ADR-0003: `gehirn/<unit>/context` from field to HQ, newest only; `gehirn/<unit>/outcome` from field to HQ; `gehirn/<unit>/goal` from HQ to field, approved goals only; `gehirn/<unit>/pulse` from HQ to field once per deliberation, as the umbilical's sign of life. Every message carries an HMAC under the unit's link key and a sequence number, and HQ's an echo of the newest percept's time.
 4. [ ] Split `main.v` into an HQ executable and a field executable over the same modules, and keep the combined binary for development.
