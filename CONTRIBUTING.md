@@ -61,7 +61,7 @@ A failing check is never unrelated. Fix it, or stop and report it.
 ### Modules and boundaries
 
 1. The module table in PLAN.md is the dependency rule, and an import outside it needs an ADR. V rejects import cycles but not a forbidden edge, so review compares every new `import` line with the table.
-2. What one bounded context hands another while running (percepts, goals, outcomes, pilot input, context) is an `lcl` type. A module's own API (config structs, clients, results such as `magi.Verdict`) is used by `main.v`, `eval.v` and the modules the table lets import it. A model reply, a Jev answer or a datagram is decoded into a typed struct inside the module that received it, by that module's one parser (`oai.extract_json`, `magi.read_reply`, `plug.listen`). A `json2.Any` never leaves the function that decoded it.
+2. What one bounded context hands another while running (percepts, goals, outcomes, pilot input, context) is an `lcl` type. A module's own API (config structs, clients, results such as `magi.Verdict`) is used by `main.v`, `eval.v` and the modules the table lets import it. A model reply, a Jev answer, a datagram or a message from the other tier is decoded into a typed struct inside the module that received it, by that module's one parser (`oai.extract_json`, `magi.read_reply`, `plug.listen`, `wire.Opener`). A `json2.Any` never leaves the function that decoded it.
 3. Each boundary has one door. Only `oai` and `jev` import `net.http`. Outside tests, only `plug` and `core/cl1.v` import `net`. Only `zenoh` links zenoh-c. Only `armor` holds a `Body` (Invariant 1). A new door is a new row in the module table.
 4. C interop (`C.` declarations, `#flag`, `#include`) lives only in `.c.v` files, and field tier code follows Invariant 9.
 
@@ -77,7 +77,7 @@ A failing check is never unrelated. Fix it, or stop and report it.
 ### Tests
 
 1. Tests sit beside their module as `<file>_test.v` in the same module, so they reach private functions.
-2. Tests are table driven where the code carries an invariant or reads outside input: `armor`, the MAGI quorum, `umbilical.Cable`, `plug.Sync`, and every parser of model replies, Jev answers, datagrams or journal lines. A table is a slice of a `Case` struct, a slice of arrays or a map literal. The first `assert` in its loop names the case in its message, unless its two sides already show it; a failed `assert` prints both. `magi/magi_test.v` is the model.
+2. Tests are table driven where the code carries an invariant or reads outside input: `armor`, the MAGI quorum, `umbilical.Cable`, `plug.Sync`, and every parser of model replies, Jev answers, messages from the other tier, datagrams or journal lines. A table is a slice of a `Case` struct, a slice of arrays or a map literal. The first `assert` in its loop names the case in its message, unless its two sides already show it; a failed `assert` prints both. `magi/magi_test.v` is the model.
 3. A change to the code of an invariant adds the case that shows the violation refused.
 4. Network faults are tested against a loopback listener the test opens itself, as in `jev/jev_test.v`. No test reaches a real endpoint. Behavior over HTTP beyond that belongs to the mock missions.
 5. `assert` belongs in tests only. `v -prod` removes every assert, so a check the running stack needs is an `if` that returns an error or a fault.
@@ -119,7 +119,7 @@ A failing check is never unrelated. Fix it, or stop and report it.
 <type>[(scope)][!]: <subject>
 
 type   build chore ci docs feat fix perf refactor style test
-scope  optional: a module (lcl body armor plug core magi oai jev umbilical zenoh),
+scope  optional: a module (lcl body armor plug core magi oai jev umbilical zenoh wire),
        or eval, tools, sidecar, adr, vscode
 ```
 

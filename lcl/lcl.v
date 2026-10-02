@@ -91,9 +91,9 @@ pub:
 // HqMsg is one message from HQ to main.v's field loop: a goal and whether MAGI approved it,
 // whether HQ is alive to pulse the umbilical, and a note for the field loop to print. The note is
 // one status line, or after a vote a block of lines: the proposal, the verdict's tally and one
-// line per unit's ballot. Phase 1 carries its parts apart: goal and approved on the goal stream,
-// alive as HQ's liveliness, and note becomes HQ's own status output once HQ runs as its own
-// process.
+// line per unit's ballot. Over the wire its parts travel apart (ADR-0003): an approved goal on
+// the goal stream, alive as a pulse, and the note stays on HQ as its own status output; wire.Field
+// turns each goal, pulse or dropped message back into an HqMsg for the field loop.
 pub struct HqMsg {
 pub:
 	goal     Intent

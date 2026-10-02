@@ -6,7 +6,7 @@ This file is the handoff to Claude Code: where the project stands, the rules tha
 
 ## State as of 2026-10-02
 
-Builds on V 0.5.2 from Homebrew (45ae01d), which ships JSON as `x.json2`, with warnings as errors (`v -W`). `v vet` is clean apart from two notices about const arrays in `lcl`. `just check` runs every check: table driven tests for `armor`, `umbilical`, `plug.Sync`, `oai`, `jev`, `magi`, `core`, `zenoh`, `main` and the scenario harness, and `tools/test_withenv.py` for the dotenv loader. `just missions` flies the mock missions.
+Builds on V 0.5.2 from Homebrew (45ae01d), which ships JSON as `x.json2`, with warnings as errors (`v -W`). `v vet` is clean apart from two notices about const arrays in `lcl`. `just check` runs every check: table driven tests for `armor`, `umbilical`, `plug.Sync`, `oai`, `jev`, `magi`, `core`, `zenoh`, `wire`, `main` and the scenario harness, and `tools/test_withenv.py` for the dotenv loader. `just missions` flies the mock missions.
 
 Verified by independent runs against `tools/mock_endpoint.py`:
 
@@ -45,6 +45,7 @@ Never run: `sidecar/cl1_sidecar.py` and the `cl1` backend.
 | `jev` | Minimal client for TypeSafe's System One endpoint, where Jev answers typed questions; it refuses to ask without a key | nothing |
 | `umbilical` | Link state machine: connected, internal, depleted | nothing |
 | `zenoh` | Session, publishers and subscribers over zenoh-c, which moves bytes between the tiers and knows nothing of LCL | nothing |
+| `wire` | ADR-0003's messages: sealing and opening them, each side's ports, and the pumps between the tiers' channels and Zenoh | lcl, zenoh |
 
 Each module is a bounded context, and `lcl` is the only published language between them. Dependencies beyond this table need an ADR.
 
@@ -93,9 +94,9 @@ Done when ten runs from the default start deliver on target at least eight times
 Goal: HQ and the field unit on separate machines, linked through Zenoh.
 
 1. [x] ADR-0003 on LCL over the wire: encoding (JSON with a schema version field first, CBOR only if measurements ask for it), key expressions, and reliability per stream. Accepted on 2026-10-02; it also signs every message and replaces the liveliness pulse.
-2. [x] A `zenoh` module wrapping zenoh-c through V's C interop: session, publisher, and subscribers that receive through zenoh-c's channel handlers, so no V code runs on a Zenoh thread. Behind a small interface, so tests run on an in process fake. Confirm zenoh-c builds for aarch64 musl, or the field tier loses its Vinix path. The interface and the fake come with task 3's transport, their first user.
-3. [ ] The streams of ADR-0003: `gehirn/<unit>/context` from field to HQ, newest only; `gehirn/<unit>/outcome` from field to HQ; `gehirn/<unit>/goal` from HQ to field, approved goals only; `gehirn/<unit>/pulse` from HQ to field once per deliberation, as the umbilical's sign of life. Every message carries an HMAC under the unit's link key and a sequence number, and HQ's an echo of the newest percept's time.
-4. [ ] Split `main.v` into an HQ executable and a field executable over the same modules, and keep the combined binary for development.
+2. [x] A `zenoh` module wrapping zenoh-c through V's C interop: session, publisher, and subscribers that receive through zenoh-c's channel handlers, so no V code runs on a Zenoh thread. Behind a small interface, so tests run on an in process fake. Confirm zenoh-c builds for aarch64 musl, or the field tier loses its Vinix path. No interface or fake: the tests run real sessions in process and over loopback in milliseconds.
+3. [x] The streams of ADR-0003: `gehirn/<unit>/context` from field to HQ, newest only; `gehirn/<unit>/outcome` from field to HQ; `gehirn/<unit>/goal` from HQ to field, approved goals only; `gehirn/<unit>/pulse` from HQ to field once per deliberation, as the umbilical's sign of life. Every message carries an HMAC under the unit's link key and a sequence number, and HQ's an echo of the newest percept's time. The `wire` module seals and opens them, declares each side's ports and pumps between the tiers' channels and Zenoh; nothing runs it until task 4.
+4. [ ] Split `main.v` into an HQ executable and a field executable over the same modules, and keep the combined binary for development. Both read `UNIT_ID`, `UMBILICAL_KEY` and their Zenoh endpoints (ADR-0003 action item 2), and HQ fills in the mission, which no longer travels.
 5. [ ] Sign pilot datagrams with HMAC SHA256 under a per pilot key, with a sequence number against replay, as ADR-0003 signs the streams. Unsigned, stale or replayed datagrams are dropped like foreign ones.
 6. [ ] Decide whether a core fault should keep stopping the pulse once HQ reports its own health.
 
