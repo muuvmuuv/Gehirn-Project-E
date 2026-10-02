@@ -64,6 +64,18 @@ struct PulseMsg {
 	echo_ms i64
 }
 
+struct ViewMsg {
+	v    int
+	seq  i64
+	view lcl.FieldView
+}
+
+struct EventMsg {
+	v     int
+	seq   i64
+	event lcl.HqEvent
+}
+
 // init warms every type this module decodes before any thread exists, against the json2 cache
 // race of oai/oai.v init: both pumps decode Header, and a test runs both in one process.
 // ponytail: a message type added here must be warmed too; drop this once json2 guards its cache.
@@ -73,6 +85,10 @@ fn init() {
 	_ := json2.decode[OutcomeMsg]('{"outcome":{}}') or { OutcomeMsg{} }
 	_ := json2.decode[GoalMsg]('{"goal":{}}') or { GoalMsg{} }
 	_ := json2.decode[PulseMsg]('{}') or { PulseMsg{} }
+	_ := json2.decode[ViewMsg]('{"view":{"percept":{"scene":[{}]},"outcomes":[{}]}}') or {
+		ViewMsg{}
+	}
+	_ := json2.decode[EventMsg]('{"event":{"proposal":{},"votes":[{}]}}') or { EventMsg{} }
 }
 
 // key is the key expression of one stream of unit, such as gehirn/eva01/goal.
@@ -168,6 +184,26 @@ pub fn (mut s Sealer) pulse(echo_ms i64) Frame {
 	}))
 }
 
+// view seals the field unit's view for the bridge, under WATCH_KEY (ADR-0005).
+pub fn (mut s Sealer) view(v lcl.FieldView) Frame {
+	s.seq++
+	return s.frame('watch/field', json2.encode(ViewMsg{
+		v:    version
+		seq:  s.seq
+		view: v
+	}))
+}
+
+// event seals one of HQ's events for the bridge, under WATCH_KEY (ADR-0005).
+pub fn (mut s Sealer) event(e lcl.HqEvent) Frame {
+	s.seq++
+	return s.frame('watch/hq', json2.encode(EventMsg{
+		v:     version
+		seq:   s.seq
+		event: e
+	}))
+}
+
 // Opener opens what one side receives. It checks a sample's size and HMAC before it parses
 // anything, then its version and sequence number, and keeps the last number it accepted per
 // stream. Every error is a dropped message, and its text names the stream and never a number,
@@ -251,6 +287,22 @@ pub fn (mut o Opener) pulse(s zenoh.Sample, now i64, grace_ms i64) ! {
 	m := json2.decode[PulseMsg](raw) or { return error('wire: unreadable pulse') }
 	fresh('pulse', m.echo_ms, now, grace_ms)!
 	o.last['pulse'] = seq
+}
+
+// view opens the field unit's view, as the bridge receives it.
+pub fn (mut o Opener) view(s zenoh.Sample) !lcl.FieldView {
+	raw, seq := o.check('watch/field', s)!
+	m := json2.decode[ViewMsg](raw) or { return error('wire: unreadable watch/field') }
+	o.last['watch/field'] = seq
+	return m.view
+}
+
+// event opens one of HQ's events, as the bridge receives it.
+pub fn (mut o Opener) event(s zenoh.Sample) !lcl.HqEvent {
+	raw, seq := o.check('watch/hq', s)!
+	m := json2.decode[EventMsg](raw) or { return error('wire: unreadable watch/hq') }
+	o.last['watch/hq'] = seq
+	return m.event
 }
 
 // FieldPorts are the field unit's ends of the four streams, with ADR-0003's quality of service.
@@ -441,5 +493,68 @@ fn (mut h Hq) note(msg string, notes chan string) {
 	if msg != h.last_note {
 		h.last_note = msg
 		_ = notes.try_push(msg)
+	}
+}
+
+// Watch is one tier's watch stream to the bridge (ADR-0005), sealed under WATCH_KEY and put at
+// background priority, dropped when the queue is full, so a slow or absent bridge never holds up
+// a tier. Its pump runs on a thread of its own and drops a value it cannot put without a word,
+// since nothing acts on what the bridge shows.
+@[heap]
+pub struct Watch {
+	publ &zenoh.Publisher
+mut:
+	sealer Sealer
+}
+
+fn new_watch(s &zenoh.Session, unit string, stream string, watch_key []u8) !&Watch {
+	return &Watch{
+		publ:   s.publisher(key(unit, stream), zenoh.Qos{
+			congestion: .drop
+			priority:   .background
+		})!
+		sealer: new_sealer(watch_key, unit)!
+	}
+}
+
+// field_watch is the field unit's watch stream for unit on s, a session of its own that dials
+// the bridge.
+pub fn field_watch(s &zenoh.Session, unit string, watch_key []u8) !&Watch {
+	return new_watch(s, unit, 'watch/field', watch_key)!
+}
+
+// hq_watch is HQ's watch stream for unit on s, a session of its own that dials the bridge.
+pub fn hq_watch(s &zenoh.Session, unit string, watch_key []u8) !&Watch {
+	return new_watch(s, unit, 'watch/hq', watch_key)!
+}
+
+// run_field puts every view from views until the channel closes.
+pub fn (mut w Watch) run_field(views chan lcl.FieldView) {
+	for {
+		v := <-views or { return }
+		put(w.publ, w.sealer.view(v)) or {}
+	}
+}
+
+// run_hq puts every event from events until the channel closes.
+pub fn (mut w Watch) run_hq(events chan lcl.HqEvent) {
+	for {
+		e := <-events or { return }
+		put(w.publ, w.sealer.event(e)) or {}
+	}
+}
+
+// BridgePorts are the bridge's ends of the two watch streams. The bridge declares no publisher.
+pub struct BridgePorts {
+pub:
+	field &zenoh.Subscriber
+	hq    &zenoh.Subscriber
+}
+
+// bridge_ports subscribes to unit's watch streams on s.
+pub fn bridge_ports(s &zenoh.Session, unit string) !BridgePorts {
+	return BridgePorts{
+		field: s.subscriber(key(unit, 'watch/field'), zenoh.Queue{ cap: 16 })!
+		hq:    s.subscriber(key(unit, 'watch/hq'), zenoh.Queue{ cap: 32 })!
 	}
 }

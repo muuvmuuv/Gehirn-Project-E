@@ -47,6 +47,8 @@ struct Config {
 	unit        string
 	link        []u8 // UMBILICAL_KEY's 32 bytes, empty when unset
 	pilot_key   []u8 // PILOT_KEY's 32 bytes, empty when unset
+	watch       []u8 // WATCH_KEY's 32 bytes, empty when unset
+	bridge      string
 	endpoint    string
 }
 
@@ -332,6 +334,8 @@ fn load_config() !Config {
 		unit:        unit_id()!
 		link:        hex_key('UMBILICAL_KEY')!
 		pilot_key:   hex_key('PILOT_KEY')!
+		watch:       hex_key('WATCH_KEY')!
+		bridge:      env('BRIDGE_ENDPOINT', 'tcp/127.0.0.1:7448')
 		endpoint:    env('UMBILICAL_ENDPOINT', 'tcp/127.0.0.1:7447')
 	}
 }
@@ -351,7 +355,7 @@ fn new_backend(cfg Config) !core.Core {
 // MAGI is only consulted when a proposal would change something, and an irreversible
 // proposal that was just put to the vote waits out a cooldown before it may be put again.
 // backend is the core main built with new_backend; once spawned, only hq uses it.
-fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqMsg, outcomes chan lcl.Outcome) {
+fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqMsg, outcomes chan lcl.Outcome, events chan lcl.HqEvent) {
 	mut soul := backend
 	council := magi.Magi{
 		units: cfg.units
@@ -382,6 +386,12 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqM
 			// tools/trials.py counts these hq: core fault: lines.
 			note := if err.msg() != last_fault { 'hq: core fault: ${err.msg()}' } else { '' }
 			last_fault = err.msg()
+			if note != '' {
+				_ = events.try_push(lcl.HqEvent{
+					t_ms:  lcl.now_ms()
+					fault: last_fault
+				})
+			}
 			outbox <- lcl.HqMsg{
 				alive: true
 				note:  note
@@ -401,24 +411,31 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqM
 		}
 		verdict := council.decide(ctx, proposal)
 		for b in verdict.ballots {
-			vote := if b.fault {
-				'fault'
-			} else if b.approve {
-				'approve'
-			} else {
-				'reject'
-			}
 			journal.log(BallotEntry{
 				t_ms:       lcl.now_ms()
 				kind:       'ballot'
 				proposal:   proposal.label()
 				unit:       b.unit
 				model:      b.model
-				vote:       vote
+				vote:       vote_of(b)
 				why:        b.why
 				latency_ms: b.latency_ms
 			})
 		}
+		_ = events.try_push(lcl.HqEvent{
+			t_ms:     lcl.now_ms()
+			proposal: proposal
+			approved: verdict.approved
+			yes:      verdict.yes
+			needed:   verdict.needed
+			votes:    verdict.ballots.map(lcl.Vote{
+				unit:       it.unit
+				model:      it.model
+				vote:       vote_of(it)
+				why:        it.why
+				latency_ms: it.latency_ms
+			})
+		})
 		if irreversible {
 			last_irreversible = lcl.now_ms()
 		}
@@ -451,11 +468,32 @@ fn serve_hq(cfg Config) {
 	outbox := chan lcl.HqMsg{cap: 8}
 	outcomes := chan lcl.Outcome{cap: 32}
 	notes := chan string{cap: 64}
+	events := chan lcl.HqEvent{cap: 16}
 	println('hq: unit ${cfg.unit}, listening for the field at ${quoted(cfg.endpoint)}')
-	spawn hq(cfg, soul, inbox, outbox, outcomes)
+	if cfg.watch.len > 0 {
+		mut w := wire.hq_watch(watch_session(cfg) or {
+			eprintln('gehirn: ${err.msg()}')
+			exit(1)
+		}, cfg.unit, cfg.watch) or {
+			eprintln('gehirn: ${err.msg()}')
+			exit(1)
+		}
+		println('hq: showing the bridge at ${quoted(cfg.bridge)}')
+		spawn w.run_hq(events)
+	}
+	spawn hq(cfg, soul, inbox, outbox, outcomes, events)
 	spawn link.run(inbox, outcomes, outbox, notes)
 	for {
 		println(<-notes)
+	}
+}
+
+// watch_session opens a tier's session to the bridge: it dials BRIDGE_ENDPOINT and holds only
+// the watch publisher, so the bridge never links to the session that carries goals and pulses
+// (ADR-0005). Zenoh keeps dialing an absent bridge.
+fn watch_session(cfg Config) !&zenoh.Session {
+	return zenoh.open(zenoh.Config{ connect: [cfg.bridge] }) or {
+		return error('BRIDGE_ENDPOINT is ${quoted(cfg.bridge)}; ${err.msg()}')
 	}
 }
 
@@ -512,6 +550,8 @@ fn main() {
 	to_hq := chan lcl.Context{cap: 1}
 	from_hq := chan lcl.HqMsg{cap: 8}
 	outcomes := chan lcl.Outcome{cap: 32}
+	views := chan lcl.FieldView{cap: 1}
+	watching := cmd == 'field' && cfg.watch.len > 0
 
 	// The other end of these channels: the link to HQ, or HQ on a thread of its own.
 	if cmd == 'field' {
@@ -521,13 +561,24 @@ fn main() {
 		}
 		println('field: unit ${cfg.unit}, dialing HQ at ${quoted(cfg.endpoint)}')
 		spawn link.run(to_hq, outcomes, from_hq)
+		if watching {
+			mut w := wire.field_watch(watch_session(cfg) or {
+				eprintln('gehirn: ${err.msg()}')
+				exit(1)
+			}, cfg.unit, cfg.watch) or {
+				eprintln('gehirn: ${err.msg()}')
+				exit(1)
+			}
+			println('field: showing the bridge at ${quoted(cfg.bridge)}')
+			spawn w.run_field(views)
+		}
 	} else {
 		soul := new_backend(cfg) or {
 			// tools/trials.py WARNINGS echoes this line from a run's log.
 			eprintln('gehirn: ${err.msg()}')
 			exit(1)
 		}
-		spawn hq(cfg, soul, to_hq, from_hq, outcomes)
+		spawn hq(cfg, soul, to_hq, from_hq, outcomes, chan lcl.HqEvent{cap: 1})
 	}
 	if cfg.pilot_key.len == 0 {
 		println('plug: PILOT_KEY is unset, so the plug drops every datagram and no pilot can steer or eject')
@@ -550,6 +601,8 @@ fn main() {
 	mut reached := false
 	mut touching := false
 	mut last_status := i64(0)
+	mut ticks := u64(0)
+	mut seen := []lcl.Outcome{} // outcomes since the last view for the bridge
 
 	for {
 		now := lcl.now_ms()
@@ -571,7 +624,7 @@ fn main() {
 			if !ar.permits(msg.goal.verb, p) {
 				// tools/trials.py counts these armor: refused lines.
 				println('armor: ${msg.goal.label()} refused')
-				push_outcome(outcomes, lcl.Outcome{
+				push_outcome(outcomes, mut seen, lcl.Outcome{
 					t_ms: now
 					kind: 'armor refused ${msg.goal.label()}'
 				})
@@ -586,7 +639,7 @@ fn main() {
 				// 0.1 m past lcl.beacon_reach, so a release approved at the reach lands on target.
 				// magi/jev.v jev_delivery repeats the 0.6 m.
 				on_target := near(p, 'beacon', lcl.beacon_reach + 0.1)
-				push_outcome(outcomes, lcl.Outcome{
+				push_outcome(outcomes, mut seen, lcl.Outcome{
 					t_ms: now
 					kind: if on_target { 'released on target' } else { 'released off target' }
 					good: on_target
@@ -673,19 +726,37 @@ fn main() {
 		if goal.verb == 'goto' && !reached && goal.target.len == p.pose.len
 			&& lcl.dist(p.pose, goal.target) < lcl.arrive {
 			reached = true
-			push_outcome(outcomes, lcl.Outcome{ t_ms: now, kind: 'reached', good: true })
+			push_outcome(outcomes, mut seen, lcl.Outcome{ t_ms: now, kind: 'reached', good: true })
 		}
 		if p.contact && !touching {
-			push_outcome(outcomes, lcl.Outcome{ t_ms: now, kind: 'contact' })
+			push_outcome(outcomes, mut seen, lcl.Outcome{ t_ms: now, kind: 'contact' })
 		}
 		touching = p.contact
 
-		push_context(to_hq, lcl.Context{
+		push_newest(to_hq, lcl.Context{
 			percept: p
 			goal:    goal
 			seat:    seat
 			sync:    ratio
 		})
+
+		// The bridge's view, every fifth tick.
+		ticks++
+		if ticks % 5 == 0 {
+			if watching {
+				push_newest(views, lcl.FieldView{
+					percept:     p
+					goal:        goal
+					seat:        seat
+					sync:        ratio
+					authority:   authority
+					umbilical:   link.str()
+					internal_ms: cable.remaining_ms(now)
+					outcomes:    seen
+				})
+			}
+			seen = []lcl.Outcome{}
+		}
 
 		if now - last_status >= 1000 {
 			last_status = now
@@ -752,15 +823,29 @@ fn near(p lcl.Percept, kind string, within f64) bool {
 	return false
 }
 
-// push_context keeps only the newest snapshot for HQ and drops a stale one to make room.
-fn push_context(ch chan lcl.Context, ctx lcl.Context) {
-	for ch.try_push(ctx) != .success {
-		mut stale := lcl.Context{}
+// push_newest keeps only the newest value in ch, the snapshot for HQ or the view for the bridge,
+// and drops a stale one to make room.
+fn push_newest[T](ch chan T, v T) {
+	for ch.try_push(v) != .success {
+		mut stale := T{}
 		_ = ch.try_pop(mut stale)
 	}
 }
 
-// push_outcome never blocks the field loop. If HQ is too far behind, the outcome is lost.
-fn push_outcome(ch chan lcl.Outcome, o lcl.Outcome) {
+// push_outcome never blocks the field loop. If HQ is too far behind, the outcome is lost. seen
+// keeps it for the bridge's next view.
+fn push_outcome(ch chan lcl.Outcome, mut seen []lcl.Outcome, o lcl.Outcome) {
 	_ = ch.try_push(o)
+	seen << o
+}
+
+// vote_of is a ballot's vote as the journal and the bridge name it: approve, reject or fault.
+fn vote_of(b magi.Ballot) string {
+	return if b.fault {
+		'fault'
+	} else if b.approve {
+		'approve'
+	} else {
+		'reject'
+	}
 }

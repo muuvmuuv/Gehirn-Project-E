@@ -102,6 +102,47 @@ pub:
 	note     string
 }
 
+// FieldView is what the field unit shows the bridge ten times a second (ADR-0005): the percept,
+// the goal it pursues, the seat, the sync ratio, the core's share of the controls, the
+// umbilical's state and the internal power left, and the outcomes since the last view. main.v's
+// field loop makes it, and wire carries it to the bridge.
+pub struct FieldView {
+pub:
+	percept     Percept
+	goal        Intent
+	seat        string // pilot, dummy or empty
+	sync        f64
+	authority   f64    // the core's share of the controls, 0 to 1
+	umbilical   string // connected, internal or depleted
+	internal_ms i64    // internal power left
+	outcomes    []Outcome
+}
+
+// Vote is one MAGI unit's ballot as HQ shows it to the bridge: the unit, its model, the vote, its
+// why and how long it took.
+pub struct Vote {
+pub:
+	unit       string
+	model      string
+	vote       string // approve, reject or fault
+	why        string
+	latency_ms i64
+}
+
+// HqEvent is one thing HQ shows the bridge (ADR-0005): a proposal with MAGI's verdict and every
+// vote, or a new core fault, which leaves the proposal empty. main.v's hq makes it, and wire
+// carries it to the bridge.
+pub struct HqEvent {
+pub:
+	t_ms     i64
+	proposal Intent
+	approved bool
+	yes      int
+	needed   int
+	votes    []Vote
+	fault    string
+}
+
 // is_irreversible reports whether a verb needs all three MAGI. Unknown verbs do.
 pub fn is_irreversible(verb string) bool {
 	return verb !in known_verbs || verb in irreversible_verbs

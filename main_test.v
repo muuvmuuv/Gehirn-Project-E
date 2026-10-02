@@ -138,6 +138,8 @@ fn config_value(cfg Config, key string) string {
 		'UNIT_ID' { cfg.unit }
 		'UMBILICAL_KEY' { cfg.link.hex() }
 		'PILOT_KEY' { cfg.pilot_key.hex() }
+		'WATCH_KEY' { cfg.watch.hex() }
+		'BRIDGE_ENDPOINT' { cfg.bridge }
 		'UMBILICAL_ENDPOINT' { cfg.endpoint }
 		else { 'no such variable' }
 	}
@@ -241,6 +243,11 @@ fn test_load_config() {
 		ConfigCase{'PILOT_KEY', '', ''},
 		ConfigCase{'PILOT_KEY', 'aB'.repeat(32), 'ab'.repeat(32)},
 		ConfigCase{'PILOT_KEY', 'shinji', 'PILOT_KEY is not 64 hex digits; generate one with `openssl rand -hex 32`'},
+		ConfigCase{'WATCH_KEY', '', ''},
+		ConfigCase{'WATCH_KEY', '9c'.repeat(32), '9c'.repeat(32)},
+		ConfigCase{'WATCH_KEY', '9c'.repeat(31), 'WATCH_KEY is not 64 hex digits; generate one with `openssl rand -hex 32`'},
+		ConfigCase{'BRIDGE_ENDPOINT', '', 'tcp/127.0.0.1:7448'},
+		ConfigCase{'BRIDGE_ENDPOINT', 'tcp/bridge.local:7448', 'tcp/bridge.local:7448'},
 		ConfigCase{'UMBILICAL_ENDPOINT', '', 'tcp/127.0.0.1:7447'},
 		ConfigCase{'UMBILICAL_ENDPOINT', 'tcp/0.0.0.0:7447', 'tcp/0.0.0.0:7447'},
 	]
@@ -355,6 +362,10 @@ fn test_link_refuses_an_endpoint_zenoh_cannot_read() {
 		unit:     'eva01'
 		link:     []u8{len: 32}
 		endpoint: 'hq.local'
+		bridge:   'bridge.local'
+	}
+	watch_session(cfg) or {
+		assert err.msg() == 'BRIDGE_ENDPOINT is "bridge.local"; zenoh: config rejects connect/endpoints'
 	}
 	link_hq(cfg) or {
 		assert err.msg() == 'UMBILICAL_ENDPOINT is "hq.local"; zenoh: config rejects listen/endpoints'
@@ -390,11 +401,12 @@ fn test_a_faulting_core_keeps_hq_pulsing_and_approves_nothing() {
 	inbox := chan lcl.Context{cap: 1}
 	outbox := chan lcl.HqMsg{cap: 8}
 	outcomes := chan lcl.Outcome{cap: 32}
+	events := chan lcl.HqEvent{cap: 8}
 
 	// V 0.5.2 emits C that does not compile for a struct literal spawned as an interface argument;
 	// pass the literal directly once a V release compiles it.
 	soul := core.Core(FaultyCore{})
-	spawn hq(Config{ journal: journal, period_ms: 100 }, soul, inbox, outbox, outcomes)
+	spawn hq(Config{ journal: journal, period_ms: 100 }, soul, inbox, outbox, outcomes, events)
 	mut notes := []string{}
 	for _ in 0 .. 3 {
 		inbox <- lcl.Context{
@@ -414,4 +426,10 @@ fn test_a_faulting_core_keeps_hq_pulsing_and_approves_nothing() {
 		}
 	}
 	assert notes == ['hq: core fault: core: model down', '', '']
+
+	// The bridge hears of the fault once too.
+	mut e := lcl.HqEvent{}
+	assert events.try_pop(mut e) == .success
+	assert e.fault == 'core: model down' && e.proposal.verb == ''
+	assert events.try_pop(mut e) == .not_ready
 }

@@ -243,3 +243,75 @@ fn test_the_pumps_carry_lcl_between_the_tiers() {
 	assert m.note == 'wire: goal fails its mac'
 	assert !m.approved
 }
+
+fn test_the_watch_streams_reach_the_bridge_and_nothing_else_opens_them() {
+	watch_key := []u8{len: 32, init: u8(index * 3)}
+	at := 'tcp/127.0.0.1:${rand.int_in_range(20000, 60000)!}'
+	bridge_session := zenoh.open(zenoh.Config{ listen: [at] })!
+	ports := bridge_ports(bridge_session, 'eva01')!
+	mut f := field_watch(zenoh.open(zenoh.Config{ connect: [at] })!, 'eva01', watch_key)!
+	mut h := hq_watch(zenoh.open(zenoh.Config{ connect: [at] })!, 'eva01', watch_key)!
+	views := chan lcl.FieldView{cap: 1}
+	events := chan lcl.HqEvent{cap: 16}
+	spawn f.run_field(views)
+	spawn h.run_hq(events)
+	mut o := new_opener(watch_key, 'eva01')!
+
+	// Puts before the bridge's subscriptions reach a tier go nowhere, so keep putting.
+	view := lcl.FieldView{
+		seat:        'dummy'
+		umbilical:   'internal'
+		internal_ms: 299000
+		outcomes:    [lcl.Outcome{
+			kind: 'armor refused release'
+		}]
+	}
+	event := lcl.HqEvent{
+		proposal: lcl.Intent{
+			verb: 'release'
+		}
+		yes:      2
+		needed:   3
+		votes:    [
+			lcl.Vote{
+				unit: 'BALTHASAR-2'
+				vote: 'reject'
+				why:  'harm: drops_near_person 0.90 >= 0.35'
+			},
+		]
+	}
+	mut got_view := ?lcl.FieldView(none)
+	mut got_event := ?lcl.HqEvent(none)
+	deadline := time.now().add(patience)
+	for time.now() < deadline && (got_view == none || got_event == none) {
+		_ = views.try_push(view)
+		_ = events.try_push(event)
+		time.sleep(20 * time.millisecond)
+		if s := ports.field.try_recv() {
+			got_view = o.view(s)!
+		}
+		if s := ports.hq.try_recv() {
+			got_event = o.event(s)!
+		}
+	}
+	assert got_view or { panic('no view reached the bridge') } == view
+	assert got_event or { panic('no event reached the bridge') } == event
+
+	// A view sealed under the link key is no view, and a view is no context.
+	mut control := new_sealer(link, 'eva01')!
+	if _ := o.view(sample(control.view(view))) {
+		assert false, 'a view sealed under the link key opened'
+	} else {
+		assert err.msg() == 'wire: watch/field fails its mac'
+	}
+	mut watch := new_sealer(watch_key, 'eva01')!
+	mut hq_side := new_opener(link, 'eva01')!
+	hq_side.context(zenoh.Sample{
+		...sample(watch.view(view))
+		key: key('eva01', 'context')
+	}) or {
+		assert err.msg() == 'wire: context fails its mac'
+		return
+	}
+	assert false, 'a view opened as a context'
+}
