@@ -674,7 +674,8 @@ fn main() {
 			}
 		}
 
-		// The seat: the live pilot, else the dummy plug while it stays in sync, else nobody.
+		// The seat: the live pilot, else the dummy plug while it stays in sync and nobody has
+		// ejected, else nobody.
 		mut pin := lcl.PilotInput{}
 		for pilot_ch.try_pop(mut pin) == .success {
 			seat_in = pin
@@ -693,7 +694,7 @@ fn main() {
 				benched = false
 				dummy_sync = plug.Sync{}
 			}
-		} else if dummy.ready() && !benched {
+		} else if dummy.ready() && !benched && !ar.is_ejected() {
 			seat = 'dummy'
 			u_seat = dummy.act(p.pose, goal.target)
 		}
