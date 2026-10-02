@@ -114,7 +114,7 @@ Done when a pilot flies the mission from a gamepad and feels contact.
 
 ### Phase 3: A better body
 
-1. [ ] ADR-0005 on the simulator: MuJoCo through its C API, or Gazebo through ROS 2 and rmw_zenoh.
+1. [ ] An ADR on the simulator: MuJoCo through its C API, or Gazebo through ROS 2 and rmw_zenoh.
 2. [ ] A `Body` for the chosen simulator with a differential drive base. The stack above stays holonomic; the body adapter maps planar velocity onto the drive. `Sim` stays for fast runs.
 3. [ ] Obstacles from a range sensor instead of ground truth. Humans may stay ground truth behind a detector stub for now.
 
@@ -130,7 +130,7 @@ Done when, from start positions outside the training set, the new dummy arrives 
 
 ### Phase 5: Hard restraints on a microcontroller
 
-1. [ ] ADR-0006 on the microcontroller and firmware language: C with zenoh-pico as the default, Rust with embassy if a no_std Zenoh client fits.
+1. [ ] An ADR on the microcontroller and firmware language: C with zenoh-pico as the default, Rust with embassy if a no_std Zenoh client fits.
 2. [ ] Firmware: the armor's speed and acceleration limits, a geofence from odometry, the 200 ms command watchdog, and an e-stop that cuts motor power in hardware.
 3. [ ] Hardware in the loop on a bench motor driver.
 
@@ -165,8 +165,8 @@ Done when the tuned core gets fewer MAGI rejections and delivers at least as oft
 
 Goal: a graphical bridge in the look of NERV's command center, the operator's view of MAGI, the core, the seat and the umbilical. It shows the stack and never steers or decides.
 
-1. [ ] ADR-0007 on the bridge, extending ADR-0001: it runs on its own machine or image, never on the field unit, because Vinix has no real time scheduling and its graphics stack is young; the toolkit, V's `gg` on sokol, Metal on the Mac and OpenGL elsewhere, so one codebase runs on the Mac and on the target; which streams it reads; and that it holds no safety role.
-2. [ ] Read only subscriptions to the Phase 1 streams (context, goal, outcome, pulse) plus a new verdict stream that carries every ballot. The bridge sends nothing that steers, approves or ejects; pilot input stays with the plug and the gamepad bridge.
+1. [x] ADR-0005 on the bridge, extending ADR-0001: it runs on its own machine or image, never on the field unit, because Vinix has no real time scheduling and its graphics stack is young; the toolkit, V's `gg` on sokol, Metal on the Mac and OpenGL elsewhere, so one codebase runs on the Mac and on the target; which streams it reads; and that it holds no safety role.
+2. [ ] Read only subscriptions to the watch streams of ADR-0005, which HQ and the field unit publish under `WATCH_KEY` beside the Phase 1 streams: the field's state at 10 Hz and every verdict with its ballots. The bridge holds no key that approves or pulses. The bridge sends nothing that steers, approves or ejects; pilot input stays with the plug and the gamepad bridge.
 3. [ ] Panels: MAGI with 可決, 否決 and 故障 per unit and its reason, the active goal and each proposal, the sync ratio and the seat, the umbilical counting down from 5:00 once the cable is cut, the core's last fault (ADR-0004), armor refusals, and the scene from the percept.
 4. [ ] Runs on the Mac against the mock and the hosted lineup.
 
@@ -202,4 +202,4 @@ Done when the bridge follows a full mission live on the Mac, from goto to releas
 2. Is CL1 access realistic, on a device or remotely? That decides whether Phase 7 stays.
 3. Where does the field unit run first: a Mac on Vinix, or a single board computer on Linux?
 4. ADR-0001, still Proposed, puts HQ on a Linux machine with a GPU that holds the four models, while the proof of concept runs them hosted on OpenRouter and TypeSafe. Does HQ keep that GPU plan for later, or does ADR-0001 change before it is accepted?
-5. Which hardware runs the bridge image: an Apple Silicon Mac, where Vinix's graphics stack works, or a Linux machine as a kiosk? ADR-0007 depends on it.
+5. Which hardware runs the bridge image: an Apple Silicon Mac, where Vinix's graphics stack works, or a Linux machine as a kiosk? ADR-0005 leaves it open.

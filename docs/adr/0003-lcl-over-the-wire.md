@@ -1,6 +1,6 @@
 # ADR-0003: LCL over the wire
 
-**Status:** Accepted on 2026-10-02; the pulse's tie to a proposal superseded by ADR-0004
+**Status:** Accepted on 2026-10-02; the pulse's tie to a proposal superseded by ADR-0004, and the bridge's use of these streams by ADR-0005
 **Date:** 2026-10-02
 **Deciders:** repository owner
 
