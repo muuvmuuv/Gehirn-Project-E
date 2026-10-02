@@ -46,6 +46,7 @@ struct Config {
 	grace_ms    i64
 	unit        string
 	link        []u8 // UMBILICAL_KEY's 32 bytes, empty when unset
+	pilot_key   []u8 // PILOT_KEY's 32 bytes, empty when unset
 	endpoint    string
 }
 
@@ -167,15 +168,15 @@ fn unit_id() !string {
 	return val
 }
 
-// link_key reads UMBILICAL_KEY, the unit's link key as 64 hex digits, or none when unset. Its
-// refusal never shows the value, which is a key.
-fn link_key() ![]u8 {
-	val := os.getenv('UMBILICAL_KEY')
+// hex_key reads name, a key of 64 hex digits such as UMBILICAL_KEY or PILOT_KEY, as 32 bytes, or
+// none when unset. Its refusal never shows the value, which is a key.
+fn hex_key(name string) ![]u8 {
+	val := os.getenv(name)
 	if val == '' {
 		return []u8{}
 	}
 	if val.len != 64 || !val.contains_only('0123456789abcdefABCDEF') {
-		return error('UMBILICAL_KEY is not 64 hex digits; generate one with `openssl rand -hex 32`')
+		return error('${name} is not 64 hex digits; generate one with `openssl rand -hex 32`')
 	}
 	return hex.decode(val)!
 }
@@ -329,7 +330,8 @@ fn load_config() !Config {
 		budget_ms:   i64(env_ms('INTERNAL_BUDGET_MS', '300000', budget_span)!)
 		grace_ms:    i64(env_ms('UMBILICAL_GRACE_MS', '45000', grace_span)!)
 		unit:        unit_id()!
-		link:        link_key()!
+		link:        hex_key('UMBILICAL_KEY')!
+		pilot_key:   hex_key('PILOT_KEY')!
 		endpoint:    env('UMBILICAL_ENDPOINT', 'tcp/127.0.0.1:7447')
 	}
 }
@@ -526,7 +528,10 @@ fn main() {
 		}
 		spawn hq(cfg, soul, to_hq, from_hq, outcomes)
 	}
-	spawn plug.listen(cfg.plug_at, cfg.pilot_id, pilot_ch)
+	if cfg.pilot_key.len == 0 {
+		println('plug: PILOT_KEY is unset, so the plug drops every datagram and no pilot can steer or eject')
+	}
+	spawn plug.listen(cfg.plug_at, cfg.pilot_id, cfg.pilot_key, pilot_ch)
 	println('field: plug for ${cfg.pilot_id} on ${cfg.plug_at}, dummy plug holds ${dummy.size()} samples')
 
 	dt := f64(tick) / f64(time.second)
@@ -620,7 +625,7 @@ fn main() {
 		u_core := reflex(p, goal)
 		mut seat := 'empty'
 		mut u_seat := []f64{len: u_core.len}
-		if now - seat_in.t_ms < 500 && seat_in.u.len == u_core.len {
+		if now - seat_in.t_ms < plug.seat_ms && seat_in.u.len == u_core.len {
 			seat = 'pilot'
 			u_seat = seat_in.u.clone()
 			if benched {

@@ -99,7 +99,7 @@ Goal: HQ and the field unit on separate machines, linked through Zenoh.
 2. [x] A `zenoh` module wrapping zenoh-c through V's C interop: session, publisher, and subscribers that receive through zenoh-c's channel handlers, so no V code runs on a Zenoh thread. Behind a small interface, so tests run on an in process fake. Confirm zenoh-c builds for aarch64 musl, or the field tier loses its Vinix path. No interface or fake: the tests run real sessions in process and over loopback in milliseconds.
 3. [x] The streams of ADR-0003: `gehirn/<unit>/context` from field to HQ, newest only; `gehirn/<unit>/outcome` from field to HQ; `gehirn/<unit>/goal` from HQ to field, approved goals only; `gehirn/<unit>/pulse` from HQ to field once per deliberation, as the umbilical's sign of life. Every message carries an HMAC under the unit's link key and a sequence number, and HQ's an echo of the newest percept's time. The `wire` module seals and opens them, declares each side's ports and pumps between the tiers' channels and Zenoh; nothing runs it until task 4.
 4. [x] Split `main.v` into an HQ executable and a field executable over the same modules, and keep the combined binary for development. Both read `UNIT_ID`, `UMBILICAL_KEY` and their Zenoh endpoints (ADR-0003 action item 2), and HQ fills in the mission, which no longer travels. One binary with two commands, `gehirn hq` and `gehirn field`; a field binary without HQ's code can come with the Phase 6 image if it needs one.
-5. [ ] Sign pilot datagrams with HMAC SHA256 under a per pilot key, with a sequence number against replay, as ADR-0003 signs the streams. Unsigned, stale or replayed datagrams are dropped like foreign ones.
+5. [x] Sign pilot datagrams with HMAC SHA256 under a per pilot key, with a sequence number against replay, as ADR-0003 signs the streams. Unsigned, stale or replayed datagrams are dropped like foreign ones. A datagram has no echo to prove it fresh, so its seq is the pilot's clock in microseconds and the plug drops one more than the seat's 500 ms from its own clock (Known issue 4).
 6. [ ] Decide whether a core fault should keep stopping the pulse once HQ reports its own health.
 
 Done when killing HQ moves the field unit to internal power after the grace period and to hold after the budget, restarting HQ reconnects without touching the field unit, and nothing irreversible happens in between.
@@ -177,7 +177,7 @@ Done when the bridge follows a full mission live on the Mac, from goto to releas
 1. The field loop sleeps a fixed tick after its work, so its period stretches with load. Schedule on absolute deadlines.
 2. `Cl1Core.feedback` blocks the HQ thread for about four seconds after a failure.
 3. The recorder writes 50 JSON lines per second with no rotation.
-4. Pilot datagrams are unauthenticated, so anyone on the network who knows the pilot ID can steer (Phase 1, task 5).
+4. Pilot datagrams prove freshness by the pilot's clock, so a pilot whose clock is more than 500 ms off the field unit's can neither steer nor eject, and the plug says nothing about it. A back channel to echo, as ADR-0003 does for HQ, would remove the clock from the check (Phase 2, task 2).
 5. Eject latches until the process restarts, and there is no re-arm procedure.
 6. Percepts are ground truth from the simulator, the human's position included.
 7. The dummy plug scans every sample on every tick. Fine at 20000 samples; Phase 4 replaces it.

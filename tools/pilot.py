@@ -4,16 +4,20 @@
 Steers toward the beacon at a fixed heading offset for a while, then leaves the seat, which
 gehirn notices 500 ms after the last datagram. With --eject it pulls the eject handle
 instead of just leaving. The pose comes from gehirn's flight recorder, so run it from the
-directory gehirn writes to or pass --recorder.
+directory gehirn writes to or pass --recorder. Every datagram is signed with PILOT_KEY, which
+gehirn needs too; tools/withenv.py passes it from .env:
 
-    python3 tools/pilot.py --offset 120 --seconds 20
+    python3 tools/withenv.py .env python3 tools/pilot.py --offset 120 --seconds 20
 """
 
 import argparse
+import hashlib
+import hmac
 import json
 import math
 import os
 import socket
+import sys
 import time
 from collections.abc import Iterator
 
@@ -22,10 +26,27 @@ ARRIVE = 0.35  # lcl.arrive: close enough to the beacon to stop steering
 TAIL = 4096  # bytes read from the end of the recorder, several lines' worth
 
 
-# The counterpart of datagram() is plug/plug.v Wire; pose() reads its Record lines.
-def datagram(pilot: str, u: list[float], eject: bool) -> bytes:
-    """Encode one pilot command."""
-    return json.dumps({"pilot": pilot, "u": u, "eject": eject}).encode()
+# The counterpart of datagram() is plug/plug.v read_datagram; pose() reads its Record lines.
+# tools/test_pilot.py and plug/plug_test.v test_read_datagram share one datagram.
+def datagram(pilot: str, u: list[float], eject: bool, seq: int, key: bytes) -> bytes:
+    """Encode one pilot command as a JSON line, a newline and its HMAC SHA256 under key in hex.
+
+    seq is the pilot's wall clock in microseconds, strictly increasing across datagrams.
+    """
+    line = json.dumps({"v": 1, "seq": seq, "pilot": pilot, "u": u, "eject": eject},
+                      separators=(",", ":")).encode()
+    return line + b"\n" + hmac.new(key, line, hashlib.sha256).hexdigest().encode()
+
+
+def pilot_key() -> bytes:
+    """Return PILOT_KEY from the environment as 32 bytes, or exit with a line that says why."""
+    try:
+        key = bytes.fromhex(os.environ.get("PILOT_KEY", ""))
+    except ValueError:
+        key = b""
+    if len(key) != 32:
+        sys.exit("pilot: PILOT_KEY is unset or not 64 hex digits; gehirn's must match")
+    return key
 
 
 # ponytail: the recorder flushes about once a second, so this pose lags the body by up to a
@@ -85,18 +106,25 @@ def main() -> None:
     ap.add_argument("--eject", action="store_true", help="pull the eject handle for 0.5 s at the end")
     args = ap.parse_args()
 
+    key = pilot_key()
     recorder = args.recorder or f"plug.{args.pilot}.jsonl"
     host, _, port = args.addr.rpartition(":")
     dest = (host, int(port))
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     print(f"pilot: {args.pilot} to {args.addr}, offset {args.offset:g} deg for {args.seconds:g} s",
           flush=True)
+    seq = 0
+
+    def send(u: list[float], eject: bool) -> None:
+        nonlocal seq
+        seq = max(time.time_ns() // 1000, seq + 1)
+        sock.sendto(datagram(args.pilot, u, eject, seq, key), dest)
+
     for _ in ticks(args.seconds, args.rate):
-        u = steer(pose(recorder), args.beacon, args.offset, args.speed)
-        sock.sendto(datagram(args.pilot, u, False), dest)
+        send(steer(pose(recorder), args.beacon, args.offset, args.speed), False)
     if args.eject:
         for _ in ticks(0.5, args.rate):
-            sock.sendto(datagram(args.pilot, [0.0, 0.0], True), dest)
+            send([0.0, 0.0], True)
         print("pilot: eject", flush=True)
     else:
         print("pilot: left the seat", flush=True)

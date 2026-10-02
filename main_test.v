@@ -135,6 +135,7 @@ fn config_value(cfg Config, key string) string {
 		'BALTHASAR_BACKEND' { cfg.units[1].ep.type_name() }
 		'UNIT_ID' { cfg.unit }
 		'UMBILICAL_KEY' { cfg.link.hex() }
+		'PILOT_KEY' { cfg.pilot_key.hex() }
 		'UMBILICAL_ENDPOINT' { cfg.endpoint }
 		else { 'no such variable' }
 	}
@@ -235,6 +236,9 @@ fn test_load_config() {
 		ConfigCase{'UMBILICAL_KEY', 'a'.repeat(65), 'UMBILICAL_KEY is not 64 hex digits; generate one with `openssl rand -hex 32`'},
 		ConfigCase{'UMBILICAL_KEY', 'g'.repeat(64), 'UMBILICAL_KEY is not 64 hex digits; generate one with `openssl rand -hex 32`'},
 		ConfigCase{'UMBILICAL_KEY', 'sk-or-v1-secret', 'UMBILICAL_KEY is not 64 hex digits; generate one with `openssl rand -hex 32`'},
+		ConfigCase{'PILOT_KEY', '', ''},
+		ConfigCase{'PILOT_KEY', 'aB'.repeat(32), 'ab'.repeat(32)},
+		ConfigCase{'PILOT_KEY', 'shinji', 'PILOT_KEY is not 64 hex digits; generate one with `openssl rand -hex 32`'},
 		ConfigCase{'UMBILICAL_ENDPOINT', '', 'tcp/127.0.0.1:7447'},
 		ConfigCase{'UMBILICAL_ENDPOINT', 'tcp/0.0.0.0:7447', 'tcp/0.0.0.0:7447'},
 	]

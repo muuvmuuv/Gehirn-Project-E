@@ -2,10 +2,14 @@
 // A core is paired with one pilot, so input from anyone else is dropped at the plug.
 module plug
 
+import crypto.hmac
+import crypto.sha256
+import encoding.hex
 import x.json2
 import math
 import net
 import os
+import time
 import lcl
 
 // Sync is an exponential moving average of how well the seat and the core agree. main.v's field
@@ -39,33 +43,73 @@ pub fn (s Sync) authority(threshold f64, ceiling f64) f64 {
 	return ceiling * math.min(1.0, (s.ratio - threshold) / (1.0 - threshold))
 }
 
-// Wire is one pilot datagram. tools/pilot.py datagram() writes the same fields.
-struct Wire {
+// seat_ms is how long, in milliseconds, one pilot datagram keeps the seat in main.v's field loop,
+// and how far a datagram's seq may lie from the plug's clock before listen drops it as stale.
+pub const seat_ms = 500
+
+// Datagram is one pilot datagram's signed JSON line. tools/pilot.py datagram() writes the same
+// fields, and plug_test.v test_read_datagram and tools/test_pilot.py share one datagram.
+struct Datagram {
+	v     int
+	seq   i64 // the pilot's wall clock in microseconds, strictly increasing
 	pilot string
 	u     []f64
 	eject bool
 }
 
-// listen takes pilot datagrams such as {"pilot": "shinji", "u": [0.4, 0.1], "eject": false}.
-// Only the newest command matters, so the channel holds one and drops the stale one.
-pub fn listen(addr string, pilot_id string, out chan lcl.PilotInput) {
+// read_datagram checks one datagram: a JSON line, a newline, and 64 hex digits of HMAC SHA256
+// under key over that line. It reads the line only once the HMAC holds, then drops another pilot,
+// another version, a seq at or below last, and a seq more than seat_ms from now_us, the plug's
+// clock in microseconds, so a replay fails without the plug remembering anything across restarts.
+fn read_datagram(raw []u8, key []u8, pilot_id string, last i64, now_us i64) !Datagram {
+	if key.len == 0 {
+		return error('plug: no PILOT_KEY to check datagrams with')
+	}
+	i := raw.bytestr().last_index('\n') or { return error('plug: unsigned datagram') }
+	sig := raw[i + 1..].bytestr()
+	if sig.len != 64 || !sig.contains_only('0123456789abcdef') {
+		return error('plug: unsigned datagram')
+	}
+	line := raw[..i]
+	if !hmac.equal(hex.decode(sig)!, hmac.new(key, line, sha256.sum, sha256.block_size)) {
+		return error('plug: datagram fails its mac')
+	}
+	d := json2.decode[Datagram](line.bytestr()) or { return error('plug: unreadable datagram') }
+	if d.v != 1 {
+		return error('plug: datagram of another version than 1')
+	}
+	if d.pilot != pilot_id {
+		return error('plug: datagram from another pilot')
+	}
+	if d.seq <= last {
+		return error('plug: datagram repeats or precedes the last one accepted')
+	}
+	if d.seq < now_us - seat_ms * 1000 || d.seq > now_us + seat_ms * 1000 {
+		return error('plug: datagram more than ${seat_ms} ms from the plug\'s clock')
+	}
+	return d
+}
+
+// listen takes signed pilot datagrams from the paired pilot, as read_datagram checks them, and
+// drops every other datagram without a word. Only the newest command matters, so the channel
+// holds one and drops the stale one.
+pub fn listen(addr string, pilot_id string, key []u8, out chan lcl.PilotInput) {
 	mut conn := net.listen_udp(addr) or {
 		eprintln('plug: cannot listen on ${addr}: ${err}')
 		return
 	}
 	conn.set_read_timeout(net.infinite_timeout)
 	mut buf := []u8{len: 1024}
+	mut last := i64(0)
 	for {
 		n, _ := conn.read(mut buf) or { continue }
-		w := json2.decode[Wire](buf[..n].bytestr()) or { continue }
-		if w.pilot != pilot_id {
-			continue
-		}
+		d := read_datagram(buf[..n], key, pilot_id, last, time.now().unix_micro()) or { continue }
+		last = d.seq
 		msg := lcl.PilotInput{
 			t_ms:  lcl.now_ms()
-			pilot: w.pilot
-			u:     w.u
-			eject: w.eject
+			pilot: d.pilot
+			u:     d.u
+			eject: d.eject
 		}
 		for out.try_push(msg) != .success {
 			mut stale := lcl.PilotInput{}
