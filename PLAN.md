@@ -29,6 +29,8 @@ On 2026-10-02 the `zenoh` module's tests passed against zenoh-c 1.10.1 on macOS 
 
 On 2026-10-02 `gehirn hq` and `gehirn field`, two processes linked over Zenoh on one Mac, flew the mock mission to "released on target". Killing HQ moved the field unit to internal power after the grace and to depleted after the budget, and restarting HQ reconnected it untouched.
 
+On 2026-10-02 `gehirn-bridge` followed split missions on the Mac and met Phase 9's done criterion. Against the mock, with HQ started 10 s after the field unit so the body reached the beacon as the human passed, it showed the goto approved 3/3, the release rejected 1/3 (MELCHIOR-1 and BALTHASAR-2 on the human within reach) and approved 3/3 after the cooldown, and, once HQ was killed, the umbilical on internal power counting down. Killing the bridge 10 s into another mission left it delivering on target at +35 s. On the hosted lineup it showed every ballot with its model, why and latency, and the mission delivered at +39 s.
+
 Never run: `sidecar/cl1_sidecar.py` and the `cl1` backend.
 
 ## Architecture in one screen
@@ -169,7 +171,7 @@ Goal: a graphical bridge in the look of NERV's command center, the operator's vi
 1. [x] ADR-0005 on the bridge, extending ADR-0001: it runs on its own machine or image, never on the field unit, because Vinix has no real time scheduling and its graphics stack is young; the toolkit, V's `gg` on sokol, Metal on the Mac and OpenGL elsewhere, so one codebase runs on the Mac and on the target; which streams it reads; and that it holds no safety role.
 2. [x] Read only subscriptions to the watch streams of ADR-0005, which HQ and the field unit publish under `WATCH_KEY` beside the Phase 1 streams: the field's state at 10 Hz and every verdict with its ballots. The bridge holds no key that approves or pulses. `wire` seals and opens them and declares the bridge's ports; `gehirn hq` and `gehirn field` publish them from a session of their own when `WATCH_KEY` is set. The bridge sends nothing that steers, approves or ejects; pilot input stays with the plug and the gamepad bridge.
 3. [x] Panels: MAGI with 可決, 否決 and 故障 per unit and its reason, the active goal and each proposal, the sync ratio and the seat, the umbilical counting down from 5:00 once the cable is cut, the core's last fault (ADR-0004), armor refusals, and the scene from the percept.
-4. [ ] Runs on the Mac against the mock and the hosted lineup.
+4. [x] Runs on the Mac against the mock and the hosted lineup.
 
 Done when the bridge follows a full mission live on the Mac, from goto to release, including a MAGI rejection and a cut cable, and closing the bridge changes nothing in the mission.
 
