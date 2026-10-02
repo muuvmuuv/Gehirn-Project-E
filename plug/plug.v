@@ -95,7 +95,7 @@ fn read_datagram(raw []u8, key []u8, pilot_id string, last i64, now_us i64) !Dat
 // holds one and drops the stale one.
 pub fn listen(addr string, pilot_id string, key []u8, out chan lcl.PilotInput) {
 	mut conn := net.listen_udp(addr) or {
-		eprintln('plug: cannot listen on ${addr}: ${err}')
+		eprintln('plug: cannot listen on ${lcl.quoted(addr)}: ${err}')
 		return
 	}
 	conn.set_read_timeout(net.infinite_timeout)

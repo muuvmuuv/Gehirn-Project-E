@@ -99,7 +99,7 @@ fn env_ms(key string, fallback string, span Span) !int {
 fn env_choice(key string, fallback string, values []string) !string {
 	val := env(key, fallback)
 	if val !in values {
-		return error('${key} is ${quoted(val)}, not a known value; accepted ${values.join(', ')}')
+		return error('${key} is ${lcl.quoted(val)}, not a known value; accepted ${values.join(', ')}')
 	}
 	return val
 }
@@ -111,35 +111,15 @@ fn env_choice(key string, fallback string, values []string) !string {
 fn whole(name string, s string, min int, max int) !int {
 	digits := s.trim_string_left('-')
 	if digits == '' || !digits.contains_only('0123456789') {
-		return error('${name} is ${quoted(s)}, not a whole number; accepted ${min} to ${max}')
+		return error('${name} is ${lcl.quoted(s)}, not a whole number; accepted ${min} to ${max}')
 	}
 
 	// With the digits checked, atoi fails only past the int range.
 	n := strconv.atoi(s) or { max + 1 }
 	if n < min || n > max {
-		return error('${name} is ${quoted(s)}, out of range; accepted ${min} to ${max}')
+		return error('${name} is ${lcl.quoted(s)}, out of range; accepted ${min} to ${max}')
 	}
 	return n
-}
-
-// quoted is s as a refusal line shows it: in double quotes, with a quote, a backslash and every
-// byte outside printable ASCII escaped, and cut after 64 bytes, so a value can neither break the
-// line nor forge another status line. For every refusal line that shows a value or an argument.
-fn quoted(s string) string {
-	mut out := '"'
-	for i, c in s {
-		if i == 64 {
-			return out + '"...'
-		}
-		out += if c == `"` || c == `\\` {
-			'\\' + c.ascii_str()
-		} else if c >= ` ` && c <= `~` {
-			c.ascii_str()
-		} else {
-			'\\x${c:02x}'
-		}
-	}
-	return out + '"'
 }
 
 // command is gehirn's first argument: empty flies a mission with HQ and the field unit in one
@@ -151,10 +131,10 @@ fn command(args []string) !string {
 		return ''
 	}
 	if args[0] !in ['magi-eval', 'hq', 'field'] {
-		return error('command is ${quoted(args[0])}, not a known value; accepted magi-eval, hq, field, or none to fly a mission')
+		return error('command is ${lcl.quoted(args[0])}, not a known value; accepted magi-eval, hq, field, or none to fly a mission')
 	}
 	if args[0] != 'magi-eval' && args.len > 1 {
-		return error('${args[0]} takes no argument, not ${quoted(args[1])}')
+		return error('${args[0]} takes no argument, not ${lcl.quoted(args[1])}')
 	}
 	return args[0]
 }
@@ -163,7 +143,7 @@ fn command(args []string) !string {
 // `$`, `?`, `#` and `/` as syntax, so a unit named `*` would hear every unit.
 fn unit_id() !string {
 	val := env('UNIT_ID', 'eva01')
-	wire.check_unit(val) or { return error('UNIT_ID is ${quoted(val)}, ${err.msg()}') }
+	wire.check_unit(val) or { return error('UNIT_ID is ${lcl.quoted(val)}, ${err.msg()}') }
 	return val
 }
 
@@ -271,7 +251,7 @@ fn ca_warning() string {
 	if os.is_file(ca) {
 		return ''
 	}
-	return 'gehirn: no CA bundle at ${ca}, so every https endpoint faults; set SSL_CERT_FILE to this host\'s bundle'
+	return 'gehirn: no CA bundle at ${lcl.quoted(ca)}, so every https endpoint faults; set SSL_CERT_FILE to this host\'s bundle'
 }
 
 // key_warning is the startup line for a Jev unit without a key. Its ballots all fault and a fault
@@ -364,7 +344,7 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqM
 	}
 	mut journal := core.open_memory(cfg.journal, 256)
 	pause := time.Duration(cfg.period_ms) * time.millisecond
-	println('hq: core ${soul.name()}, journal ${cfg.journal}')
+	println('hq: core ${lcl.quoted(soul.name())}, journal ${lcl.quoted(cfg.journal)}')
 	mut last_fault := ''
 	mut last_irreversible := i64(0)
 	for {
@@ -475,7 +455,7 @@ fn serve_hq(cfg Config) {
 	outcomes := chan lcl.Outcome{cap: 32}
 	notes := chan string{cap: 64}
 	events := chan lcl.HqEvent{cap: 16}
-	println('hq: unit ${cfg.unit}, listening for the field at ${quoted(cfg.endpoint)}')
+	println('hq: unit ${cfg.unit}, listening for the field at ${lcl.quoted(cfg.endpoint)}')
 	if cfg.watch.len > 0 {
 		mut w := wire.hq_watch(watch_session(cfg) or {
 			eprintln('gehirn: ${err.msg()}')
@@ -484,7 +464,7 @@ fn serve_hq(cfg Config) {
 			eprintln('gehirn: ${err.msg()}')
 			exit(1)
 		}
-		println('hq: showing the bridge at ${quoted(cfg.bridge)}')
+		println('hq: showing the bridge at ${lcl.quoted(cfg.bridge)}')
 		spawn w.run_hq(events)
 	}
 	spawn hq(cfg, soul, inbox, outbox, outcomes, events)
@@ -499,14 +479,14 @@ fn serve_hq(cfg Config) {
 // (ADR-0005). Zenoh keeps dialing an absent bridge.
 fn watch_session(cfg Config) !&zenoh.Session {
 	return zenoh.open(zenoh.Config{ connect: [cfg.bridge] }) or {
-		return error('BRIDGE_ENDPOINT is ${quoted(cfg.bridge)}; ${err.msg()}')
+		return error('BRIDGE_ENDPOINT is ${lcl.quoted(cfg.bridge)}; ${err.msg()}')
 	}
 }
 
 // link_hq opens HQ's end of the link: a session listening on UMBILICAL_ENDPOINT, and its pump.
 fn link_hq(cfg Config) !&wire.Hq {
 	s := zenoh.open(zenoh.Config{ listen: [cfg.endpoint] }) or {
-		return error('UMBILICAL_ENDPOINT is ${quoted(cfg.endpoint)}; ${err.msg()}')
+		return error('UMBILICAL_ENDPOINT is ${lcl.quoted(cfg.endpoint)}; ${err.msg()}')
 	}
 	return wire.new_hq(wire.hq_ports(s, cfg.unit)!, cfg.link, cfg.unit)!
 }
@@ -516,7 +496,7 @@ fn link_hq(cfg Config) !&wire.Hq {
 // starts without HQ and the umbilical decides what the silence means.
 fn link_field(cfg Config) !&wire.Field {
 	s := zenoh.open(zenoh.Config{ connect: [cfg.endpoint] }) or {
-		return error('UMBILICAL_ENDPOINT is ${quoted(cfg.endpoint)}; ${err.msg()}')
+		return error('UMBILICAL_ENDPOINT is ${lcl.quoted(cfg.endpoint)}; ${err.msg()}')
 	}
 	return wire.new_field(wire.field_ports(s, cfg.unit)!, cfg.link, cfg.unit, cfg.grace_ms)!
 }
@@ -565,7 +545,7 @@ fn main() {
 			eprintln('gehirn: ${err.msg()}')
 			exit(1)
 		}
-		println('field: unit ${cfg.unit}, dialing HQ at ${quoted(cfg.endpoint)}')
+		println('field: unit ${cfg.unit}, dialing HQ at ${lcl.quoted(cfg.endpoint)}')
 		spawn link.run(to_hq, outcomes, from_hq)
 		if watching {
 			mut w := wire.field_watch(watch_session(cfg) or {
@@ -575,7 +555,7 @@ fn main() {
 				eprintln('gehirn: ${err.msg()}')
 				exit(1)
 			}
-			println('field: showing the bridge at ${quoted(cfg.bridge)}')
+			println('field: showing the bridge at ${lcl.quoted(cfg.bridge)}')
 			spawn w.run_field(views)
 		}
 	} else {
@@ -590,7 +570,7 @@ fn main() {
 		println('plug: PILOT_KEY is unset, so the plug drops every datagram and no pilot can steer or eject')
 	}
 	spawn plug.listen(cfg.plug_at, cfg.pilot_id, cfg.pilot_key, pilot_ch)
-	println('field: plug for ${cfg.pilot_id} on ${cfg.plug_at}, dummy plug holds ${dummy.size()} samples')
+	println('field: plug for ${lcl.quoted(cfg.pilot_id)} on ${lcl.quoted(cfg.plug_at)}, dummy plug holds ${dummy.size()} samples')
 
 	dt := f64(tick) / f64(time.second)
 	mut goal := lcl.Intent{

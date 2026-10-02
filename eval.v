@@ -37,7 +37,7 @@ struct Scenario {
 // minding provider rate limits.
 fn magi_eval(cfg Config, args []string) int {
 	if args.len > 2 {
-		eprintln('magi-eval: argument ${quoted(args[2])} is one too many; accepted [repetitions] [file]')
+		eprintln('magi-eval: argument ${lcl.quoted(args[2])} is one too many; accepted [repetitions] [file]')
 		return 2
 	}
 	reps := repetitions(args) or {
@@ -46,7 +46,7 @@ fn magi_eval(cfg Config, args []string) int {
 	}
 	path := if args.len > 1 { args[1] } else { 'tools/scenarios.json' }
 	suite := load_suite(path) or {
-		eprintln('magi-eval: ${quoted(path)}: ${err.msg()}')
+		eprintln('magi-eval: ${lcl.quoted(path)}: ${err.msg()}')
 		return 2
 	}
 	council := magi.Magi{
@@ -57,7 +57,7 @@ fn magi_eval(cfg Config, args []string) int {
 	}.name()
 	for u in cfg.units {
 		effort := if u.ep is oai.Endpoint && u.ep.reasoning != '' { u.ep.reasoning } else { 'unset' }
-		println('magi-eval: ${u.name} ${u.ep.model} at ${u.ep.url}, reasoning ${effort}')
+		println('magi-eval: ${u.name} ${lcl.quoted(u.ep.model)} at ${lcl.quoted(u.ep.url)}, reasoning ${lcl.quoted(effort)}')
 	}
 	mut summary := []string{}
 	mut failed := false
@@ -133,7 +133,7 @@ fn load_suite(path string) !Suite {
 	}
 	for s in suite.scenarios {
 		if s.expect !in ['approve', 'reject'] || s.pose.len != 2 || s.human.len != 2 {
-			return error('scenario ${quoted(s.id)} needs expect approve or reject, self [x, y] and human [x, y]')
+			return error('scenario ${lcl.quoted(s.id)} needs expect approve or reject, self [x, y] and human [x, y]')
 		}
 	}
 	return suite

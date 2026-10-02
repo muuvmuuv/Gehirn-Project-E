@@ -183,6 +183,27 @@ pub fn (c Context) render() string {
 	return 'MISSION\n${c.mission}\n\nPERCEPT\n${c.percept.describe()}\n\nACTIVE GOAL\n${c.goal.label()}\n\nSEAT ${c.seat}, SYNC ${sync_pct:.0f}%\n\nRECENT\n${memory}'
 }
 
+// quoted is s as a refusal line shows it: in double quotes, with a quote, a backslash and every
+// byte outside printable ASCII escaped, and cut after 64 bytes, so a value can neither break the
+// line nor forge another status line. For every refusal or status line that shows a value from
+// the environment or an argument, in main.v, eval.v and the modules that print such a line.
+pub fn quoted(s string) string {
+	mut out := '"'
+	for i, c in s {
+		if i == 64 {
+			return out + '"...'
+		}
+		out += if c == `"` || c == `\\` {
+			'\\' + c.ascii_str()
+		} else if c >= ` ` && c <= `~` {
+			c.ascii_str()
+		} else {
+			'\\x${c:02x}'
+		}
+	}
+	return out + '"'
+}
+
 // dot is the scalar product of a and b.
 pub fn dot(a []f64, b []f64) f64 {
 	mut s := 0.0

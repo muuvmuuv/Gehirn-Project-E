@@ -75,7 +75,7 @@ fn test_ca_bundle() {
 	assert ca_warning() == ''
 	missing := os.join_path(os.temp_dir(), 'gehirn-no-such-ca.pem')
 	os.setenv('SSL_CERT_FILE', missing, true)
-	assert ca_warning() == 'gehirn: no CA bundle at ${missing}, so every https endpoint faults; set SSL_CERT_FILE to this host\'s bundle'
+	assert ca_warning() == 'gehirn: no CA bundle at "${missing}", so every https endpoint faults; set SSL_CERT_FILE to this host\'s bundle'
 	os.unsetenv('SSL_CERT_FILE')
 	assert ca_bundle() in ca_bundles
 	assert os.is_file(ca_bundle()) || !ca_bundles.any(os.is_file(it))
@@ -340,8 +340,9 @@ fn test_new_backend() {
 	bound := net.addr_from_socket_handle(taken.sock.handle).str()
 	cases := [
 		BackendCase{'', '', '', 'llm:'},
-		BackendCase{'cl1', bound, '', 'cl1: cannot listen on CL1_SPIKES ${bound}: net: socket error: '},
-		BackendCase{'cl1', '127.0.0.1:0', '127.0.0.1:99999', 'cl1: cannot dial CL1_SIDECAR 127.0.0.1:99999: net: port out of range'},
+		BackendCase{'cl1', bound, '', 'cl1: cannot listen on CL1_SPIKES "${bound}": net: socket error: '},
+		BackendCase{'cl1', '127.0.0.1:0', '127.0.0.1:99999', 'cl1: cannot dial CL1_SIDECAR "127.0.0.1:99999": net: port out of range'},
+		BackendCase{'cl1', '127.0.0.1:0', '127.0.0.1:1\nhq: forged', 'cl1: cannot dial CL1_SIDECAR "127.0.0.1:1\\x0ahq: forged": net: '},
 	]
 	for c in cases {
 		os.setenv('CORE_BACKEND', c.backend, true)
@@ -349,6 +350,9 @@ fn test_new_backend() {
 		os.setenv('CL1_SIDECAR', c.sidecar, true)
 		got := if b := new_backend(load_config()!) { b.name() } else { err.msg() }
 		assert got.starts_with(c.want), '${c}: ${got}'
+
+		// One printable line, whatever the variables hold.
+		assert got.bytes().all(it >= ` ` && it <= `~`), got
 	}
 	for key in ['CORE_BACKEND', 'CL1_SPIKES', 'CL1_SIDECAR'] {
 		os.unsetenv(key)

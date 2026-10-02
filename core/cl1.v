@@ -35,11 +35,11 @@ mut:
 // load_config read the failing address from, CL1_SPIKES or CL1_SIDECAR, and the cause.
 pub fn new_cl1(cfg Cl1Config) !Cl1Core {
 	mut spikes := net.listen_udp(cfg.listen) or {
-		return error('cl1: cannot listen on CL1_SPIKES ${cfg.listen}: ${err.msg()}')
+		return error('cl1: cannot listen on CL1_SPIKES ${lcl.quoted(cfg.listen)}: ${err.msg()}')
 	}
 	stim := net.dial_udp(cfg.sidecar) or {
 		spikes.close() or {}
-		return error('cl1: cannot dial CL1_SIDECAR ${cfg.sidecar}: ${err.msg()}')
+		return error('cl1: cannot dial CL1_SIDECAR ${lcl.quoted(cfg.sidecar)}: ${err.msg()}')
 	}
 	return Cl1Core{
 		cfg:    cfg
