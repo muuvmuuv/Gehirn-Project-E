@@ -24,7 +24,7 @@ python3 tools/trials.py --env-file .env --jobs 3
 python3 tools/withenv.py .env ./gehirn magi-eval 10
 ```
 
-To run without models or keys, use the mock endpoint instead, in a new shell. It answers on gehirn's default URL as the core and the three MAGI, and on `/v1/systemone` as Jev, which takes any key. From a fresh clone, `just missions 3` builds gehirn, starts the mock in the background, flies three missions, puts the adversarial scenarios to the mock MAGI, and stops the mock.
+To run without models or keys, use the mock endpoint instead, in a new shell. It answers on gehirn's default URL as the core and the three MAGI, and on `/v1/systemone` as Jev, which takes any key. From a fresh clone, `just missions 3` builds gehirn, starts the mock in the background, flies three missions, puts the adversarial scenarios to the mock MAGI, and stops the mock; `just missions 3 9081` does the same with the mock on port 9081.
 
 `tools/trials.py` flies each mission in a fresh directory and counts how they end; every run inherits `GEHIRN_URL` and the other variables from the environment. To watch one mission instead, start the mock and gehirn yourself; only the two Jev variables need exporting, plus a pilot key if a pilot is to steer. Stop gehirn with Ctrl-C and the mock with `kill %1`:
 

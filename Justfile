@@ -62,14 +62,15 @@ build: zenoh
 bridge: zenoh
     v -prod -o gehirn-bridge bridge/
 
-# Flies the mock missions and puts the adversarial scenarios to the mock MAGI.
-missions runs="10": build
+# Flies the mock missions and puts the adversarial scenarios to the mock MAGI; port is the mock's.
+missions runs="10" port="8081": build
     #!/usr/bin/env bash
     set -euo pipefail
-    # The mock holds port 8081, the port of the llama.cpp preset.
-    python3 tools/mock_endpoint.py --quiet &
+    # 8081 is the port of the llama.cpp preset and gehirn's default GEHIRN_URL.
+    python3 tools/mock_endpoint.py --listen 127.0.0.1:{{ port }} --quiet &
     mock=$!
     trap 'kill $mock' EXIT
-    export TYPESAFE_URL=http://127.0.0.1:8081/v1/systemone TYPESAFE_API_KEY=mock
+    export GEHIRN_URL=http://127.0.0.1:{{ port }}/v1/chat/completions
+    export TYPESAFE_URL=http://127.0.0.1:{{ port }}/v1/systemone TYPESAFE_API_KEY=mock
     python3 tools/trials.py --runs {{ runs }} --jobs 3
     ./gehirn magi-eval 3
