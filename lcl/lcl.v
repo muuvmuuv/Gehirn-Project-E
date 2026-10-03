@@ -78,6 +78,19 @@ pub:
 	eject bool
 }
 
+// Feel is what the A10 back channel lets the pilot feel (ADR-0006): contact, how close the
+// nearest human is, the seat's sync ratio and the armor's strain. main.v's field loop makes one
+// per tick, plug.listen answers each accepted datagram with the newest, and gehirn-gamepad turns
+// it into rumble. It carries no command and plays no part in safety.
+pub struct Feel {
+pub:
+	t_ms    i64 // the field unit's clock
+	contact bool
+	near    f64 // 0 with no human inside the armor's human_slow, 1 at its human_stop
+	sync    f64 // the seat's sync ratio, 0 to 1
+	strain  f64 // m/s the armor took off the seat and core's blended command
+}
+
 // Context is everything HQ gets to see: one snapshot of the field plus the soul's recent memory.
 pub struct Context {
 pub:

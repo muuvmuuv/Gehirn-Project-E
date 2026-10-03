@@ -90,10 +90,31 @@ fn read_datagram(raw []u8, key []u8, pilot_id string, last i64, now_us i64) !Dat
 	return d
 }
 
+// Reply is one A10 reply's JSON line (ADR-0006): the version, then the newest feel.
+struct Reply {
+	v    int
+	feel lcl.Feel
+}
+
+// feel_prefix starts the bytes a reply's HMAC covers, so no datagram passes as a reply, though
+// both are signed under the same PILOT_KEY. A reply with the prefix moved into its line verifies
+// as a datagram, so what keeps a reply out of read_datagram is that its line is no Datagram.
+const feel_prefix = 'feel\n'
+
+// seal_feel is the reply listen sends the pilot: a JSON line, a newline, and 64 hex digits of
+// HMAC SHA256 under key over feel_prefix and that line.
+fn seal_feel(f lcl.Feel, key []u8) []u8 {
+	line := json2.encode(Reply{ v: 1, feel: f })
+	mac := hmac.new(key, (feel_prefix + line).bytes(), sha256.sum, sha256.block_size)
+	return '${line}\n${mac.hex()}'.bytes()
+}
+
 // listen takes signed pilot datagrams from the paired pilot, as read_datagram checks them, and
 // drops every other datagram without a word. Only the newest command matters, so the channel
-// holds one and drops the stale one.
-pub fn listen(addr string, pilot_id string, key []u8, out chan lcl.PilotInput) {
+// holds one and drops the stale one. It answers every datagram it takes with the newest value
+// from feel, sealed by seal_feel and sent back to the datagram's source; main.v's field loop
+// drops the stale feel to make room for a new one, so feel holds one.
+pub fn listen(addr string, pilot_id string, key []u8, out chan lcl.PilotInput, feel chan lcl.Feel) {
 	mut conn := net.listen_udp(addr) or {
 		eprintln('plug: cannot listen on ${lcl.quoted(addr)}: ${err}')
 		return
@@ -101,8 +122,9 @@ pub fn listen(addr string, pilot_id string, key []u8, out chan lcl.PilotInput) {
 	conn.set_read_timeout(net.infinite_timeout)
 	mut buf := []u8{len: 1024}
 	mut last := i64(0)
+	mut newest := lcl.Feel{}
 	for {
-		n, _ := conn.read(mut buf) or { continue }
+		n, from := conn.read(mut buf) or { continue }
 		d := read_datagram(buf[..n], key, pilot_id, last, time.now().unix_micro()) or { continue }
 		last = d.seq
 		msg := lcl.PilotInput{
@@ -115,6 +137,10 @@ pub fn listen(addr string, pilot_id string, key []u8, out chan lcl.PilotInput) {
 			mut stale := lcl.PilotInput{}
 			_ = out.try_pop(mut stale)
 		}
+		for feel.try_pop(mut newest) == .success {}
+
+		// Rumble plays no part in safety, so a reply that cannot go out is dropped.
+		conn.write_to(from, seal_feel(newest, key)) or {}
 	}
 }
 

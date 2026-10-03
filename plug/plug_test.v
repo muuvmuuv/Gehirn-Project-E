@@ -3,6 +3,7 @@ module plug
 import crypto.hmac
 import crypto.sha256
 import math
+import lcl
 
 struct UpdateCase {
 	name  string
@@ -249,5 +250,25 @@ fn test_read_datagram() {
 		assert c.want == '', c.name
 		assert d.u == [0.4, 0.1], c.name
 		assert d.seq == sent_us && !d.eject, c.name
+	}
+}
+
+// A reply and a datagram are signed under the same PILOT_KEY. A captured reply fails a datagram's
+// mac, and with feel_prefix moved into its line it verifies but reads as no Datagram.
+fn test_a_reply_never_reads_as_a_datagram() {
+	f := lcl.Feel{
+		t_ms:    1790000000000
+		contact: true
+		near:    0.5
+	}
+	reply := seal_feel(f, pilot_key).bytestr()
+	assert reply.starts_with('{"v":1,"feel":{"t_ms":1790000000000,"contact":true,')
+	for c in [[reply, 'plug: datagram fails its mac'],
+		[feel_prefix + reply, 'plug: unreadable datagram']] {
+		read_datagram(c[0].bytes(), pilot_key, 'shinji', 0, sent_us) or {
+			assert err.msg() == c[1]
+			continue
+		}
+		assert false, 'a reply passed as a datagram: ${c[0]}'
 	}
 }

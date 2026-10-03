@@ -126,6 +126,17 @@ pub fn (mut a Armor) drive(u []f64, p lcl.Percept, dt f64, manned bool) []f64 {
 	return v
 }
 
+// closeness is how close the nearest human is in the armor's own terms, for the A10 back channel:
+// 0 at human_slow or further, 1 at human_stop or closer, linear between. A percept the armor
+// cannot measure reads 1, since drive halts on it.
+pub fn (a Armor) closeness(p lcl.Percept) f64 {
+	if !a.measurable(p) {
+		return 1.0
+	}
+	k := (a.limits.human_slow - nearest_human(p)) / (a.limits.human_slow - a.limits.human_stop)
+	return math.min(1.0, math.max(0.0, k))
+}
+
 // separation scales speed down between human_slow and human_stop. Inside human_stop the
 // machine may still creep, but drive has already removed every component toward the human.
 fn (a Armor) separation(p lcl.Percept) f64 {

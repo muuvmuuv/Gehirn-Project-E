@@ -585,6 +585,7 @@ fn main() {
 	from_hq := chan lcl.HqMsg{cap: 8}
 	outcomes := chan lcl.Outcome{cap: 32}
 	views := chan lcl.FieldView{cap: 1}
+	feel := chan lcl.Feel{cap: 1}
 	watching := cmd == 'field' && cfg.watch.len > 0
 
 	// The other end of these channels: the link to HQ, or HQ on a thread of its own.
@@ -617,7 +618,7 @@ fn main() {
 	if cfg.pilot_key.len == 0 {
 		println('plug: PILOT_KEY is unset, so the plug drops every datagram and no pilot can steer or eject')
 	}
-	spawn plug.listen(cfg.plug_at, cfg.pilot_id, cfg.pilot_key, pilot_ch)
+	spawn plug.listen(cfg.plug_at, cfg.pilot_id, cfg.pilot_key, pilot_ch, feel)
 	println('field: plug for ${lcl.quoted(cfg.pilot_id)} on ${lcl.quoted(cfg.plug_at)}, dummy plug holds ${dummy.size()} samples')
 
 	dt := f64(tick) / f64(time.second)
@@ -746,7 +747,17 @@ fn main() {
 			}
 		}
 		ratio := if seat == 'dummy' { dummy_sync.ratio } else { pilot_sync.ratio }
-		u_out := ar.drive(lcl.blend(u_seat, u_core, authority), p, dt, seat != 'empty')
+		u_cmd := lcl.blend(u_seat, u_core, authority)
+		u_out := ar.drive(u_cmd, p, dt, seat != 'empty')
+
+		// The A10 back channel: what the pilot's gamepad turns into rumble (ADR-0006).
+		push_newest(feel, lcl.Feel{
+			t_ms:    now
+			contact: p.contact
+			near:    ar.closeness(p)
+			sync:    ratio
+			strain:  if u_cmd.len == u_out.len { lcl.dist(u_cmd, u_out) } else { 0.0 }
+		})
 
 		rec.write(plug.Record{
 			t_ms:   now
@@ -887,8 +898,8 @@ fn near(p lcl.Percept, kind string, within f64) bool {
 	return false
 }
 
-// push_newest keeps only the newest value in ch, the snapshot for HQ or the view for the bridge,
-// and drops a stale one to make room.
+// push_newest keeps only the newest value in ch, the snapshot for HQ, the view for the bridge or
+// the feel for the pilot, and drops a stale one to make room.
 fn push_newest[T](ch chan T, v T) {
 	for ch.try_push(v) != .success {
 		mut stale := T{}

@@ -45,10 +45,10 @@ Never run: `sidecar/cl1_sidecar.py` and the `cl1` backend.
 
 | Module | Holds | Imports |
 | --- | --- | --- |
-| `lcl` | Shared kernel: Entity, Percept, Intent, Outcome, PilotInput, Context, HqMsg, vector math, the verb policy, `beacon_reach` | nothing |
+| `lcl` | Shared kernel: Entity, Percept, Intent, Outcome, PilotInput, Feel, Context, HqMsg, vector math, the verb policy, `beacon_reach` | nothing |
 | `body` | The robot API (`Body`) and the planar simulator `Sim` | lcl |
 | `armor` | Sole holder of a `Body`; every command and effector passes through it | body, lcl |
-| `plug` | Pilot UDP listener, `Sync`, `Recorder`, `Dummy` | lcl |
+| `plug` | Pilot UDP listener and its A10 reply, `Sync`, `Recorder`, `Dummy` | lcl |
 | `core` | `Core` (propose, feedback), the `Memory` journal, `LlmCore`, `Cl1Core` | lcl, oai |
 | `magi` | Units, ballots, quorum, the Jev unit's facts and rule; Jev is BALTHASAR-2's default and only BALTHASAR-2 may use it | lcl, oai, jev |
 | `oai` | Minimal OpenAI compatible chat client with JSON extraction | nothing |
@@ -191,7 +191,7 @@ Done when the bridge follows a full mission live on the Mac, from goto to releas
 1. Resolved on 2026-10-02: the field loop sleeps until absolute deadlines (`main.v` `pace`). It ran at 42 ticks per second and now at 50.
 2. `Cl1Core.feedback` blocks the HQ thread for about four seconds after a failure.
 3. The recorder writes 50 JSON lines per second with no rotation.
-4. Pilot datagrams prove freshness by the pilot's clock, so a pilot whose clock is more than 500 ms off the field unit's can neither steer nor eject, and the plug says nothing about it. A back channel to echo, as ADR-0003 does for HQ, would remove the clock from the check (Phase 2, task 2).
+4. Pilot datagrams prove freshness by the pilot's clock, so a pilot whose clock is more than 500 ms off the field unit's can neither steer nor eject, and the plug says nothing about it. The A10 reply of ADR-0006 is the back channel an echo needs: it carries the field unit's `t_ms`, so a datagram version that echoes it, as ADR-0003 does for HQ, would remove the pilot's clock from the check. That echo is not built.
 5. Eject latches until the process restarts, and there is no re-arm procedure.
 6. Percepts are ground truth from the simulator, the human's position included.
 7. The dummy plug scans every sample on every tick. Fine at 20000 samples; Phase 4 replaces it.

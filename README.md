@@ -153,6 +153,14 @@ fa38345f9bbb948b76b3bf0dd41a3c4e237e7a623a545f68d9a767d164f59133
 
 `u` is the desired velocity in meters per second. `seq` is the pilot's wall clock in microseconds, strictly increasing. The plug drops a datagram that is unsigned or signed under another key, comes from another pilot, because a core is paired with one pilot, repeats or precedes the last one it took, or lies more than 500 ms from the field unit's clock, so a captured datagram cannot be replayed. The pilot's clock therefore has to agree with the field unit's within 500 ms, which NTP on one network does by a wide margin. Without `PILOT_KEY` the plug drops every datagram, and gehirn says so at startup. The seat counts as empty 500 ms after the last datagram. `eject` latches: the body halts and stays halted until the process restarts.
 
+The plug answers every datagram it takes, to the address it came from, with what the A10 back channel lets the pilot feel ([ADR 0006](docs/adr/0006-gamepad-and-a10.md)): a JSON line, a newline, and 64 hex digits of HMAC SHA256 under `PILOT_KEY` over `feel`, a newline and the line. A reply never passes as a datagram.
+
+```
+{"v":1,"feel":{"t_ms":1791033238530,"contact":false,"near":0,"sync":0.5,"strain":0.94}}
+```
+
+`t_ms` is the field unit's clock, `contact` says the body touches something, `near` how close the nearest human is, 0 from 2 m out and 1 at 0.7 m, `sync` is the seat's sync ratio, and `strain` the meters per second the armor took off the command, by any of its limits: speed, acceleration, separation, the fence and the slide along anything solid. Nothing on the field unit waits for a reply or acts on one.
+
 ## Sync ratio
 
 Sync is a moving average of how well the seat and the core agree, from the angle between their commands and how close their magnitudes are. It is the arbitration term of shared control, in the sense of Dragan and Srinivasa's policy blending. At or below 30% the core only advises. Above that its share grows with sync up to 80%, so a seated pilot always keeps a fifth of the controls. A core with nowhere to go takes no share.

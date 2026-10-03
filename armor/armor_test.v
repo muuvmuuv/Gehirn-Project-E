@@ -290,6 +290,37 @@ fn test_permits() {
 	}
 }
 
+struct ClosenessCase {
+	name string
+	p    lcl.Percept
+	want f64
+}
+
+fn test_closeness() {
+	// Gaps are center distance minus radius, from the body at the origin.
+	at_slow := ent('human', [2.5, 0.0], 0.5)
+	halfway := ent('human', [1.85, 0.0], 0.5)
+	cases := [
+		ClosenessCase{'nobody around', at([0.0, 0.0]), 0.0},
+		ClosenessCase{'an obstacle is no human', at([0.0, 0.0], ent('obstacle', [0.5, 0.0], 0.4)), 0.0},
+		ClosenessCase{'a human beyond human_slow', at([0.0, 0.0], ent('human', [4.0, 0.0], 0.5)), 0.0},
+		ClosenessCase{'a human at human_slow', at([0.0, 0.0], at_slow), 0.0},
+		ClosenessCase{'a human halfway in', at([0.0, 0.0], halfway), 0.5},
+		ClosenessCase{'a human at human_stop', at([0.0, 0.0], ent('human', [1.2, 0.0], 0.5)), 1.0},
+		ClosenessCase{'a human touching', at([0.0, 0.0], ent('human', [0.5, 0.0], 0.5)), 1.0},
+		ClosenessCase{'the nearest human counts', at([0.0, 0.0], at_slow, halfway), 0.5},
+		ClosenessCase{'a human at a NaN position', at([0.0, 0.0], ent('human', [
+			math.nan(), 0.0], 0.5)), 1.0},
+		ClosenessCase{'a pose of the wrong length', at([0.0]), 1.0},
+	]
+	for c in cases {
+		mut f := &Fake{}
+		a := restrain(f, Limits{})
+		got := a.closeness(c.p)
+		assert math.abs(got - c.want) < 1e-9, '${c.name}: ${got}'
+	}
+}
+
 fn test_effect() {
 	near := ent('human', [2.25, 0.0], 0.5)
 	cases := [
