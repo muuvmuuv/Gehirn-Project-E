@@ -85,7 +85,7 @@ Ollama, vLLM and other services work through the same variables: point `GEHIRN_U
 | Canon | Module | Here |
 | --- | --- | --- |
 | MAGI | `magi` | Three judges on three different model families. Reversible goals pass with two votes, irreversible ones need all three, like special order 582. A unit that errs or answers nonsense votes no. |
-| Core | `core` | Proposes the next goal: a language model, or a living culture on a Cortical Labs CL1. Its journal belongs to one pilot and outlives any backend. |
+| Core | `core` | Proposes the next goal: a language model, or a living culture on a Cortical Labs CL1, which is experimental and has never run on one. Its journal belongs to one pilot and outlives any backend. |
 | Entry plug | `plug` | Pilot input over UDP, the sync ratio, and a recorder that logs every tick. |
 | Dummy plug | `plug/dummy.v` | The pilot's driving style, cloned from the recorder. It loses the seat when it falls out of sync. |
 | Restraint armor | `armor` | The only thing that holds the body: speed, acceleration, geofence, human separation, capabilities, eject. No model inside. |
@@ -152,8 +152,8 @@ That is a soft layer on operating systems without real time guarantees. On hardw
 | `SSL_CERT_FILE` | the first of `/etc/ssl/cert.pem`, `/etc/ssl/certs/ca-certificates.crt` and `/etc/pki/tls/certs/ca-bundle.crt` that exists | CA bundle every https endpoint's certificate must chain to. The defaults are where macOS and Alpine, Debian and Ubuntu, and Fedora and RHEL keep it; elsewhere set it. Without the file every https call faults, and gehirn says so at startup |
 | `MAGI_TIMEOUT_MS` | `10000` | Deadline for one ballot, 1000 to 15000. A unit that misses it votes no |
 | `CORE_TIMEOUT_MS` | `10000` | Deadline for one proposal from the core, 1000 to 15000 |
-| `CORE_BACKEND` | `llm` | `llm` or `cl1` |
-| `CL1_SPIKES` | `0.0.0.0:12345` | Where spikes from the CL1 sidecar arrive |
+| `CORE_BACKEND` | `llm` | `llm` or `cl1`, which is experimental ([CL1 backend](#cl1-backend)) |
+| `CL1_SPIKES` | `0.0.0.0:12345` | Where spikes from the CL1 sidecar arrive, from any sender: the port has no authentication |
 | `CL1_SIDECAR` | `127.0.0.1:12346` | Where stim packets go |
 | `PILOT_ID` | `shinji` | The only pilot this core accepts |
 | `PLUG_LISTEN` | `0.0.0.0:7777` | UDP address for pilot input |
@@ -181,7 +181,9 @@ The default chat models are placeholders. What matters is that the three judges 
 
 ## CL1 backend
 
-`CORE_BACKEND=cl1` swaps the language core for a culture. `sidecar/cl1_sidecar.py` runs on the CL1, because the CL API is a Python SDK. It streams spikes in the format of Cortical Labs' UDP receiver example and turns stim packets from `core/cl1.v` into stimulation. The beacon's direction is place coded as stimulation rates on four sensory channels, and the imbalance between four motor channels becomes a short hop. Feedback follows DishBrain: a predictable burst after success, seconds of unpredictable stimulation after failure, because a culture takes no reward scalar and learns to keep its input predictable. Channel maps, rates and amplitudes are starting points, not tuned values; check the stim call against the CL-06 notebook for the SDK on your device. If gehirn cannot listen on `CL1_SPIKES` or dial `CL1_SIDECAR`, it prints one line that names the variable and the cause, and exits 1 before anything starts.
+Experimental: neither the `cl1` backend nor `sidecar/cl1_sidecar.py` has ever run on a CL1 or flown a mission, so treat what follows as a design. `CORE_BACKEND=cl1` swaps the language core for a culture. `sidecar/cl1_sidecar.py` runs on the CL1, because the CL API is a Python SDK. It streams spikes in the format of Cortical Labs' UDP receiver example and turns stim packets from `core/cl1.v` into stimulation. The beacon's direction is place coded as stimulation rates on four sensory channels, and the imbalance between four motor channels becomes a short hop. Feedback follows DishBrain: a predictable burst after success, seconds of unpredictable stimulation after failure, because a culture takes no reward scalar and learns to keep its input predictable. Channel maps, rates and amplitudes are starting points, not tuned values; check the stim call against the CL-06 notebook for the SDK on your device. If gehirn cannot listen on `CL1_SPIKES`, or cannot resolve `CL1_SIDECAR`, such as an unknown host or a port past 65535, it prints one line that names the variable and the cause, and exits 1 before anything starts. A UDP dial never contacts its peer, so a wrong address that resolves starts without a word, and the stim packets vanish (Known issue 18 in PLAN.md).
+
+Both CL1 ports are plain UDP without authentication, unlike the plug's signed datagrams. gehirn takes spikes on `CL1_SPIKES`, every interface by default, from any sender, and the sidecar takes stim packets for living neurons on port 12346 of every interface, also from any sender. Run both on a network nobody else can reach.
 
 ## Next
 
