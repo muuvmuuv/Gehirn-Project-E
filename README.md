@@ -119,6 +119,7 @@ Ollama, vLLM and other services work through the same variables: point `GEHIRN_U
 | MAGI | `magi` | Three judges on three different model families. Reversible goals pass with two votes, irreversible ones need all three, like special order 582. A unit that errs or answers nonsense votes no. |
 | Core | `core` | Proposes the next goal: a language model, or a living culture on a Cortical Labs CL1, which is experimental and has never run on one. Its journal belongs to one pilot and outlives any backend. |
 | Entry plug | `plug` | Pilot input over UDP, the sync ratio, and a recorder that logs every tick. |
+| A10 nerve connection | `gamepad/` | A game controller as the pilot's hands, with contact, a human close by and the armor's strain coming back as rumble. |
 | Dummy plug | `plug/dummy.v` | The pilot's driving style, cloned from the recorder. It loses the seat when it falls out of sync. |
 | Restraint armor | `armor` | The only thing that holds the body: speed, acceleration, geofence, human separation, capabilities, eject. No model inside. |
 | Umbilical cable | `umbilical` | The link to HQ. Cut it and the unit runs five minutes on internal power, then holds. |
@@ -161,6 +162,23 @@ The plug answers every datagram it takes, to the address it came from, with what
 
 `t_ms` is the field unit's clock, `contact` says the body touches something, `near` how close the nearest human is, 0 from 2 m out and 1 at 0.7 m, `sync` is the seat's sync ratio, and `strain` the meters per second the armor took off the command, by any of its limits: speed, acceleration, separation, the fence and the slide along anything solid. Nothing on the field unit waits for a reply or acts on one.
 
+## The gamepad
+
+`./gehirn-gamepad` puts the seat in a game controller ([ADR 0006](docs/adr/0006-gamepad-and-a10.md)). It runs on the pilot's machine, reads any controller SDL2 knows, Xbox and PlayStation pads among them, and sends the plug signed datagrams at 50 Hz as `PILOT_ID`, under `PILOT_KEY`, to `PLUG_ADDR`. Building it needs SDL2 and its pkg-config file: Homebrew's `sdl2-compat` on the Mac, `sdl2-compat-dev` on Alpine, `libsdl2-dev` on Debian and Ubuntu. Nothing else in gehirn needs SDL.
+
+| Control | What it does |
+| --- | --- |
+| Hold LB (L1) | Keeps the seat. The gamepad sends only while LB is held; let go and the seat empties after 500 ms, and the dummy plug or the core takes over |
+| Left stick | Steers: up is +y, and full tilt asks for 1 m/s, the armor's manned cap. A stick resting within 15% of center reads zero |
+| Hold Back and Start (View and Menu, or Share and Options) for a second | Ejects. Both must have been up first, and letting go of either starts the second over. The eject latches until gehirn restarts |
+
+Every reply rumbles: contact shakes both motors at full, a human inside 2 m hums the high frequency motor harder the closer they come, and the armor's strain pulls the low frequency motor, which also answers a sudden full tilt while the armor ramps up the speed. Each rumble lasts 100 ms, so it stops when replies stop. The gamepad prints one line a second with whether LB is held, the command, the datagrams sent, lost and answered, and the newest feel, or `no feel` when no reply came that second; `./gehirn-gamepad --probe` lists the controllers SDL sees and exits. Reading a physical controller and its rumble are not verified yet (PLAN, Phase 2). Next to a running field unit, or `./gehirn` as in [The mock by hand](#the-mock-by-hand), with the same `PILOT_KEY`:
+
+```sh
+just gamepad
+PILOT_KEY=<the field unit's key> ./gehirn-gamepad
+```
+
 ## Sync ratio
 
 Sync is a moving average of how well the seat and the core agree, from the angle between their commands and how close their magnitudes are. It is the arbitration term of shared control, in the sense of Dragan and Srinivasa's policy blending. At or below 30% the core only advises. Above that its share grows with sync up to 80%, so a seated pilot always keeps a fifth of the controls. A core with nowhere to go takes no share.
@@ -195,9 +213,10 @@ That is a soft layer on operating systems without real time guarantees. On hardw
 | `CORE_BACKEND` | `llm` | `llm` or `cl1`, which is experimental ([CL1 backend](#cl1-backend)) |
 | `CL1_SPIKES` | `0.0.0.0:12345` | Where spikes from the CL1 sidecar arrive, from any sender: the port has no authentication |
 | `CL1_SIDECAR` | `127.0.0.1:12346` | Where stim packets go |
-| `PILOT_ID` | `shinji` | The only pilot this core accepts |
+| `PILOT_ID` | `shinji` | The only pilot this core accepts, and the pilot `gehirn-gamepad` sends as |
 | `PLUG_LISTEN` | `0.0.0.0:7777` | UDP address for pilot input |
-| `PILOT_KEY` | empty | The pilot's key, 64 hex digits, that signs every datagram; `tools/pilot.py` reads the same variable, and never the same as `UMBILICAL_KEY` or `WATCH_KEY`. Without it no pilot can steer or eject |
+| `PLUG_ADDR` | `127.0.0.1:7777` | Where `gehirn-gamepad` sends its datagrams, as host and port: the field unit's `PLUG_LISTEN` as the pilot's machine reaches it |
+| `PILOT_KEY` | empty | The pilot's key, 64 hex digits, that signs every datagram and reply; `tools/pilot.py` and `gehirn-gamepad` read the same variable, and never the same as `UMBILICAL_KEY` or `WATCH_KEY`. Without it no pilot can steer or eject, and `gehirn-gamepad` refuses to start |
 | `MISSION` | deliver to b1, avoid humans | What HQ is trying to achieve |
 | `CORE_JOURNAL` | `core.<pilot>.jsonl` | The soul: append only, one per pilot. It also records every MAGI ballot and every core fault |
 | `PLUG_RECORDER` | `plug.<pilot>.jsonl` | Every tick, and the dummy plug's training set |
@@ -227,4 +246,4 @@ Both CL1 ports are plain UDP without authentication, unlike the plug's signed da
 
 ## Next
 
-ROS 2 through rmw_zenoh, now that LCL travels on Zenoh, and the motor controller through zenoh-pico. A MuJoCo body instead of the planar simulator. A gamepad bridge for the plug. The A10 back channel, with contact and strain flowing back to the pilot as haptics. A trained policy behind the dummy plug's methods, corrected by the pilot DAgger style instead of cloned once. A core fine tuned on its own journal. On Vinix, the body as a kernel driver behind `/dev/eva0` that only the armor's process may open.
+ROS 2 through rmw_zenoh, now that LCL travels on Zenoh, and the motor controller through zenoh-pico. A MuJoCo body instead of the planar simulator. A trained policy behind the dummy plug's methods, corrected by the pilot DAgger style instead of cloned once. A core fine tuned on its own journal. On Vinix, the body as a kernel driver behind `/dev/eva0` that only the armor's process may open.

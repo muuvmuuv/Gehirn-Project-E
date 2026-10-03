@@ -68,6 +68,10 @@ build: zenoh
 bridge: zenoh
     v -prod -o gehirn-bridge bridge/
 
+# Builds the gamepad bridge, ./gehirn-gamepad, which runs on the pilot's machine and alone needs SDL2 (ADR-0006).
+gamepad:
+    v -prod -o gehirn-gamepad gamepad/
+
 # Flies the mock missions and puts the adversarial scenarios to the mock MAGI; port is the mock's.
 missions runs="10" port="8081": build
     #!/usr/bin/env bash
@@ -177,7 +181,7 @@ _fly bridge_bin mock umbilical watch plug dir:
         MELCHIOR_MODEL BALTHASAR_URL BALTHASAR_KEY BALTHASAR_MODEL CASPER_URL CASPER_KEY \
         CASPER_MODEL CORE_REASONING MELCHIOR_REASONING BALTHASAR_REASONING CASPER_REASONING \
         BALTHASAR_BACKEND MAGI_TIMEOUT_MS CORE_TIMEOUT_MS CORE_BACKEND CL1_SPIKES CL1_SIDECAR \
-        PILOT_ID MISSION CORE_JOURNAL PLUG_RECORDER HQ_PERIOD_MS UNIT_ID
+        PILOT_ID PLUG_ADDR MISSION CORE_JOURNAL PLUG_RECORDER HQ_PERIOD_MS UNIT_ID
     key() { python3 -c 'import secrets; print(secrets.token_hex(32))'; }
     UMBILICAL_KEY=$(key) WATCH_KEY=$(key) PILOT_KEY=$(key)
     export UMBILICAL_KEY WATCH_KEY PILOT_KEY TYPESAFE_API_KEY=mock

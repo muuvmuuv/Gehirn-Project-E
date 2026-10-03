@@ -6,7 +6,7 @@ Rules are numbered per section, so a review can cite one: Errors 2, Tests 3. The
 
 ## Set up
 
-gehirn builds with V 0.5.2 from Homebrew, commit 45ae01d. The tools under `tools/` need Python 3.10 or newer and nothing else. The `Justfile` is the one entry point for the checks, the build and the mock missions, so it needs just. `just zenoh` fetches zenoh-c, pinned to 1.10.1 and checked against its sha256, into `thirdparty/zenoh-c`, which git ignores; it needs curl and unzip, runs before `just test`, and covers macOS on Apple Silicon and Linux on aarch64 and x86_64, with musl or glibc. Moving the pin is its own commit that updates the version and every checksum in the recipe and runs every check. The git hooks need lefthook and gitleaks; wire them once per clone:
+gehirn builds with V 0.5.2 from Homebrew, commit 45ae01d. The tools under `tools/` need Python 3.10 or newer and nothing else. The `Justfile` is the one entry point for the checks, the build and the mock missions, so it needs just. `just zenoh` fetches zenoh-c, pinned to 1.10.1 and checked against its sha256, into `thirdparty/zenoh-c`, which git ignores; it needs curl and unzip, runs before `just test`, and covers macOS on Apple Silicon and Linux on aarch64 and x86_64, with musl or glibc. Moving the pin is its own commit that updates the version and every checksum in the recipe and runs every check. `just gamepad` builds the gamepad bridge, the one part that needs SDL2's headers and library, which it finds through pkg-config: Homebrew's sdl2-compat on the Mac, `sdl2-compat-dev` on Alpine, `libsdl2-dev` on Debian and Ubuntu. `gamepad/` holds no tests, because its logic lives in `plug/pilot.v`, so `just check` never compiles it and passes without SDL; only `v -W -check gamepad/` and the build need SDL2. The git hooks need lefthook and gitleaks; wire them once per clone:
 
 ```sh
 lefthook install
@@ -62,7 +62,7 @@ A failing check is never unrelated. Fix it, or stop and report it.
 
 1. The module table in PLAN.md is the dependency rule, and an import outside it needs an ADR. V rejects import cycles but not a forbidden edge, so review compares every new `import` line with the table.
 2. What one bounded context hands another while running (percepts, goals, outcomes, pilot input, context) is an `lcl` type. A module's own API (config structs, clients, results such as `magi.Verdict`) is used by `main.v`, `eval.v` and the modules the table lets import it. A model reply, a Jev answer, a datagram or a message from the other tier is decoded into a typed struct inside the module that received it, by that module's one parser (`oai.extract_json`, `magi.read_reply`, `plug.listen`, `wire.Opener`). A `json2.Any` never leaves the function that decoded it.
-3. Each boundary has one door. Only `oai` and `jev` import `net.http`. Outside tests, only `plug` and `core/cl1.v` import `net`. Only `zenoh` links zenoh-c. Only `armor` holds a `Body` (Invariant 1). A new door is a new row in the module table.
+3. Each boundary has one door. Only `oai` and `jev` import `net.http`. Outside tests, only `plug` and `core/cl1.v` import `net`. Only `zenoh` links zenoh-c, and only `gamepad/pad.c.v` links SDL. Only `armor` holds a `Body` (Invariant 1). A new door is a new row in the module table.
 4. C interop (`C.` declarations, `#flag`, `#include`) lives only in `.c.v` files, and field tier code follows Invariant 9.
 
 ### Concurrency
@@ -92,7 +92,7 @@ A failing check is never unrelated. Fix it, or stop and report it.
 
 ### Logging
 
-1. Only `main.v`, `eval.v` and `bridge/main.v` print, and the bridge draws. Modules return values and errors, and the caller that decides logs once. A thread with nothing to return to, such as `plug.listen`, logs its own failure once and ends.
+1. Only `main.v`, `eval.v`, `bridge/main.v` and `gamepad/main.v` print, and the bridge draws. Modules return values and errors, and the caller that decides logs once. A thread with nothing to return to, such as `plug.listen`, logs its own failure once and ends.
 2. A status line starts with its source and a colon: `hq:`, `field:`, `armor:`, `magi:`. A line that `tools/trials.py` parses names the parser in a comment, the parser names the line, and one commit changes both.
 3. The journal and the recorder are data, not logs. Only `core.Memory` writes the journal and only `plug.Recorder` writes the recorder, both by appending (Invariant 11). No tool and no person edits a `.jsonl` file.
 4. Text from a model or a server, such as a proposal, a ballot's why or a fault, reaches a status line through `lcl.escaped`, so a model can neither break the line nor forge another. `lcl.quoted` does the same for a value from the environment and cuts it after 64 bytes.
@@ -122,7 +122,7 @@ A failing check is never unrelated. Fix it, or stop and report it.
 
 type   build chore ci docs feat fix perf refactor style test
 scope  optional: a module (lcl body armor plug core magi oai jev umbilical zenoh wire),
-       or bridge,
+       or bridge, gamepad,
        or eval, tools, sidecar, adr, vscode
 ```
 

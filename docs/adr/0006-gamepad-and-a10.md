@@ -10,7 +10,7 @@ Phase 2 is done when a pilot flies the mission from a gamepad and feels contact.
 
 Five facts shape the decision, measured on 2026-10-02 unless they say otherwise.
 
-1. `vlang/sdl` has no tags, only one branch per SDL minor version. Branch 2.32.0, at a65140b, holds about 23.4k lines of V under MIT; master tracks SDL3. A game controller with rumble needs 14 functions of SDL2's API, from SDL 2.0.9 on. A binding of our own of those 14, 113 lines, `vlang/sdl` 2.32.0 and SDL3's Gamepad API each built with `v -W` without a warning and listed 0 controllers on the Mac, where Homebrew's sdl2-compat runs SDL2 programs on SDL3, and on Alpine 3.22 aarch64 musl with `sdl2-compat-dev`. Starting and stopping SDL's controller subsystem took 0.165 s.
+1. `vlang/sdl` has no tags, only one branch per SDL minor version. Branch 2.32.0, at a65140b, holds about 23.4k lines of V under MIT; master tracks SDL3. A game controller with rumble needs about 15 functions of SDL2's API, from SDL 2.0.9 on. A first binding of our own of 14 of them, 113 lines, `vlang/sdl` 2.32.0 and SDL3's Gamepad API each built with `v -W` without a warning and listed 0 controllers on the Mac, where Homebrew's sdl2-compat runs SDL2 programs on SDL3, and on Alpine 3.22 aarch64 musl with `sdl2-compat-dev`. Starting and stopping SDL's controller subsystem took 0.165 s.
 2. The plug is the one door for pilot input. Outside tests only `plug` and `core/cl1.v` import `net` (CONTRIBUTING, Modules 3), and the field unit listens on `PLUG_LISTEN` and dials nothing toward the pilot. A reply from that listening socket to a datagram's source address came back 200 times out of 200 on loopback, p50 80 µs and p99 147 µs.
 3. `body.Sim` reports contact within 0.25 m of anything but a beacon, while the armor takes away all motion toward a solid within 0.35 m (`solid_keep`). So a pilot leaning into the pillar almost never touches it; the walking human running into the body is what sets contact. What the pilot runs into is the armor, measurable as the gap between the command into `Armor.drive` and the velocity it sends. Human proximity lives in the armor's private `nearest_human`, judged against `human_slow` and `human_stop`.
 4. A pilot who sends zero still holds the seat, and while the seat is held the core's share stays at or below the ceiling of 80%. A gamepad left on the desk would hold the seat for good. An eject latches until the process restarts (Known issue 5), so an eject by mistake ends the mission.
@@ -18,7 +18,7 @@ Five facts shape the decision, measured on 2026-10-02 unless they say otherwise.
 
 ## Decision
 
-**The gamepad.** A second executable for the pilot's machine, `gehirn-gamepad`, built from `gamepad/`. It reads a game controller through SDL2's game controller API and a binding of our own, `gamepad/pad.c.v`, the only file that links SDL. It starts SDL with no window and without SDL's signal handlers (`SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS`, `SDL_NO_SIGNAL_HANDLERS`), so it runs in a terminal and Ctrl-C ends it. At 50 Hz the left stick becomes `u`: zero inside a deadzone of 0.15, then rising to the armor's manned cap, `armor.Limits.v_max`, at full tilt, with SDL's downward y axis flipped. The datagrams are those of `tools/pilot.py`, sealed under `PILOT_KEY` for `PILOT_ID` and sent to `PLUG_ADDR`. Everything but the SDL calls lives in `plug/pilot.v` as pure functions with table tests, so no test needs SDL, and `plug.Pilot` holds the gamepad's socket, so `net` stays inside `plug`.
+**The gamepad.** A second executable for the pilot's machine, `gehirn-gamepad`, built from `gamepad/`. It reads a game controller through SDL2's game controller API and a binding of our own, `gamepad/pad.c.v`, the only file that links SDL. It starts SDL with no window and without SDL's signal handlers (`SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS`, `SDL_NO_SIGNAL_HANDLERS`), so it runs in a terminal and Ctrl-C ends it. At 50 Hz the left stick becomes `u`: zero inside a deadzone of 0.15, then rising to the armor's manned cap, `armor.Limits.v_max`, at full tilt, with SDL's downward y axis flipped. The datagrams are those of `tools/pilot.py`, sealed under `PILOT_KEY` for `PILOT_ID` and sent to `PLUG_ADDR`. Everything but the SDL calls lives in `plug/pilot.v` as pure functions with table tests, so no test needs SDL, and `plug.Pilot` holds the gamepad's socket, so `net` stays inside `plug`. In the module table `gamepad/` imports `lcl`, `plug` and `armor`, the last for `Limits` alone; it links neither zenoh-c nor anything that holds a body.
 
 **The guard.** LB is a dead man's switch: the gamepad sends only while it is held. Let go and the field unit sees no datagram for 500 ms, empties the seat, and the dummy plug or the core takes over, as when any pilot leaves. Back and Start held together for one second eject; the count starts over whenever either is let go, and it starts only after both have been seen up, so a button stuck down from the start never ejects. An eject sends whether LB is held or not.
 
@@ -49,13 +49,13 @@ A reply is a JSON line `{"v":1,"feel":{...}}`, a newline and 64 hex digits of HM
 | Build | A `just sdl` recipe into `thirdparty/`, and `-path` on every build |
 
 **Pros:** the whole of SDL2 in V, kept by the V organization, with examples.
-**Cons:** two orders of magnitude more code than the 14 functions in use, a pin that may break when GitHub rebuilds an archive, and an upstream whose master has moved on to SDL3.
+**Cons:** two orders of magnitude more code than the 15 functions in use, a pin that may break when GitHub rebuilds an archive, and an upstream whose master has moved on to SDL3.
 
 #### Option B: Our own binding of SDL2's game controller API
 
 | Dimension | Assessment |
 | --- | --- |
-| Code | About 110 lines, read in one review |
+| Code | About 140 lines, read in one review |
 | Pin | None; SDL2 comes from the system: Homebrew sdl2-compat, Alpine `sdl2-compat-dev`, Debian `libsdl2-dev` |
 | Build | `v -prod -o gehirn-gamepad gamepad/` |
 
@@ -110,7 +110,7 @@ A reply is a JSON line `{"v":1,"feel":{...}}`, a newline and 64 hex digits of HM
 
 ## Trade-off Analysis
 
-The gamepad is a pilot, nothing more, so it should reach the field unit the way a pilot already does and change nothing there that safety rests on. The UDP reply does that: no new door, no new key, and nothing on the field unit acts on it. Our own binding costs a hundred lines we keep, against twenty thousand we would pin by an archive's checksum; SDL2's API is frozen, so the hundred lines will not drift. The dead man's switch and the strict eject cost the pilot a finger and a second, and protect the two outcomes that are hard to undo here: a seat held by nobody, and an eject that latches.
+The gamepad is a pilot, nothing more, so it should reach the field unit the way a pilot already does and change nothing there that safety rests on. The UDP reply does that: no new door, no new key, and nothing on the field unit acts on it. Our own binding costs some 140 lines we keep, against twenty thousand we would pin by an archive's checksum; SDL2's API is frozen, so those lines will not drift. The dead man's switch and the strict eject cost the pilot a finger and a second, and protect the two outcomes that are hard to undo here: a seat held by nobody, and an eject that latches.
 
 ## Consequences
 
@@ -126,5 +126,5 @@ Revisit when a pilot needs more than rumble, such as force feedback on triggers,
 
 1. [x] `lcl.Feel`, `Armor.closeness`, `plug.listen`'s reply and the field loop's push (Phase 2 task 2).
 2. [x] `plug/pilot.v`: sealing datagrams, opening replies, the stick, the guard and rumble, with table tests.
-3. [ ] `gehirn-gamepad` in `gamepad/`, the `just gamepad` recipe, and `--probe` to list controllers (Phase 2 task 1).
+3. [x] `gehirn-gamepad` in `gamepad/`, the `just gamepad` recipe, and `--probe` to list controllers (Phase 2 task 1).
 4. [ ] Fly the mission from a physical controller and feel contact, Phase 2's done criterion.

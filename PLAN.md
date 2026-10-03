@@ -37,6 +37,8 @@ On 2026-10-03 `just demo` flew that mission against the mock on its own ports an
 
 On 2026-10-03 the redrawn bridge followed a split mission against the mock, with MELCHIOR-1, BALTHASAR-2 and CASPER-3 slowed to 0.9, 1.7 and 0.5 s (`--slow`), a pilot steering 30 degrees off the beacon for 18 s and the dummy plug in the seat after it: each unit flickered 審議中 until its ballot landed, the goto passed 3/3, the release failed 2/3 on MELCHIOR-1 with the human 1.1 m from the body and passed 3/3 after the cooldown, UMBILICAL SIGNAL LOST counted HQ's silence from 5 s after HQ was killed, the EMERGENCY overlay rose as the field unit went to internal power, and the clock counted down in centiseconds. Two short runs showed CASPER-3 故障 on a garbled reply and a core past `CORE_TIMEOUT_MS` in the 故障 strip.
 
+On 2026-10-03 the A10 back channel of ADR-0006 ran against a gehirn flying the mock mission: pilot datagrams at 50 Hz drew 700 replies of 700, each with a valid HMAC and a growing `t_ms`, round trip p50 357 µs on loopback, and steering into the pillar and the human raised `near` to 1.00 and `strain` to 0.94 m/s and drew 134 replies with contact. A datagram under another key, a replay, one 600 ms old and a reply sent back as a datagram drew none. The gamepad's loop without SDL, `plug.Guard`, `plug.stick` and `plug.Pilot`, held the seat while LB was held, emptied it once LB was let go, and ejected after Back and Start were held for a second. `gehirn-gamepad --probe` listed 0 controllers on the Mac, with none attached, so reading a physical controller and rumble are unverified.
+
 Never run: `sidecar/cl1_sidecar.py` and the `cl1` backend.
 
 ## Architecture in one screen
@@ -56,6 +58,7 @@ Never run: `sidecar/cl1_sidecar.py` and the `cl1` backend.
 | `umbilical` | Link state machine: connected, internal, depleted | nothing |
 | `zenoh` | Session, publishers and subscribers over zenoh-c, which moves bytes between the tiers and knows nothing of LCL | nothing |
 | `bridge/` | The executable `gehirn-bridge` of ADR-0005: the watch streams' state and its panels, drawn with `gg` | lcl, wire, zenoh |
+| `gamepad/` | The executable `gehirn-gamepad` of ADR-0006 for the pilot's machine: a game controller through SDL2 to signed pilot datagrams, and the A10 feel to rumble | lcl, plug, armor |
 | `wire` | ADR-0003's messages: sealing and opening them, each side's ports, and the pumps between the tiers' channels and Zenoh | lcl, zenoh |
 
 Each module is a bounded context, and `lcl` is the only published language between them. Dependencies beyond this table need an ADR.
@@ -117,9 +120,9 @@ Done when killing HQ moves the field unit to internal power after the grace peri
 
 ### Phase 2: Bridge and plug hardware
 
-1. [ ] Gamepad bridge in V on the game controller API of `vlang/sdl`: sticks to `u`, a guarded button combination to `eject`, signed datagrams at 50 Hz.
-2. [ ] A10 back channel: the field unit publishes contact, human proximity and sync, and the bridge turns them into rumble.
-3. [ ] The bridge display moves to Phase 9, a graphical bridge instead of `term.ui`.
+1. [x] Gamepad bridge in V on SDL2's game controller API through a binding of our own instead of `vlang/sdl` (ADR-0006): the left stick to `u`, LB as a dead man's switch, Back and Start held for a second to `eject`, signed datagrams at 50 Hz. Unverified: reading a physical controller, since none was attached.
+2. [x] A10 back channel: the plug answers every datagram with contact, human proximity, sync and the armor's strain, and the gamepad turns them into rumble. Unverified: the rumble on a physical controller.
+3. [x] The bridge display moved to Phase 9, a graphical bridge instead of `term.ui`.
 
 Done when a pilot flies the mission from a gamepad and feels contact.
 
