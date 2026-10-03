@@ -2,6 +2,8 @@
 
 A control stack for a machine that does not exist yet, cut along the lines Evangelion uses for an Eva. Written in V and named after GEHIRN, the UN laboratory for artificial evolution that developed the Evas before it became NERV.
 
+gehirn is a fan project, not affiliated with khara or Gehirn Inc.
+
 Today it drives a simulated body with hosted models on OpenRouter, or any other OpenAI compatible endpoint, and TypeSafe's Jev as one of its three judges. The body is an interface, so hardware replaces the simulator without touching anything above it.
 
 ## Quick start
