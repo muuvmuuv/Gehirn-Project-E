@@ -8,7 +8,7 @@ Today it drives a simulated body with hosted models on OpenRouter, or any other 
 
 ## Quick start
 
-One command flies the whole story on scripted mock models, without keys. It needs [V 0.5.2](https://github.com/vlang/v/releases/tag/0.5.2), just, curl, unzip and Python 3.10 or newer, and ffmpeg only for recording.
+One command flies the whole story on scripted mock models, without keys. It needs [V 0.5.2](https://github.com/vlang/v/releases/tag/0.5.2), just, curl, unzip and Python 3.10 or newer, and ffmpeg only for recording. It is verified on macOS on Apple Silicon. Intel Macs have no pinned zenoh-c, and on Linux neither gehirn nor the bridge has been built with V yet.
 
 ```sh
 just demo
