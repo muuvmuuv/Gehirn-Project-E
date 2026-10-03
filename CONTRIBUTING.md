@@ -6,7 +6,7 @@ Rules are numbered per section, so a review can cite one: Errors 2, Tests 3. The
 
 ## Set up
 
-gehirn builds with V 0.5.2 from Homebrew, commit 45ae01d. The tools under `tools/` need Python 3.10 or newer and nothing else. The `Justfile` is the one entry point for the checks, the build and the mock missions, so it needs just. `just zenoh` fetches zenoh-c, pinned to 1.10.1 and checked against its sha256, into `thirdparty/zenoh-c`, which git ignores; it needs curl and unzip, runs before `just test`, and covers macOS on Apple Silicon and musl Linux. Moving the pin is its own commit that updates the version and every checksum in the recipe and runs every check. The git hooks need lefthook and gitleaks; wire them once per clone:
+gehirn builds with V 0.5.2 from Homebrew, commit 45ae01d. The tools under `tools/` need Python 3.10 or newer and nothing else. The `Justfile` is the one entry point for the checks, the build and the mock missions, so it needs just. `just zenoh` fetches zenoh-c, pinned to 1.10.1 and checked against its sha256, into `thirdparty/zenoh-c`, which git ignores; it needs curl and unzip, runs before `just test`, and covers macOS on Apple Silicon and Linux on aarch64 and x86_64, with musl or glibc. Moving the pin is its own commit that updates the version and every checksum in the recipe and runs every check. The git hooks need lefthook and gitleaks; wire them once per clone:
 
 ```sh
 lefthook install
