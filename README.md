@@ -1,8 +1,16 @@
 # gehirn
 
-A control stack for a machine that does not exist yet, cut along the lines Evangelion uses for an Eva. Written in V and named after GEHIRN, the UN laboratory for artificial evolution that developed the Evas before it became NERV.
+Evangelion's MAGI as a robot's safety gate: three model families vote on every goal, anything irreversible needs all three, and a restraint armor with no model in it holds the body.
 
-gehirn is a fan project, not affiliated with khara or Gehirn Inc.
+![MAGI refuse a release while a person is within reach, then approve it once the person has walked on](docs/media/magi.gif)
+
+- Reversible goals pass with 2 of 3 votes, irreversible ones need 3 of 3, and a unit that errs, times out or answers nonsense votes no.
+- MAGI approval is necessary, never sufficient: the armor caps speed, keeps a geofence, moves nothing toward a person inside 0.7 m and releases nothing with a person inside 2 m.
+- Cut the umbilical and the unit runs 5:00 on internal power, then holds. Without HQ there is no quorum, so nothing irreversible happens.
+
+`just demo` flies the whole story on scripted mock models, without keys. The body is simulated. gehirn is a fan project, not affiliated with khara or Gehirn Inc.
+
+A control stack for a machine that does not exist yet, cut along the lines Evangelion uses for an Eva. Written in V and named after GEHIRN, the UN laboratory for artificial evolution that developed the Evas before it became NERV.
 
 Today it drives a simulated body with hosted models on OpenRouter, or any other OpenAI compatible endpoint, and TypeSafe's Jev as one of its three judges. The body is an interface, so hardware replaces the simulator without touching anything above it.
 
@@ -82,6 +90,8 @@ cd hq && ../gehirn hq
 Kill HQ and the field unit runs on internal power once `UMBILICAL_GRACE_MS` has passed, then holds; start HQ again and the cable reconnects. `just demo` scripts all of this, with the bridge watching. Plain `./gehirn` keeps both in one process for development, and `tools/trials.py` flies only that.
 
 ## The bridge
+
+![The bridge during the refused release: BALTHASAR-2 and MELCHIOR-1 vote 否決 with the human 0.91 m from the body](docs/media/bridge.png)
 
 `./gehirn-bridge` is the operator's view of one unit, drawn in the on screen language of NERV's command center, and everything on it but the boot sequence shows the stack's state:
 
