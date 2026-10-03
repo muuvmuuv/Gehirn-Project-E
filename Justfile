@@ -1,6 +1,9 @@
 # gehirn's one entry point for the checks, the build and the mock missions.
 # CONTRIBUTING.md "Checks" says when each runs; lefthook.yml calls the same recipes on what is staged.
 
+# V 0.5.2 uploads the failing C line and the V source around it to bugs.vlang.io when a C build fails.
+export V_C_ERROR_BUG_REPORT_DISABLED := "1"
+
 # Runs every check on the working tree.
 check: fmt vet test py
 
