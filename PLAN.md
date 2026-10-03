@@ -6,7 +6,7 @@ This file is the handoff to Claude Code: where the project stands, the rules tha
 
 ## State as of 2026-10-03
 
-Builds on V 0.5.2 from Homebrew (45ae01d), which ships JSON as `x.json2`, with warnings as errors (`v -W`). `v vet` is clean apart from two notices about const arrays in `lcl`. `just check` runs every check: table driven tests for `armor`, `umbilical`, `plug.Sync`, `oai`, `jev`, `magi`, `core`, `zenoh`, `wire`, `main` and the scenario harness, and `tools/test_withenv.py` for the dotenv loader. `just missions` flies the mock missions.
+Builds on V 0.5.2 from Homebrew (45ae01d), which ships JSON as `x.json2`, with warnings as errors (`v -W`). `v vet` is clean apart from two notices about const arrays in `lcl`. `just check` runs every check: table driven tests for `armor`, `umbilical`, `plug` (Sync, the datagram and its A10 reply, the pilot's end, the dummy plug), `oai`, `jev`, `magi`, `core`, `zenoh`, `wire`, the bridge's state, `main` and the scenario harness, and a self check per Python tool: `caption`, `eval_dummy`, `export_dummy`, `pilot`, `train_dummy`, `trials` and `withenv`. `just missions` flies the mock missions.
 
 Verified by independent runs against `tools/mock_endpoint.py`:
 
@@ -49,7 +49,7 @@ Never run: `sidecar/cl1_sidecar.py` and the `cl1` backend.
 
 | Module | Holds | Imports |
 | --- | --- | --- |
-| `lcl` | Shared kernel: Entity, Percept, Intent, Outcome, PilotInput, Feel, Context, HqMsg, vector math, the verb policy, `beacon_reach` | nothing |
+| `lcl` | Shared kernel: Entity, Percept, Intent, Outcome, PilotInput, Feel, Context, HqMsg, FieldView, HqEvent and Vote, vector math, the verb policy, `beacon_reach`, and `quoted` and `escaped` for status lines | nothing |
 | `body` | The robot API (`Body`) and the planar simulator `Sim` | lcl |
 | `armor` | Sole holder of a `Body`; every command and effector passes through it | body, lcl |
 | `plug` | Pilot UDP listener and its A10 reply, the pilot's end (`Pilot`, `Guard`, `stick`, `rumble`), `Sync`, `Recorder`, `Dummy` and its `Policy` | lcl |
