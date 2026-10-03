@@ -48,7 +48,7 @@ Never run: `sidecar/cl1_sidecar.py` and the `cl1` backend.
 | `lcl` | Shared kernel: Entity, Percept, Intent, Outcome, PilotInput, Feel, Context, HqMsg, vector math, the verb policy, `beacon_reach` | nothing |
 | `body` | The robot API (`Body`) and the planar simulator `Sim` | lcl |
 | `armor` | Sole holder of a `Body`; every command and effector passes through it | body, lcl |
-| `plug` | Pilot UDP listener and its A10 reply, `Sync`, `Recorder`, `Dummy` | lcl |
+| `plug` | Pilot UDP listener and its A10 reply, the pilot's end (`Pilot`, `Guard`, `stick`, `rumble`), `Sync`, `Recorder`, `Dummy` | lcl |
 | `core` | `Core` (propose, feedback), the `Memory` journal, `LlmCore`, `Cl1Core` | lcl, oai |
 | `magi` | Units, ballots, quorum, the Jev unit's facts and rule; Jev is BALTHASAR-2's default and only BALTHASAR-2 may use it | lcl, oai, jev |
 | `oai` | Minimal OpenAI compatible chat client with JSON extraction | nothing |

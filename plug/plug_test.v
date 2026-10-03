@@ -253,6 +253,12 @@ fn test_read_datagram() {
 	}
 }
 
+// The datagram tools/pilot.py makes is the one seal makes for gehirn-gamepad, so the two pilots
+// cannot drift apart.
+fn test_seal() {
+	assert seal('shinji', [0.4, 0.1], false, sent_us, pilot_key) == shared_datagram.bytes()
+}
+
 // A reply and a datagram are signed under the same PILOT_KEY. A captured reply fails a datagram's
 // mac, and with feel_prefix moved into its line it verifies but reads as no Datagram.
 fn test_a_reply_never_reads_as_a_datagram() {

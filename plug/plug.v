@@ -1,5 +1,6 @@
-// Entry plug: pilot input, the synchronization ratio and the flight recorder.
-// A core is paired with one pilot, so input from anyone else is dropped at the plug.
+// Entry plug: pilot input and the A10 feel sent back, the synchronization ratio and the flight
+// recorder. A core is paired with one pilot, so input from anyone else is dropped at the plug.
+// pilot.v holds the pilot's end of the same link, so the link has one door on both sides.
 module plug
 
 import crypto.hmac
@@ -47,14 +48,32 @@ pub fn (s Sync) authority(threshold f64, ceiling f64) f64 {
 // and how far a datagram's seq may lie from the plug's clock before listen drops it as stale.
 pub const seat_ms = 500
 
-// Datagram is one pilot datagram's signed JSON line. tools/pilot.py datagram() writes the same
-// fields, and plug_test.v test_read_datagram and tools/test_pilot.py share one datagram.
+// Datagram is one pilot datagram's signed JSON line. seal writes it for gehirn-gamepad and
+// tools/pilot.py datagram() writes the same fields; plug_test.v test_read_datagram and test_seal
+// and tools/test_pilot.py share one datagram.
 struct Datagram {
 	v     int
 	seq   i64 // the pilot's wall clock in microseconds, strictly increasing
 	pilot string
 	u     []f64
 	eject bool
+}
+
+// unseal is the line in raw, which ends in a newline and 64 lowercase hex digits of HMAC SHA256
+// under key over prefix and that line, for read_datagram without a prefix and open_feel with
+// feel_prefix. what names the message in its errors.
+fn unseal(raw []u8, key []u8, prefix string, what string) !string {
+	i := raw.bytestr().last_index('\n') or { return error('plug: unsigned ${what}') }
+	sig := raw[i + 1..].bytestr()
+	if sig.len != 64 || !sig.contains_only('0123456789abcdef') {
+		return error('plug: unsigned ${what}')
+	}
+	line := raw[..i].bytestr()
+	mac := hmac.new(key, (prefix + line).bytes(), sha256.sum, sha256.block_size)
+	if !hmac.equal(hex.decode(sig)!, mac) {
+		return error('plug: ${what} fails its mac')
+	}
+	return line
 }
 
 // read_datagram checks one datagram: a JSON line, a newline, and 64 hex digits of HMAC SHA256
@@ -65,16 +84,8 @@ fn read_datagram(raw []u8, key []u8, pilot_id string, last i64, now_us i64) !Dat
 	if key.len == 0 {
 		return error('plug: no PILOT_KEY to check datagrams with')
 	}
-	i := raw.bytestr().last_index('\n') or { return error('plug: unsigned datagram') }
-	sig := raw[i + 1..].bytestr()
-	if sig.len != 64 || !sig.contains_only('0123456789abcdef') {
-		return error('plug: unsigned datagram')
-	}
-	line := raw[..i]
-	if !hmac.equal(hex.decode(sig)!, hmac.new(key, line, sha256.sum, sha256.block_size)) {
-		return error('plug: datagram fails its mac')
-	}
-	d := json2.decode[Datagram](line.bytestr()) or { return error('plug: unreadable datagram') }
+	line := unseal(raw, key, '', 'datagram')!
+	d := json2.decode[Datagram](line) or { return error('plug: unreadable datagram') }
 	if d.v != 1 {
 		return error('plug: datagram of another version than 1')
 	}
@@ -96,13 +107,13 @@ struct Reply {
 	feel lcl.Feel
 }
 
-// feel_prefix starts the bytes a reply's HMAC covers, so no datagram passes as a reply, though
-// both are signed under the same PILOT_KEY. A reply with the prefix moved into its line verifies
-// as a datagram, so what keeps a reply out of read_datagram is that its line is no Datagram.
+// feel_prefix starts the bytes a reply's HMAC covers, so no datagram passes open_feel, though both
+// are signed under the same PILOT_KEY. A reply with the prefix moved into its line verifies as a
+// datagram, so what keeps a reply out of read_datagram is that its line is no Datagram.
 const feel_prefix = 'feel\n'
 
 // seal_feel is the reply listen sends the pilot: a JSON line, a newline, and 64 hex digits of
-// HMAC SHA256 under key over feel_prefix and that line.
+// HMAC SHA256 under key over feel_prefix and that line. open_feel reads it on the pilot's side.
 fn seal_feel(f lcl.Feel, key []u8) []u8 {
 	line := json2.encode(Reply{ v: 1, feel: f })
 	mac := hmac.new(key, (feel_prefix + line).bytes(), sha256.sum, sha256.block_size)

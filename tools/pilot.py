@@ -26,8 +26,10 @@ ARRIVE = 0.35  # lcl.arrive: close enough to the beacon to stop steering
 TAIL = 4096  # bytes read from the end of the recorder, several lines' worth
 
 
-# The counterpart of datagram() is plug/plug.v read_datagram; pose() reads its Record lines.
-# tools/test_pilot.py and plug/plug_test.v test_read_datagram share one datagram.
+# The counterparts of datagram() are plug/plug.v read_datagram, which checks it, and
+# plug/pilot.v seal, which makes the same bytes for gehirn-gamepad; pose() reads plug.v's Record
+# lines. tools/test_pilot.py and plug/plug_test.v test_read_datagram and test_seal share one
+# datagram.
 def datagram(pilot: str, u: list[float], eject: bool, seq: int, key: bytes) -> bytes:
     """Encode one pilot command as a JSON line, a newline and its HMAC SHA256 under key in hex.
 

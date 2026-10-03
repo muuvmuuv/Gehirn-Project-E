@@ -125,6 +125,6 @@ Revisit when a pilot needs more than rumble, such as force feedback on triggers,
 ## Action Items
 
 1. [x] `lcl.Feel`, `Armor.closeness`, `plug.listen`'s reply and the field loop's push (Phase 2 task 2).
-2. [ ] `plug/pilot.v`: sealing datagrams, opening replies, the stick, the guard and rumble, with table tests.
+2. [x] `plug/pilot.v`: sealing datagrams, opening replies, the stick, the guard and rumble, with table tests.
 3. [ ] `gehirn-gamepad` in `gamepad/`, the `just gamepad` recipe, and `--probe` to list controllers (Phase 2 task 1).
 4. [ ] Fly the mission from a physical controller and feel contact, Phase 2's done criterion.
