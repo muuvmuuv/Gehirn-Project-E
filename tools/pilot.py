@@ -21,7 +21,7 @@ import sys
 import time
 from collections.abc import Iterator
 
-START = (-3.5, -2.5)  # body/body.v Sim's start pose, used until the recorder exists
+START = (-3.5, -2.5)  # main.v start_pose's default; the pose until the recorder exists, unless START is set
 ARRIVE = 0.35  # lcl.arrive: close enough to the beacon to stop steering
 TAIL = 4096  # bytes read from the end of the recorder, several lines' worth
 
@@ -53,21 +53,21 @@ def pilot_key() -> bytes:
 
 # ponytail: the recorder flushes about once a second, so this pose lags the body by up to a
 # second; read a live pose stream instead once Phase 1 publishes one.
-def pose(recorder: str) -> tuple[float, float]:
-    """Return the pose in the recorder's last complete line, or the start pose."""
+def pose(recorder: str, start: tuple[float, float] = START) -> tuple[float, float]:
+    """Return the pose in the recorder's last complete line, or start."""
     try:
         with open(recorder, "rb") as f:
             f.seek(max(0, os.fstat(f.fileno()).st_size - TAIL))
             lines = f.read().split(b"\n")[:-1]
     except FileNotFoundError:
-        return START
+        return start
     for line in reversed(lines):
         try:
             x, y = json.loads(line)["pose"]
             return float(x), float(y)
         except (ValueError, KeyError, TypeError):
             continue
-    return START
+    return start
 
 
 def steer(at: tuple[float, float], beacon: tuple[float, float], offset_deg: float,
@@ -109,6 +109,7 @@ def main() -> None:
     args = ap.parse_args()
 
     key = pilot_key()
+    start = point(os.environ["START"]) if os.environ.get("START") else START
     recorder = args.recorder or f"plug.{args.pilot}.jsonl"
     host, _, port = args.addr.rpartition(":")
     dest = (host, int(port))
@@ -123,7 +124,7 @@ def main() -> None:
         sock.sendto(datagram(args.pilot, u, eject, seq, key), dest)
 
     for _ in ticks(args.seconds, args.rate):
-        send(steer(pose(recorder), args.beacon, args.offset, args.speed), False)
+        send(steer(pose(recorder, start), args.beacon, args.offset, args.speed), False)
     if args.eject:
         for _ in ticks(0.5, args.rate):
             send([0.0, 0.0], True)

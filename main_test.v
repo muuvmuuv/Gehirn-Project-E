@@ -198,6 +198,7 @@ fn config_value(cfg Config, key string) string {
 		'WATCH_KEY' { cfg.watch.hex() }
 		'BRIDGE_ENDPOINT' { cfg.bridge }
 		'UMBILICAL_ENDPOINT' { cfg.endpoint }
+		'START' { cfg.start.str() }
 		else { 'no such variable' }
 	}
 }
@@ -307,6 +308,27 @@ fn test_load_config() {
 		ConfigCase{'BRIDGE_ENDPOINT', 'tcp/bridge.local:7448', 'tcp/bridge.local:7448'},
 		ConfigCase{'UMBILICAL_ENDPOINT', '', 'tcp/127.0.0.1:7447'},
 		ConfigCase{'UMBILICAL_ENDPOINT', 'tcp/0.0.0.0:7447', 'tcp/0.0.0.0:7447'},
+		ConfigCase{'START', '', '[-3.5, -2.5]'},
+		ConfigCase{'START', '1.5,-4', '[1.5, -4.0]'},
+		ConfigCase{'START', '-5,5', '[-5.0, 5.0]'},
+		ConfigCase{'START', '0.25,-0.125', '[0.25, -0.125]'},
+		ConfigCase{'START', '5.01,0', 'START is "5.01,0", outside the fence; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'},
+		ConfigCase{'START', '0,-5.5', 'START is "0,-5.5", outside the fence; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'},
+		ConfigCase{'START', '-99999999999999999999,0', 'START is "-99999999999999999999,0", outside the fence; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'},
+		ConfigCase{'START', '1', 'START is "1", not a position; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'},
+		ConfigCase{'START', '1,2,3', 'START is "1,2,3", not a position; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'},
+		ConfigCase{'START', '1,', 'START is "1,", not a position; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'},
+		ConfigCase{'START', '1e0,2', 'START is "1e0,2", not a position; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'},
+		ConfigCase{'START', 'nan,0', 'START is "nan,0", not a position; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'},
+		ConfigCase{'START', 'inf,0', 'START is "inf,0", not a position; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'},
+		ConfigCase{'START', '+1,2', 'START is "+1,2", not a position; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'},
+		ConfigCase{'START', '1, 2', 'START is "1, 2", not a position; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'},
+		ConfigCase{'START', '.5,2', 'START is ".5,2", not a position; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'},
+		ConfigCase{'START', '1.,2', 'START is "1.,2", not a position; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'},
+		ConfigCase{'START', '1.2.3,0', 'START is "1.2.3,0", not a position; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'},
+		ConfigCase{'START', '--1,0', 'START is "--1,0", not a position; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'},
+		ConfigCase{'START', '1;2', 'START is "1;2", not a position; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'},
+		ConfigCase{'START', '1,2\nfield: forged', 'START is "1,2\\x0afield: forged", not a position; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'},
 	]
 	for c in cases {
 		os.unsetenv(c.key)

@@ -49,6 +49,7 @@ struct Config {
 	watch       []u8 // WATCH_KEY's 32 bytes, empty when unset
 	bridge      string
 	endpoint    string
+	start       []f64 // x, y in meters, where body.new_sim puts the body
 }
 
 fn env(key string, fallback string) string {
@@ -120,6 +121,34 @@ fn whole(name string, s string, min int, max int) !int {
 		return error('${name} is ${lcl.quoted(s)}, out of range; accepted ${min} to ${max}')
 	}
 	return n
+}
+
+// start_pose reads START, where the simulated body starts, as x,y in meters inside fence, the
+// armor's xmin, ymin, xmax, ymax. Each part is an optional minus and ASCII digits with an optional
+// fraction, so a plus, a space, an exponent, inf or nan is not a position. tools/pilot.py START
+// and the self of tools/scenarios.json copy the default.
+fn start_pose(fence []f64) ![]f64 {
+	val := env('START', '-3.5,-2.5')
+	accepted := 'accepted x,y in meters, x from ${fence[0]} to ${fence[2]} and y from ${fence[1]} to ${fence[3]}'
+	parts := val.split(',')
+	if parts.len != 2 || !parts.all(is_decimal(it)) {
+		return error('START is ${lcl.quoted(val)}, not a position; ${accepted}')
+	}
+
+	// With the text checked, atof64 cannot fail.
+	x := strconv.atof64(parts[0]) or { fence[0] - 1.0 }
+	y := strconv.atof64(parts[1]) or { fence[1] - 1.0 }
+	if x < fence[0] || x > fence[2] || y < fence[1] || y > fence[3] {
+		return error('START is ${lcl.quoted(val)}, outside the fence; ${accepted}')
+	}
+	return [x, y]
+}
+
+// is_decimal reports whether s is an optional minus, ASCII digits and an optional fraction of
+// ASCII digits, for start_pose.
+fn is_decimal(s string) bool {
+	parts := s.trim_string_left('-').split('.')
+	return parts.len <= 2 && parts.all(it != '' && it.contains_only('0123456789'))
 }
 
 // command is gehirn's first argument: empty flies a mission with HQ and the field unit in one
@@ -354,6 +383,7 @@ fn load_config() !Config {
 		watch:       watch
 		bridge:      env('BRIDGE_ENDPOINT', 'tcp/127.0.0.1:7448')
 		endpoint:    env('UMBILICAL_ENDPOINT', 'tcp/127.0.0.1:7447')
+		start:       start_pose(fence)!
 	}
 }
 
@@ -575,7 +605,7 @@ fn main() {
 		serve_hq(cfg)
 		return
 	}
-	mut ar := armor.restrain(body.new_sim(), armor.Limits{})
+	mut ar := armor.restrain(body.new_sim(cfg.start), armor.Limits{})
 	mut dummy := plug.load_dummy(cfg.recorder)
 	mut rec := plug.open_recorder(cfg.recorder) or { panic(err) }
 	mut cable := umbilical.plug_in(lcl.now_ms(), cfg.budget_ms, cfg.grace_ms)

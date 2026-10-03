@@ -22,7 +22,7 @@ mut:
 // commands go stale.
 pub struct Sim {
 mut:
-	pose    []f64 = [-3.5, -2.5] // tools/pilot.py START and tools/scenarios.json copy this start
+	pose    []f64
 	vel     []f64 = [0.0, 0.0]
 	payload bool  = true
 	contact bool
@@ -31,10 +31,12 @@ mut:
 	cmd_ms  i64
 }
 
-// new_sim puts a fresh body at the west end of the scene, payload aboard.
-pub fn new_sim() &Sim {
+// new_sim puts a fresh body at start, x and y in meters, payload aboard. main.v reads start from
+// START, which defaults to the west end of the scene.
+pub fn new_sim(start []f64) &Sim {
 	now := lcl.now_ms()
 	return &Sim{
+		pose:    start.clone()
 		t0_ms:   now
 		last_ms: now
 	}
