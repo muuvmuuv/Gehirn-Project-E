@@ -138,7 +138,7 @@ Done when the mission and every invariant hold in the new simulator with obstacl
 
 1. [x] Export the recorder into a training set: features, goal frame targets, and pilot corrections marked as such. The recorder carries the scene and marks a correction, and `tools/export_dummy.py` reads it.
 2. [x] Train a small MLP offline (Python is fine outside the runtime) and run inference in V behind the existing `ready`, `act` and `learn`. `tools/train_dummy.py` fits 7 inputs, 32 tanh units and 2 outputs in seconds, and `plug.load_dummy` flies the weights in `DUMMY_WEIGHTS` or falls back to nearest neighbor.
-3. [ ] DAgger: pilot input while the dummy drives counts as a correction and is recorded; retrain on the aggregate.
+3. [x] DAgger: pilot input while the dummy drives counts as a correction and is recorded; retrain on the aggregate. `tools/pilot.py --dagger` corrects as a scripted expert.
 
 Done when, from start positions outside the training set, the new dummy arrives more often and gets benched less than the k nearest neighbor version.
 

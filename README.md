@@ -196,6 +196,8 @@ python3 tools/export_dummy.py plug.shinji.jsonl > dummy.shinji.set
 python3 tools/train_dummy.py dummy.shinji.set    # writes dummy.shinji.json
 ```
 
+Then correct it DAgger style: fly with the dummy plug in the seat and take the seat whenever it steers wrong. The recorder marks every tick of a pilot who took the seat from the dummy plug while it drove toward a goal, or after it was benched, as a correction. Exporting and training again on the whole recorder learns from them, and `--corrections 2` counts each twice. `tools/pilot.py --avoid 1.2 --dagger 30` is a scripted pilot that does the correcting: it passes anything within 1.2 m of its rim on the side nearer the beacon, and takes the seat for two seconds whenever the dummy plug steers more than 30 degrees off its own command or nobody steers toward a goal.
+
 ## Safety
 
 The armor owns the body, and `main` never gets a handle to it. Every command passes a speed cap (1.0 m/s manned, 0.4 unmanned), an acceleration limit that never limits braking, a geofence, and speed and separation monitoring: slower from 2 m to a human, and inside 0.7 m nothing moves toward them. Nothing pushes into anything solid either; what remains of a command slides along the surface. Irreversible effectors need all three MAGI and no human within 2 m.
@@ -259,4 +261,4 @@ Both CL1 ports are plain UDP without authentication, unlike the plug's signed da
 
 ## Next
 
-ROS 2 through rmw_zenoh, now that LCL travels on Zenoh, and the motor controller through zenoh-pico. A MuJoCo body instead of the planar simulator. The dummy plug's network corrected by the pilot DAgger style. A core fine tuned on its own journal. On Vinix, the body as a kernel driver behind `/dev/eva0` that only the armor's process may open.
+ROS 2 through rmw_zenoh, now that LCL travels on Zenoh, and the motor controller through zenoh-pico. A MuJoCo body instead of the planar simulator. A core fine tuned on its own journal. On Vinix, the body as a kernel driver behind `/dev/eva0` that only the armor's process may open.

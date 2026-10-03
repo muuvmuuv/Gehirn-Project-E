@@ -176,7 +176,7 @@ pub:
 	u_out      []f64
 	sync       f64
 	scene      []lcl.Entity
-	correction bool // a pilot tick in a stretch that took the seat from the dummy plug
+	correction bool // a pilot tick in a stretch that took the seat from a driving or benched dummy plug
 }
 
 // Recorder writes every tick main.v's field loop hands it. This log is the dummy plug's training

@@ -4,7 +4,7 @@
 Every tick in which the pilot held the seat toward a goal becomes one JSON line: x, what
 plug/dummy.v observe sees in that tick's percept; y, the pilot's command in the goal's frame
 as speed along the way to the goal and across it to the left; and correction, whether the
-pilot had taken the seat from the dummy plug. Ticks without a goal, inside the arrival radius
+pilot had taken the seat from the dummy plug while it drove or after it was benched. Ticks without a goal, inside the arrival radius
 or recorded without a scene, and lines that are no recorder tick, such as a cut last line, are
 skipped. Recorders are only read (CONTRIBUTING.md, Logging 3), so exporting the aggregate
 again after more flights is how DAgger retrains; tools/train_dummy.py takes the set.
