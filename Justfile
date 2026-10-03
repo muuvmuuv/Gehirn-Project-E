@@ -222,7 +222,10 @@ _fly bridge_bin mock umbilical watch plug dir:
     python3 tools/mock_endpoint.py --listen 127.0.0.1:{{ mock }} --quiet 2>"$run/mock.log" &
     pids="$pids $!"
     beat "mock models on 127.0.0.1:{{ mock }}, scripted by tools/mock_endpoint.py, so no keys" "$run/mock.log" 'mock: serving' 5
-    (cd "$run" && exec "$bridge_bin" >bridge.log 2>&1) &
+
+    # AppKit reads -NSAppSleepDisabled for this process only, so App Nap cannot slow a window
+    # nobody sees while demo-record saves its frames (CONTRIBUTING.md, V 0.5.2 rule 6).
+    (cd "$run" && exec "$bridge_bin" -NSAppSleepDisabled YES >bridge.log 2>&1) &
     bridge=$!
     pids="$pids $bridge"
     start field

@@ -27,7 +27,7 @@ except ValueError as e:
     assert "'x'" in str(e), e
 
 draw = (Path(__file__).parent.parent / "bridge" / "draw.v").read_text()
-for name, rgb in (("amber", INK), ("ink", GROUND)):
+for name, rgb in (("orange", INK), ("ink", GROUND)):
     assert f"const {name} = gg.Color{{{', '.join(map(str, rgb))}, 255}}" in draw, f"bridge/draw.v {name}"
 
 print("caption: ok")

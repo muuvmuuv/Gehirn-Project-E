@@ -23,7 +23,7 @@ const tick = 20 * time.millisecond
 
 // threshold is the sync ratio at or below which the core only advises and a dummy plug loses
 // the seat, for share and the field loop. core/llm.v core_prompt and magi/magi.v casper state it
-// as 30%.
+// as 30%, and bridge/draw.v threshold draws it.
 const threshold = 0.3
 
 // ceiling caps the core's share of the controls in share, so a seated pilot always keeps some.
@@ -296,7 +296,7 @@ fn load_config() !Config {
 	fence := armor.Limits{}.bounds
 	units := [
 		magi.Unit{
-			name:    'MELCHIOR-1'
+			name:    'MELCHIOR-1' // bridge/draw.v units names the three for their panels
 			persona: magi.melchior
 			ep:      endpoint('MELCHIOR', 'gpt-oss:20b', 'low', magi_ms)
 			bounds:  fence

@@ -35,6 +35,8 @@ On 2026-10-02 `gehirn-bridge` followed split missions on the Mac and met Phase 9
 
 On 2026-10-03 `just demo` flew that mission against the mock on its own ports and narrated every beat: the goto approved 3/3 at 0:07, the pilot in the seat at 0:08 and the dummy plug at 0:20, the release refused 1/3 at 0:26 (MELCHIOR-1 and BALTHASAR-2 on the human within reach) and approved 3/3 at 0:32, released on target at 0:33, internal power at 1:13 after HQ was killed, and the cable reconnected at 1:20. Ctrl-C, a mock port in use and the normal end each left no process running.
 
+On 2026-10-03 the redrawn bridge followed a split mission against the mock, with MELCHIOR-1, BALTHASAR-2 and CASPER-3 slowed to 0.9, 1.7 and 0.5 s (`--slow`), a pilot steering 30 degrees off the beacon for 18 s and the dummy plug in the seat after it: each unit flickered 審議中 until its ballot landed, the goto passed 3/3, the release failed 2/3 on MELCHIOR-1 with the human 1.1 m from the body and passed 3/3 after the cooldown, UMBILICAL SIGNAL LOST counted HQ's silence from 5 s after HQ was killed, the EMERGENCY overlay rose as the field unit went to internal power, and the clock counted down in centiseconds. Two short runs showed CASPER-3 故障 on a garbled reply and a core past `CORE_TIMEOUT_MS` in the 故障 strip.
+
 Never run: `sidecar/cl1_sidecar.py` and the `cl1` backend.
 
 ## Architecture in one screen
@@ -180,7 +182,7 @@ Goal: a graphical bridge in the look of NERV's command center, the operator's vi
 4. [x] Runs on the Mac against the mock and the hosted lineup.
 5. [x] Show the vote as it happens and HQ's silence, additive inside ADR-0005's two streams and keys: HQ puts each proposal as it goes to MAGI (`stage` deliberating) and each ballot as it lands (`stage` ballot) before the verdict, and the field's view carries `benched`, `silent_ms`, how long ago HQ's last pulse arrived, and `grace_ms`. README's "The bridge" lists them.
 6. [x] Bundle the bridge's fonts under `bridge/fonts`, OFL licensed, and embed them, so no image needs the CJK font ADR-0005 expected a Linux image to add; `VUI_FONT` remains a fallback for glyphs outside them.
-7. [ ] Redraw the bridge in Evangelion's on-screen design language: MAGI in its canon geometry with 審議中, the 活動限界 display with a warning while HQ is silent, the シンクロ率 harmonics, the scene as a radar, a boot sequence and a fan project line. Every element shows the stack's true state.
+7. [x] Redraw the bridge in Evangelion's on screen design language: MAGI in its canon geometry with 審議中, the 活動限界 display with a warning while HQ is silent, the シンクロ率 harmonics, the scene as a radar, a boot sequence and a fan project line. Apart from the boot sequence, every element shows the stack's state; README's "The bridge" describes each.
 
 Done when the bridge follows a full mission live on the Mac, from goto to release, including a MAGI rejection and a cut cable, and closing the bridge changes nothing in the mission.
 

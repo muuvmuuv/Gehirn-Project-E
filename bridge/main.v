@@ -33,10 +33,12 @@ const seg = 'dseg7'
 const fonts = ['/Library/Fonts/Arial Unicode.ttf',
 	'/System/Library/Fonts/Supplemental/Arial Unicode.ttf']!
 
-// App is the bridge: its ports, its opener and what it shows. frame draws it 60 times a second.
+// App is the bridge: the unit it shows and where it listens, its ports, its opener and what it
+// shows. frame draws it 60 times a second.
 @[heap]
 struct App {
 	unit string
+	at   string
 mut:
 	gg     &gg.Context = unsafe { nil }
 	ports  wire.BridgePorts
@@ -61,6 +63,10 @@ fn main() {
 	}
 	mut app := &App{
 		unit:   unit
+		at:     at
+		state:  State{
+			born: lcl.now_ms()
+		}
 		ports:  wire.bridge_ports(session, unit) or {
 			eprintln('gehirn-bridge: ${err.msg()}')
 			exit(1)
@@ -71,8 +77,8 @@ fn main() {
 		}
 	}
 	app.gg = gg.new_context(
-		width:             1280
-		height:            800
+		width:             screen_w
+		height:            screen_h
 		window_title:      'gehirn bridge ${unit}'
 		bg_color:          ink
 		init_fn:           init
@@ -152,6 +158,10 @@ fn frame(mut app App) {
 		app.state.take_event(e, now)
 	}
 	app.gg.begin()
-	draw(app.gg, app.state, app.unit, now)
+	draw(app.gg, app.state, app.unit, app.at, now)
+
+	// gg uploads glyphs new to fontstash's atlas only as the next frame begins, so a string drawn
+	// for the first time would show blanks for a frame; the EMERGENCY overlay is nearly all new.
+	app.gg.ft.flush()
 	app.gg.end()
 }

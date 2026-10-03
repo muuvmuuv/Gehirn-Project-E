@@ -25,8 +25,8 @@ GLYPHS = {
     "T": (0x1F, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04),
     "X": (0x11, 0x11, 0x0A, 0x04, 0x0A, 0x11, 0x11),
 }
-INK = bytes((255, 140, 26))  # bridge/draw.v amber
-GROUND = bytes((10, 10, 12))  # bridge/draw.v ink
+INK = bytes((255, 141, 0))  # bridge/draw.v orange
+GROUND = bytes((4, 4, 6))  # bridge/draw.v ink
 
 
 def render(text: str, scale: int = 4, pad: int = 2) -> bytes:
