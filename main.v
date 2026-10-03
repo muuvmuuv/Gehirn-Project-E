@@ -661,6 +661,8 @@ fn main() {
 	mut pilot_sync := plug.Sync{}
 	mut dummy_sync := plug.Sync{}
 	mut benched := false
+	mut seat_was := 'empty' // the last tick's seat
+	mut correcting := false
 	mut seat_in := lcl.PilotInput{}
 	mut link := umbilical.State.connected
 	mut reached := false
@@ -751,6 +753,11 @@ fn main() {
 		mut seat := 'empty'
 		mut u_seat := []f64{len: u_core.len}
 		if now - seat_in.t_ms < plug.seat_ms && seat_in.u.len == u_core.len {
+			// A pilot who takes the seat from the dummy plug, seated or benched, corrects it
+			// until leaving, and the recorder marks those ticks for DAgger.
+			if seat_was != 'pilot' {
+				correcting = seat_was == 'dummy' || benched
+			}
 			seat = 'pilot'
 			u_seat = seat_in.u.clone()
 			if benched {
@@ -790,15 +797,18 @@ fn main() {
 		})
 
 		rec.write(plug.Record{
-			t_ms:   now
-			seat:   seat
-			pose:   p.pose
-			target: goal.target
-			u_seat: u_seat
-			u_core: u_core
-			u_out:  u_out
-			sync:   ratio
+			t_ms:       now
+			seat:       seat
+			pose:       p.pose
+			target:     goal.target
+			u_seat:     u_seat
+			u_core:     u_core
+			u_out:      u_out
+			sync:       ratio
+			scene:      p.scene
+			correction: seat == 'pilot' && correcting
 		})
+		seat_was = seat
 		if seat == 'pilot' {
 			dummy.learn(p.pose, goal.target, u_seat)
 		}

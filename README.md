@@ -220,7 +220,7 @@ That is a soft layer on operating systems without real time guarantees. On hardw
 | `MISSION` | deliver to b1, avoid humans | What HQ is trying to achieve |
 | `START` | `-3.5,-2.5` | Where the simulated body starts, `x,y` in meters inside the armor's fence of -5 to 5 on each axis; `tools/pilot.py` reads it too |
 | `CORE_JOURNAL` | `core.<pilot>.jsonl` | The soul: append only, one per pilot. It also records every MAGI ballot and every core fault |
-| `PLUG_RECORDER` | `plug.<pilot>.jsonl` | Every tick, and the dummy plug's training set |
+| `PLUG_RECORDER` | `plug.<pilot>.jsonl` | Every tick with its scene, and the dummy plug's training set |
 | `HQ_PERIOD_MS` | `1500` | Pause between deliberations, 100 to 3000 |
 | `MAGI_COOLDOWN_MS` | `10000` | Wait before an irreversible proposal may be put again, 5000 to 60000, so always longer than the pause |
 | `UMBILICAL_GRACE_MS` | `45000` | Silence from HQ before the cable counts as cut, 40000 to 60000, so always longer than both deadlines plus the pause |

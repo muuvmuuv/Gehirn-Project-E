@@ -18,7 +18,8 @@ pub const known_verbs = ['goto', 'hold', 'release']
 pub const irreversible_verbs = ['release']
 
 // arrive is the radius, in meters, inside which a goto counts as reached, for main.v's field
-// loop, plug.Dummy and magi/jev.v destination. tools/pilot.py ARRIVE copies it.
+// loop, plug.Dummy and magi/jev.v destination. tools/pilot.py ARRIVE and tools/export_dummy.py
+// ARRIVE copy it.
 pub const arrive = 0.35
 
 // beacon_reach is how close to a beacon's center, in meters, the body counts as at the beacon,

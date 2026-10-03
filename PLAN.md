@@ -136,7 +136,7 @@ Done when the mission and every invariant hold in the new simulator with obstacl
 
 ### Phase 4: Dummy plug v2
 
-1. [ ] Export the recorder into a training set: features, goal frame targets, and pilot corrections marked as such.
+1. [x] Export the recorder into a training set: features, goal frame targets, and pilot corrections marked as such. The recorder carries the scene and marks a correction, and `tools/export_dummy.py` reads it.
 2. [ ] Train a small MLP offline (Python is fine outside the runtime) and run inference in V behind the existing `ready`, `act` and `learn`.
 3. [ ] DAgger: pilot input while the dummy drives counts as a correction and is recorded; retrain on the aggregate.
 
@@ -193,7 +193,7 @@ Done when the bridge follows a full mission live on the Mac, from goto to releas
 
 1. Resolved on 2026-10-02: the field loop sleeps until absolute deadlines (`main.v` `pace`). It ran at 42 ticks per second and now at 50.
 2. `Cl1Core.feedback` blocks the HQ thread for about four seconds after a failure.
-3. The recorder writes 50 JSON lines per second with no rotation.
+3. The recorder writes 50 JSON lines per second with no rotation, about 22 KB per second since every line carries the scene. The nearest neighbor dummy plug replays all of it at startup, about 15 s per 100 minutes of flight in a dev build, almost half of that spent decoding the scene it never reads.
 4. Pilot datagrams prove freshness by the pilot's clock, so a pilot whose clock is more than 500 ms off the field unit's can neither steer nor eject, and the plug says nothing about it. The A10 reply of ADR-0006 is the back channel an echo needs: it carries the field unit's `t_ms`, so a datagram version that echoes it, as ADR-0003 does for HQ, would remove the pilot's clock from the check. That echo is not built.
 5. Eject latches until the process restarts, and there is no re-arm procedure.
 6. Percepts are ground truth from the simulator, the human's position included.

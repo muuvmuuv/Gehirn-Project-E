@@ -155,17 +155,20 @@ pub fn listen(addr string, pilot_id string, key []u8, out chan lcl.PilotInput, f
 	}
 }
 
-// Record is one tick of the flight recorder. tools/pilot.py tails the recorder for pose.
+// Record is one tick of the flight recorder. tools/pilot.py tails the recorder for pose, and
+// tools/export_dummy.py sample reads it into the dummy plug's training set.
 pub struct Record {
 pub:
-	t_ms   i64
-	seat   string
-	pose   []f64
-	target []f64
-	u_seat []f64
-	u_core []f64
-	u_out  []f64
-	sync   f64
+	t_ms       i64
+	seat       string
+	pose       []f64
+	target     []f64
+	u_seat     []f64
+	u_core     []f64
+	u_out      []f64
+	sync       f64
+	scene      []lcl.Entity
+	correction bool // a pilot tick in a stretch that took the seat from the dummy plug
 }
 
 // Recorder writes every tick main.v's field loop hands it. This log is the dummy plug's training
