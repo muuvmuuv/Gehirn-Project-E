@@ -71,7 +71,7 @@ A failing check is never unrelated. Fix it, or stop and report it.
 2. Threads share no mutable state. HQ and the field tier exchange `lcl` values over channels. Introducing `shared` and `lock` is a decision with alternatives, so it needs an ADR.
 3. Every channel has a fixed capacity. A sender that must not wait uses `try_push`, and on a full channel it drops a value, the stale one or the new one. The doc of the sending function says which, as `plug.listen` does.
 4. The 50 Hz field loop never waits on a channel, on HQ or on the network. Its channel operations are `try_push` and `try_pop`. Slower work runs on its own thread and hands back a value.
-5. A call that can hang gets a deadline. Spawn it and wait on a `chan T{cap: 1}` in a `select` with a timeout branch, as `oai.Endpoint.ask` does. The capacity of 1 lets a late answer land without blocking the abandoned thread.
+5. A call that can hang gets a deadline. Spawn it and wait on a `chan T{cap: 1}` in a `select` with a timeout branch, as `oai.Endpoint.exchange` does. The capacity of 1 lets a late answer land without blocking the abandoned thread.
 6. A type that `x.json2` encodes or decodes on more than one thread is warmed in its module's `init()`, as in `oai/oai.v`. V 0.5.2 fills json2's per type cache without a lock, and two threads on a cold type can panic the process.
 
 ### Tests

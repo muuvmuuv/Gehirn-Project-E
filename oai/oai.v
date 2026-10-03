@@ -3,6 +3,7 @@ module oai
 
 import x.json2
 import net.http
+import strconv
 import time
 
 // Endpoint is one model behind one chat completions URL, as a core or a MAGI unit uses it.
@@ -99,9 +100,10 @@ fn init() {
 }
 
 // ask runs one system plus user exchange and returns the JSON object in the reply. The reply
-// must arrive within e.timeout, however the time is spent; jev.Endpoint.ask copies this deadline
-// and the request limits below. tools/trials.py PARSE_ERRORS counts a ballot that faults with its
-// unreadable completion or extract_json's no JSON object as a parse fault.
+// must arrive within e.timeout, however the time is spent, and an HTTP 429 is asked once more
+// inside it; jev.Endpoint.ask copies this deadline and the request limits below, not the retry.
+// tools/trials.py PARSE_ERRORS counts a ballot that faults with its unreadable completion or
+// extract_json's no JSON object as a parse fault.
 pub fn (e Endpoint) ask(system string, user string, temperature f64, schema Schema) !string {
 	// ponytail: no retry with json_object after an HTTP 400, so an endpoint that rejects
 	// json_schema outright faults every ballot; extract_json covers endpoints that ignore it.
@@ -150,16 +152,16 @@ pub fn (e Endpoint) ask(system string, user string, temperature f64, schema Sche
 		req.add_header(.authorization, 'Bearer ${e.key}')
 	}
 
-	// Capacity 1, so a reply that lands after the deadline never blocks the abandoned thread.
-	done := chan Answer{cap: 1}
-	spawn post(req, done)
-	mut a := Answer{}
-	select {
-		got := <-done {
-			a = got
-		}
-		e.timeout {
-			return error('${e.model}: no reply within ${e.timeout.milliseconds()} ms')
+	// A host that limits its rate, such as qwen3-8b's only provider on OpenRouter, gets one more
+	// ask after its Retry-After, if the deadline leaves time for it.
+	sw := time.new_stopwatch()
+	mut a := e.exchange(req, e.timeout)!
+	if a.err == '' && a.resp.status_code == 429 {
+		wait := retry_after(a.resp.header.get(.retry_after) or { '' })
+		left := e.timeout - sw.elapsed()
+		if wait < left {
+			time.sleep(wait)
+			a = e.exchange(req, left - wait)!
 		}
 	}
 	if a.err != '' {
@@ -174,6 +176,33 @@ pub fn (e Endpoint) ask(system string, user string, temperature f64, schema Sche
 		return error('${e.model}: empty completion')
 	}
 	return extract_json(r.choices[0].message.content) or { return error('${e.model}: ${err}') }
+}
+
+// exchange posts req on a thread of its own and waits at most limit for the answer, for ask.
+fn (e Endpoint) exchange(req http.Request, limit time.Duration) !Answer {
+	// Capacity 1, so a reply that lands after the deadline never blocks the abandoned thread.
+	done := chan Answer{cap: 1}
+	spawn post(req, done)
+	mut a := Answer{}
+	select {
+		got := <-done {
+			a = got
+		}
+		limit {
+			return error('${e.model}: no reply within ${e.timeout.milliseconds()} ms')
+		}
+	}
+	return a
+}
+
+// retry_after is how long ask waits after an HTTP 429 whose Retry-After header reads s: its whole
+// seconds, else one second, also for the HTTP date form.
+fn retry_after(s string) time.Duration {
+	t := s.trim_space()
+	if t == '' || t.len > 6 || !t.contains_only('0123456789') {
+		return time.second
+	}
+	return time.second * strconv.atoi(t) or { 1 }
 }
 
 fn post(req http.Request, done chan Answer) {
