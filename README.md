@@ -120,7 +120,7 @@ Ollama, vLLM and other services work through the same variables: point `GEHIRN_U
 | Core | `core` | Proposes the next goal: a language model, or a living culture on a Cortical Labs CL1, which is experimental and has never run on one. Its journal belongs to one pilot and outlives any backend. |
 | Entry plug | `plug` | Pilot input over UDP, the sync ratio, and a recorder that logs every tick. |
 | A10 nerve connection | `gamepad/` | A game controller as the pilot's hands, with contact, a human close by and the armor's strain coming back as rumble. |
-| Dummy plug | `plug/dummy.v` | The pilot's driving style, cloned from the recorder. It loses the seat when it falls out of sync. |
+| Dummy plug | `plug/dummy.v` | The pilot's driving style, as a small network trained on the recorder or cloned from it. It loses the seat when it falls out of sync. |
 | Restraint armor | `armor` | The only thing that holds the body: speed, acceleration, geofence, human separation, capabilities, eject. No model inside. |
 | Umbilical cable | `umbilical` | The link to HQ. Cut it and the unit runs five minutes on internal power, then holds. |
 | LCL | `lcl` | Plain data every layer is immersed in, so any transport can carry it. |
@@ -185,6 +185,17 @@ Sync is a moving average of how well the seat and the core agree, from the angle
 
 The dummy plug earns its own ratio. At 30% it is benched until the pilot is back, and the core drives alone under the unmanned speed limit. It imitates style, not intent: commands are stored relative to the approved goal, so without a goal it does nothing, and with one it has no memorized heading to run off with. In canon a sync ratio past 400% dissolves the pilot into LCL. The nearest thing here is a dummy plug good enough that nobody needs to sit down.
 
+## Training the dummy plug
+
+Without a weights file the dummy plug clones the pilot by nearest neighbor: each tick it averages what the pilot did at the seven ticks on file most like this one, by where the body was and how far the goal. It sees nothing of the scene. With a weights file it flies a small neural network trained offline on what the pilot saw: how far the goal is, and the direction to and closeness of the nearest obstacle and the nearest human, all in the goal's frame. gehirn loads `DUMMY_WEIGHTS` at startup and names it on the `field: plug` line. A file there that is cut short, of another version or shape, or holds a weight that is not finite or beyond 1e6, stops gehirn with one line that names the variable and the cause, and exits 1.
+
+Export the ticks the pilot flew toward a goal from the recorder, then train; a few thousand ticks take seconds:
+
+```sh
+python3 tools/export_dummy.py plug.shinji.jsonl > dummy.shinji.set
+python3 tools/train_dummy.py dummy.shinji.set    # writes dummy.shinji.json
+```
+
 ## Safety
 
 The armor owns the body, and `main` never gets a handle to it. Every command passes a speed cap (1.0 m/s manned, 0.4 unmanned), an acceleration limit that never limits braking, a geofence, and speed and separation monitoring: slower from 2 m to a human, and inside 0.7 m nothing moves toward them. Nothing pushes into anything solid either; what remains of a command slides along the surface. Irreversible effectors need all three MAGI and no human within 2 m.
@@ -221,6 +232,7 @@ That is a soft layer on operating systems without real time guarantees. On hardw
 | `START` | `-3.5,-2.5` | Where the simulated body starts, `x,y` in meters inside the armor's fence of -5 to 5 on each axis; `tools/pilot.py` reads it too |
 | `CORE_JOURNAL` | `core.<pilot>.jsonl` | The soul: append only, one per pilot. It also records every MAGI ballot and every core fault |
 | `PLUG_RECORDER` | `plug.<pilot>.jsonl` | Every tick with its scene, and the dummy plug's training set |
+| `DUMMY_WEIGHTS` | `dummy.<pilot>.json` | The dummy plug's trained network from `tools/train_dummy.py`; without the file the dummy plug clones the recorder |
 | `HQ_PERIOD_MS` | `1500` | Pause between deliberations, 100 to 3000 |
 | `MAGI_COOLDOWN_MS` | `10000` | Wait before an irreversible proposal may be put again, 5000 to 60000, so always longer than the pause |
 | `UMBILICAL_GRACE_MS` | `45000` | Silence from HQ before the cable counts as cut, 40000 to 60000, so always longer than both deadlines plus the pause |
@@ -247,4 +259,4 @@ Both CL1 ports are plain UDP without authentication, unlike the plug's signed da
 
 ## Next
 
-ROS 2 through rmw_zenoh, now that LCL travels on Zenoh, and the motor controller through zenoh-pico. A MuJoCo body instead of the planar simulator. A trained policy behind the dummy plug's methods, corrected by the pilot DAgger style instead of cloned once. A core fine tuned on its own journal. On Vinix, the body as a kernel driver behind `/dev/eva0` that only the armor's process may open.
+ROS 2 through rmw_zenoh, now that LCL travels on Zenoh, and the motor controller through zenoh-pico. A MuJoCo body instead of the planar simulator. The dummy plug's network corrected by the pilot DAgger style. A core fine tuned on its own journal. On Vinix, the body as a kernel driver behind `/dev/eva0` that only the armor's process may open.

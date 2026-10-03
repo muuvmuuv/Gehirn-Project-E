@@ -52,6 +52,20 @@ fn test_update() {
 			want:  0.491
 		},
 		UpdateCase{
+			name:  'an infinite pilot is skipped'
+			pilot: [math.inf(1), 0.0]
+			own:   [1.0, 0.0]
+			ratio: 0.5
+			want:  0.5
+		},
+		UpdateCase{
+			name:  'a pilot that is not a number is skipped'
+			pilot: [math.nan(), 0.0]
+			own:   [1.0, 0.0]
+			ratio: 0.5
+			want:  0.5
+		},
+		UpdateCase{
 			name:  'agreement moves up at the rate'
 			pilot: [1.0, 0.0]
 			own:   [1.0, 0.0]

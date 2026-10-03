@@ -199,6 +199,7 @@ fn config_value(cfg Config, key string) string {
 		'BRIDGE_ENDPOINT' { cfg.bridge }
 		'UMBILICAL_ENDPOINT' { cfg.endpoint }
 		'START' { cfg.start.str() }
+		'DUMMY_WEIGHTS' { cfg.weights }
 		else { 'no such variable' }
 	}
 }
@@ -308,6 +309,8 @@ fn test_load_config() {
 		ConfigCase{'BRIDGE_ENDPOINT', 'tcp/bridge.local:7448', 'tcp/bridge.local:7448'},
 		ConfigCase{'UMBILICAL_ENDPOINT', '', 'tcp/127.0.0.1:7447'},
 		ConfigCase{'UMBILICAL_ENDPOINT', 'tcp/0.0.0.0:7447', 'tcp/0.0.0.0:7447'},
+		ConfigCase{'DUMMY_WEIGHTS', '', 'dummy.shinji.json'},
+		ConfigCase{'DUMMY_WEIGHTS', 'weights/rei.json', 'weights/rei.json'},
 		ConfigCase{'START', '', '[-3.5, -2.5]'},
 		ConfigCase{'START', '1.5,-4', '[1.5, -4.0]'},
 		ConfigCase{'START', '-5,5', '[-5.0, 5.0]'},

@@ -5,3 +5,5 @@ __pycache__/
 /thirdparty/
 /gehirn-bridge
 /gehirn-gamepad
+dummy.*.json
+dummy.*.set

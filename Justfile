@@ -176,12 +176,13 @@ _fly bridge_bin mock umbilical watch plug dir:
     run=$(cd "$run" && pwd)
 
     # Every variable of README's configuration table but SSL_CERT_FILE, so nothing hosted or
-    # personal leaks in; above all CORE_JOURNAL and PLUG_RECORDER, the pilot's data.
+    # personal leaks in; above all CORE_JOURNAL, PLUG_RECORDER and DUMMY_WEIGHTS, the pilot's data.
     unset GEHIRN_URL GEHIRN_KEY CORE_URL CORE_KEY CORE_MODEL MELCHIOR_URL MELCHIOR_KEY \
         MELCHIOR_MODEL BALTHASAR_URL BALTHASAR_KEY BALTHASAR_MODEL CASPER_URL CASPER_KEY \
         CASPER_MODEL CORE_REASONING MELCHIOR_REASONING BALTHASAR_REASONING CASPER_REASONING \
         BALTHASAR_BACKEND MAGI_TIMEOUT_MS CORE_TIMEOUT_MS CORE_BACKEND CL1_SPIKES CL1_SIDECAR \
-        PILOT_ID PLUG_ADDR MISSION START CORE_JOURNAL PLUG_RECORDER HQ_PERIOD_MS UNIT_ID
+        PILOT_ID PLUG_ADDR MISSION START CORE_JOURNAL PLUG_RECORDER DUMMY_WEIGHTS HQ_PERIOD_MS \
+        UNIT_ID
     key() { python3 -c 'import secrets; print(secrets.token_hex(32))'; }
     UMBILICAL_KEY=$(key) WATCH_KEY=$(key) PILOT_KEY=$(key)
     export UMBILICAL_KEY WATCH_KEY PILOT_KEY TYPESAFE_API_KEY=mock

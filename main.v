@@ -35,6 +35,7 @@ struct Config {
 	plug_at     string
 	journal     string
 	recorder    string
+	weights     string
 	backend     string
 	cl1         core.Cl1Config
 	core_ep     oai.Endpoint
@@ -366,6 +367,7 @@ fn load_config() !Config {
 		plug_at:     env('PLUG_LISTEN', '0.0.0.0:7777')
 		journal:     env('CORE_JOURNAL', 'core.${pilot}.jsonl')
 		recorder:    env('PLUG_RECORDER', 'plug.${pilot}.jsonl')
+		weights:     env('DUMMY_WEIGHTS', 'dummy.${pilot}.json')
 		backend:     env_choice('CORE_BACKEND', 'llm', ['llm', 'cl1'])!
 		cl1:         core.Cl1Config{
 			listen:  env('CL1_SPIKES', '0.0.0.0:12345')
@@ -606,7 +608,11 @@ fn main() {
 		return
 	}
 	mut ar := armor.restrain(body.new_sim(cfg.start), armor.Limits{})
-	mut dummy := plug.load_dummy(cfg.recorder)
+	mut dummy := plug.load_dummy(cfg.recorder, cfg.weights) or {
+		// tools/trials.py WARNINGS echoes this line from a run's log.
+		eprintln('gehirn: DUMMY_WEIGHTS is ${lcl.quoted(cfg.weights)}; ${err.msg()}')
+		exit(1)
+	}
 	mut rec := plug.open_recorder(cfg.recorder) or { panic(err) }
 	mut cable := umbilical.plug_in(lcl.now_ms(), cfg.budget_ms, cfg.grace_ms)
 
@@ -649,7 +655,12 @@ fn main() {
 		println('plug: PILOT_KEY is unset, so the plug drops every datagram and no pilot can steer or eject')
 	}
 	spawn plug.listen(cfg.plug_at, cfg.pilot_id, cfg.pilot_key, pilot_ch, feel)
-	println('field: plug for ${lcl.quoted(cfg.pilot_id)} on ${lcl.quoted(cfg.plug_at)}, dummy plug holds ${dummy.size()} samples')
+	flies := if dummy.trained() {
+		'flies the policy in ${lcl.quoted(cfg.weights)}'
+	} else {
+		'holds ${dummy.size()} samples'
+	}
+	println('field: plug for ${lcl.quoted(cfg.pilot_id)} on ${lcl.quoted(cfg.plug_at)}, dummy plug ${flies}')
 
 	dt := f64(tick) / f64(time.second)
 	mut goal := lcl.Intent{
@@ -766,7 +777,7 @@ fn main() {
 			}
 		} else if dummy.ready() && !benched && !ar.is_ejected() {
 			seat = 'dummy'
-			u_seat = dummy.act(p.pose, goal.target)
+			u_seat = dummy.act(p, goal.target)
 		}
 
 		mut authority := 1.0

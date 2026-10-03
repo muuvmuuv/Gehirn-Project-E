@@ -50,7 +50,7 @@ Never run: `sidecar/cl1_sidecar.py` and the `cl1` backend.
 | `lcl` | Shared kernel: Entity, Percept, Intent, Outcome, PilotInput, Feel, Context, HqMsg, vector math, the verb policy, `beacon_reach` | nothing |
 | `body` | The robot API (`Body`) and the planar simulator `Sim` | lcl |
 | `armor` | Sole holder of a `Body`; every command and effector passes through it | body, lcl |
-| `plug` | Pilot UDP listener and its A10 reply, the pilot's end (`Pilot`, `Guard`, `stick`, `rumble`), `Sync`, `Recorder`, `Dummy` | lcl |
+| `plug` | Pilot UDP listener and its A10 reply, the pilot's end (`Pilot`, `Guard`, `stick`, `rumble`), `Sync`, `Recorder`, `Dummy` and its `Policy` | lcl |
 | `core` | `Core` (propose, feedback), the `Memory` journal, `LlmCore`, `Cl1Core` | lcl, oai |
 | `magi` | Units, ballots, quorum, the Jev unit's facts and rule; Jev is BALTHASAR-2's default and only BALTHASAR-2 may use it | lcl, oai, jev |
 | `oai` | Minimal OpenAI compatible chat client with JSON extraction | nothing |
@@ -137,7 +137,7 @@ Done when the mission and every invariant hold in the new simulator with obstacl
 ### Phase 4: Dummy plug v2
 
 1. [x] Export the recorder into a training set: features, goal frame targets, and pilot corrections marked as such. The recorder carries the scene and marks a correction, and `tools/export_dummy.py` reads it.
-2. [ ] Train a small MLP offline (Python is fine outside the runtime) and run inference in V behind the existing `ready`, `act` and `learn`.
+2. [x] Train a small MLP offline (Python is fine outside the runtime) and run inference in V behind the existing `ready`, `act` and `learn`. `tools/train_dummy.py` fits 7 inputs, 32 tanh units and 2 outputs in seconds, and `plug.load_dummy` flies the weights in `DUMMY_WEIGHTS` or falls back to nearest neighbor.
 3. [ ] DAgger: pilot input while the dummy drives counts as a correction and is recorded; retrain on the aggregate.
 
 Done when, from start positions outside the training set, the new dummy arrives more often and gets benched less than the k nearest neighbor version.
@@ -197,7 +197,7 @@ Done when the bridge follows a full mission live on the Mac, from goto to releas
 4. Pilot datagrams prove freshness by the pilot's clock, so a pilot whose clock is more than 500 ms off the field unit's can neither steer nor eject, and the plug says nothing about it. The A10 reply of ADR-0006 is the back channel an echo needs: it carries the field unit's `t_ms`, so a datagram version that echoes it, as ADR-0003 does for HQ, would remove the pilot's clock from the check. That echo is not built.
 5. Eject latches until the process restarts, and there is no re-arm procedure.
 6. Percepts are ground truth from the simulator, the human's position included.
-7. The dummy plug scans every sample on every tick. Fine at 20000 samples; Phase 4 replaces it.
+7. The nearest neighbor dummy plug, which flies when `DUMMY_WEIGHTS` names no file, scans every sample on every tick. Fine at 20000 samples.
 8. Status output is free text on stdout, with no structured log.
 9. MAGI judges the snapshot the core saw, which is stale by the core's latency, up to `CORE_TIMEOUT_MS`. The armor checks the live percept again, so this costs judgment quality, not safety.
 10. Resolved on 2026-10-02: HQ still prints a repeated core fault once, but the journal records every one as a structured line outside the core's memory, and `tools/trials.py` counts those.

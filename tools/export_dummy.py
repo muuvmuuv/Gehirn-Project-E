@@ -2,7 +2,7 @@
 """Export flight recorders into the dummy plug's training set.
 
 Every tick in which the pilot held the seat toward a goal becomes one JSON line: x, what
-the dummy plug's policy sees in that tick's percept; y, the pilot's command in the goal's frame
+plug/dummy.v observe sees in that tick's percept; y, the pilot's command in the goal's frame
 as speed along the way to the goal and across it to the left; and correction, whether the
 pilot had taken the seat from the dummy plug. Ticks without a goal, inside the arrival radius
 or recorded without a scene, and lines that are no recorder tick, such as a cut last line, are
@@ -20,7 +20,7 @@ import sys
 from collections.abc import Iterable, Iterator
 
 ARRIVE = 0.35  # lcl.arrive: plug/dummy.v act lets go inside it, so the policy never acts there
-SIGHT = 3.0  # meters past an entity's rim the policy still sees it
+SIGHT = 3.0  # plug/dummy.v sight: meters past an entity's rim the policy still sees it
 
 
 def is_point(v: object) -> bool:
@@ -36,6 +36,8 @@ def is_entity(e: object) -> bool:
             and isinstance(e.get("r"), (int, float)) and math.isfinite(e["r"]))
 
 
+# The counterpart of features() is plug/dummy.v observe; tools/test_export_dummy.py and
+# plug/dummy_test.v test_observe check one percept against the same numbers.
 def features(pose: list[float], target: list[float], scene: list[dict]) -> list[float] | None:
     """Return what the dummy plug's policy sees, or None without a goal frame.
 

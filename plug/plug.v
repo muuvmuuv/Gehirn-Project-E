@@ -22,7 +22,8 @@ pub mut:
 	rate  f64 = 0.02
 }
 
-// update folds one tick in. Idle ticks carry no information and are skipped.
+// update folds one tick in. Idle ticks carry no information and are skipped, and so is a tick
+// whose agreement is not a finite number, which would leave the ratio NaN for good.
 pub fn (mut s Sync) update(pilot []f64, own []f64) {
 	np := lcl.norm(pilot)
 	nc := lcl.norm(own)
@@ -31,7 +32,11 @@ pub fn (mut s Sync) update(pilot []f64, own []f64) {
 	}
 	direction := (lcl.dot(pilot, own) / (np * nc) + 1.0) / 2.0
 	magnitude := 1.0 - math.abs(np - nc) / math.max(np, nc)
-	s.ratio += s.rate * (direction * magnitude - s.ratio)
+	agreement := direction * magnitude
+	if !math.is_finite(agreement) {
+		return
+	}
+	s.ratio += s.rate * (agreement - s.ratio)
 }
 
 // authority is the core's share of control. At or below the activation threshold the core

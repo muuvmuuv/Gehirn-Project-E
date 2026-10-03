@@ -13,6 +13,7 @@ SCENE = [
     {"id": "h1", "kind": "human", "pos": [1.5, 0.0], "r": 0.3},
 ]
 
+# plug/dummy_test.v test_observe expects the same numbers from plug/dummy.v observe.
 SHARED = [2.3323807579381204, -0.7383642874308872, -0.22239888175629136, 0.7711310417560499,
           0.014280075529516156, -0.7854041541233885, 0.7855339622647798]
 
