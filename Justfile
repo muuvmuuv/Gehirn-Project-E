@@ -159,12 +159,15 @@ _fly bridge_bin mock umbilical watch plug dir:
     # The ports dodge ones in use, and the run directory, a fresh temp dir unless given, takes
     # the journal and the recorder, which are a pilot's data and never belong in the repo.
 
-    # Measured on 2026-10-02: these put the body at the beacon just after the walking human
-    # (body/body.v scene, one loop per 21 s) passes it, so MAGI refuses the first release and
-    # approves the next. Zenoh's redial lands the goto about 2 s after HQ starts.
-    hq_delay=5        # s from the field unit's start to HQ's
+    # Measured on 2026-10-03: these put the body at the beacon about 18 s after the field unit
+    # starts, as the walking human (body/body.v scene, one loop per 21 s) comes within reach, so
+    # MAGI refuses the first release and approves the next once the human has walked on. Zenoh
+    # redials HQ about 3 s after the field unit starts, and the slowed ballots land the goto a
+    # second later. A pilot at 0.7 m/s brings the body there before the human, and one at 0.55
+    # m/s meets the human on the way, where the armor slows it, so it arrives as the human leaves.
+    hq_delay=2        # s from the field unit's start to HQ's
     pilot_s=11        # plug/dummy.v needs 500 pilot ticks under a goal, 10 s at 50 Hz
-    pilot_speed=0.7
+    pilot_speed=0.6
     pilot_offset=-45  # south of the pillar, clear of the human's loop
     reconnect_s=5
     root=$PWD bin=$PWD/gehirn bridge_bin={{ quote(bridge_bin) }}
@@ -193,7 +196,13 @@ _fly bridge_bin mock umbilical watch plug dir:
     export TYPESAFE_URL=http://127.0.0.1:{{ mock }}/v1/systemone
     export UMBILICAL_ENDPOINT=tcp/127.0.0.1:{{ umbilical }} BRIDGE_ENDPOINT=tcp/127.0.0.1:{{ watch }}
     export PLUG_LISTEN=127.0.0.1:{{ plug }}
-    export MAGI_COOLDOWN_MS=5000 UMBILICAL_GRACE_MS=40000 INTERNAL_BUDGET_MS=300000
+    # An 8 s cooldown puts the second release after the human has walked on, where 5 s can still
+    # find the human within reach, and MAGI refuses again.
+    export MAGI_COOLDOWN_MS=8000 UMBILICAL_GRACE_MS=40000 INTERNAL_BUDGET_MS=300000
+
+    # The bridge shows these names on the units' ballots, so it says what answered. gehirn refuses
+    # two MAGI units on one model at one URL; BALTHASAR asks the mock's Jev route as jev-1.13.0.
+    export CORE_MODEL=mock-core MELCHIOR_MODEL=mock-melchior CASPER_MODEL=mock-casper
 
     pids=""
     trap 'kill $pids 2>/dev/null || true; wait; echo "demo: stopped everything; logs in $run"' EXIT
@@ -226,8 +235,11 @@ _fly bridge_bin mock umbilical watch plug dir:
     alive() { kill -0 "$1" 2>/dev/null || fail "$2 stopped; its last line: $(tail -n 1 "$3")"; }
     start() { (cd "$run/$1" && exec "$bin" "$1" >>"$1.log" 2>&1) & pids="$pids $!"; }
 
+    # The units answer after 0.9, 1.7 and 0.5 s, so the bridge shows each one deliberating, 審議中,
+    # until its ballot lands; the mock answers at once otherwise.
     SECONDS=0
-    python3 tools/mock_endpoint.py --listen 127.0.0.1:{{ mock }} --quiet 2>"$run/mock.log" &
+    python3 tools/mock_endpoint.py --listen 127.0.0.1:{{ mock }} --quiet --slow melchior=900 \
+        --slow balthasar=1700 --slow casper=500 2>"$run/mock.log" &
     pids="$pids $!"
     beat "mock models on 127.0.0.1:{{ mock }}, scripted by tools/mock_endpoint.py, so no keys" "$run/mock.log" 'mock: serving' 5
 
@@ -254,7 +266,7 @@ _fly bridge_bin mock umbilical watch plug dir:
     beat "the pilot leaves; the dummy plug, cloned from that pilot, takes the seat" "$run/field/field.log" 'seat dummy' $((pilot_s + 5))
     beat "release refused: a human is within reach of the drop" "$run/hq/hq.log" 'need 3: 否決' 40
     ballots 'need 3: 否決'
-    beat "release approved: the human walked on, and the 5 s cooldown passed" "$run/hq/hq.log" 'need 3: 可決' 30
+    beat "release approved: the human walked on, and the 8 s cooldown passed" "$run/hq/hq.log" 'need 3: 可決' 30
     ballots 'need 3: 可決'
     beat "released on target" "$run/hq/core.shinji.jsonl" 'released on target' 10
     kill "$hq"
