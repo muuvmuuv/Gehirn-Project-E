@@ -184,20 +184,45 @@ fn read_reply(raw string) !Reply {
 	}
 }
 
-// decide polls every unit in parallel and applies the quorum for the verb's class.
-pub fn (m Magi) decide(ctx lcl.Context, p lcl.Intent) Verdict {
-	mut threads := []thread Ballot{}
-	for u in m.units {
-		threads << spawn u.vote(ctx, p)
+// decide polls every unit in parallel and applies the quorum for the verb's class. It hands each
+// ballot to landed on the caller's thread as the ballot arrives, so main.v hq can show the bridge
+// the units answering one by one; the verdict keeps the units' order.
+pub fn (m Magi) decide(ctx lcl.Context, p lcl.Intent, landed fn (Ballot)) Verdict {
+	arrivals := chan Arrival{cap: m.units.len}
+	for i, u in m.units {
+		spawn cast(i, u, ctx, p, arrivals)
 	}
-	return tally(threads.wait(), p.verb)
+	mut ballots := []Ballot{len: m.units.len}
+	for _ in m.units {
+		a := <-arrivals
+		landed(a.ballot)
+		ballots[a.index] = a.ballot
+	}
+	return tally(ballots, p.verb)
 }
 
-// tally applies the quorum for the verb's class: a simple majority for reversible verbs, every
-// ballot for irreversible and unknown ones. A fault is a no, whatever else the ballot says.
+struct Arrival {
+	index  int
+	ballot Ballot
+}
+
+// cast is one unit's vote on a thread of decide's, sent with the unit's index. arrivals holds a
+// place for every unit, so the send never waits.
+fn cast(index int, u Unit, ctx lcl.Context, p lcl.Intent, arrivals chan Arrival) {
+	arrivals <- Arrival{index, u.vote(ctx, p)}
+}
+
+// quorum is how many of n ballots must approve the verb: a simple majority for reversible verbs,
+// every ballot for irreversible and unknown ones. tally counts by it, and main.v hq shows it to
+// the bridge as a vote opens.
+pub fn quorum(verb string, n int) int {
+	return if lcl.is_irreversible(verb) { n } else { n / 2 + 1 }
+}
+
+// tally applies the quorum for the verb's class. A fault is a no, whatever else the ballot says.
 pub fn tally(ballots []Ballot, verb string) Verdict {
 	yes := ballots.filter(it.approve && !it.fault).len
-	needed := if lcl.is_irreversible(verb) { ballots.len } else { ballots.len / 2 + 1 }
+	needed := quorum(verb, ballots.len)
 	return Verdict{
 		approved: ballots.len > 0 && yes >= needed
 		yes:      yes

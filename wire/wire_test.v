@@ -259,19 +259,21 @@ fn test_the_watch_streams_reach_the_bridge_and_nothing_else_opens_them() {
 
 	// Puts before the bridge's subscriptions reach a tier go nowhere, so keep putting.
 	view := lcl.FieldView{
-		seat:        'dummy'
+		seat:        'empty'
+		benched:     true
 		umbilical:   'internal'
 		internal_ms: 299000
+		silent_ms:   46000
+		grace_ms:    45000
 		outcomes:    [lcl.Outcome{
 			kind: 'armor refused release'
 		}]
 	}
 	event := lcl.HqEvent{
+		stage:    'ballot'
 		proposal: lcl.Intent{
 			verb: 'release'
 		}
-		yes:      2
-		needed:   3
 		votes:    [
 			lcl.Vote{
 				unit: 'BALTHASAR-2'

@@ -434,7 +434,22 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqM
 			time.sleep(pause)
 			continue
 		}
-		verdict := council.decide(ctx, proposal)
+		needed := magi.quorum(proposal.verb, council.units.len)
+		_ = events.try_push(lcl.HqEvent{
+			t_ms:     lcl.now_ms()
+			stage:    'deliberating'
+			proposal: proposal
+			needed:   needed
+		})
+		verdict := council.decide(ctx, proposal, fn [events, proposal, needed] (b magi.Ballot) {
+			_ = events.try_push(lcl.HqEvent{
+				t_ms:     lcl.now_ms()
+				stage:    'ballot'
+				proposal: proposal
+				needed:   needed
+				votes:    [shown(b)]
+			})
+		})
 		for b in verdict.ballots {
 			journal.log(BallotEntry{
 				t_ms:       lcl.now_ms()
@@ -453,13 +468,7 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqM
 			approved: verdict.approved
 			yes:      verdict.yes
 			needed:   verdict.needed
-			votes:    verdict.ballots.map(lcl.Vote{
-				unit:       it.unit
-				model:      it.model
-				vote:       vote_of(it)
-				why:        it.why
-				latency_ms: it.latency_ms
-			})
+			votes:    verdict.ballots.map(shown(it))
 		})
 		if irreversible {
 			last_irreversible = lcl.now_ms()
@@ -779,10 +788,13 @@ fn main() {
 					percept:     p
 					goal:        goal
 					seat:        seat
+					benched:     benched
 					sync:        ratio
 					authority:   authority
 					umbilical:   link.str()
 					internal_ms: cable.remaining_ms(now)
+					silent_ms:   cable.silent_ms(now)
+					grace_ms:    cable.grace_ms
 					outcomes:    seen
 				})
 			}
@@ -899,5 +911,16 @@ fn vote_of(b magi.Ballot) string {
 		'approve'
 	} else {
 		'reject'
+	}
+}
+
+// shown is a ballot as hq shows it to the bridge.
+fn shown(b magi.Ballot) lcl.Vote {
+	return lcl.Vote{
+		unit:       b.unit
+		model:      b.model
+		vote:       vote_of(b)
+		why:        b.why
+		latency_ms: b.latency_ms
 	}
 }

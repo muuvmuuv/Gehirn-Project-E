@@ -111,3 +111,48 @@ fn test_unreachable_unit_votes_fault() {
 	assert b.model == 'closed'
 	assert b.unit == 'MELCHIOR-1'
 }
+
+fn test_decide_hands_over_ballots_as_they_land_and_keeps_the_units_order() {
+	// A listener that never accepts holds its caller until the deadline; a closed port refuses
+	// at once. So the first unit lands last.
+	mut mute := net.listen_tcp(.ip, '127.0.0.1:0')!
+	defer {
+		mute.close() or {}
+	}
+	mut l := net.listen_tcp(.ip, '127.0.0.1:0')!
+	closed := l.addr()!
+	l.close()!
+	unit := fn (name string, addr string) Unit {
+		return Unit{
+			name:    name
+			persona: melchior
+			ep:      oai.Endpoint{
+				url:     'http://${addr}/v1/chat/completions'
+				model:   'm'
+				timeout: 300 * time.millisecond
+			}
+		}
+	}
+	council := Magi{
+		units: [unit('MELCHIOR-1', mute.addr()!.str()), unit('BALTHASAR-2', closed.str()),
+			unit('CASPER-3', closed.str())]
+	}
+	order := chan string{cap: 3}
+	v := council.decide(lcl.Context{
+		percept: lcl.Percept{
+			pose: [0.0, 0.0]
+		}
+	}, lcl.Intent{
+		verb:   'goto'
+		target: [1.0, 1.0]
+	}, fn [order] (b Ballot) {
+		order <- b.unit
+	})
+	assert v.ballots.map(it.unit) == ['MELCHIOR-1', 'BALTHASAR-2', 'CASPER-3']
+	assert v.ballots.all(it.fault) && !v.approved
+	mut landed := []string{}
+	for order.len > 0 {
+		landed << <-order
+	}
+	assert landed.len == 3 && landed[2] == 'MELCHIOR-1', '${landed}'
+}

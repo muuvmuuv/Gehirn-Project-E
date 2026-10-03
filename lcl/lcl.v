@@ -104,18 +104,22 @@ pub:
 }
 
 // FieldView is what the field unit shows the bridge ten times a second (ADR-0005): the percept,
-// the goal it pursues, the seat, the sync ratio, the core's share of the controls, the
-// umbilical's state and the internal power left, and the outcomes since the last view. main.v's
-// field loop makes it, and wire carries it to the bridge.
+// the goal it pursues, the seat and whether the dummy plug is benched, the sync ratio, the core's
+// share of the controls, the umbilical's state, the internal power left, how long HQ has been
+// silent against the grace it gets, and the outcomes since the last view. main.v's field loop
+// makes it, and wire carries it to the bridge.
 pub struct FieldView {
 pub:
 	percept     Percept
 	goal        Intent
 	seat        string // pilot, dummy or empty
+	benched     bool   // the dummy plug fell out of sync and waits for a pilot
 	sync        f64
 	authority   f64    // the core's share of the controls, 0 to 1
 	umbilical   string // connected, internal or depleted
 	internal_ms i64    // internal power left
+	silent_ms   i64    // since HQ's last pulse reached the field unit
+	grace_ms    i64    // how long HQ may stay silent before the cable counts as cut
 	outcomes    []Outcome
 }
 
@@ -130,16 +134,17 @@ pub:
 	latency_ms i64
 }
 
-// HqEvent is one thing HQ shows the bridge (ADR-0005): a proposal with MAGI's verdict and every
-// vote, or a new core fault, which leaves the proposal empty. main.v's hq makes it, and wire
-// carries it to the bridge.
+// HqEvent is one thing HQ shows the bridge (ADR-0005), told apart by its stage: a proposal that
+// goes to MAGI, one unit's ballot as it lands, MAGI's verdict with every vote, or a new core
+// fault, which leaves the proposal empty. main.v's hq makes it, and wire carries it to the bridge.
 pub struct HqEvent {
 pub:
 	t_ms     i64
+	stage    string // deliberating, ballot with that one vote, or empty for a verdict or a fault
 	proposal Intent
 	approved bool
 	yes      int
-	needed   int
+	needed   int // the approvals the proposal needs, on every stage but a fault
 	votes    []Vote
 	fault    string
 }

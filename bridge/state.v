@@ -13,16 +13,21 @@ const silent_ms = 1000
 // frame draws it, and take_view and take_event change it.
 struct State {
 mut:
-	view       lcl.FieldView
-	view_at    i64 // when the newest view arrived; 0 before the first
-	verdict    lcl.HqEvent
-	verdict_at i64      // when the newest verdict arrived; 0 before the first
-	proposals  []string // each proposal with its verdict, newest first
-	fault      string   // the core's newest fault
-	fault_at   i64
-	refusals   []string // armor refusals, newest first
-	outcomes   []string // every other outcome, newest first
-	dropped    string   // why the newest dropped message was dropped
+	view         lcl.FieldView
+	view_at      i64                 // when the newest view arrived; 0 before the first
+	proposal     lcl.Intent          // the newest proposal put to MAGI
+	code         int                 // how many proposals the bridge has seen go to the vote
+	deliberating bool                // MAGI has the proposal and no verdict has arrived
+	ballots      map[string]lcl.Vote // the proposal's ballots so far, by unit
+	landed       map[string]i64      // when each of those ballots arrived
+	verdict      lcl.HqEvent
+	verdict_at   i64      // when the newest verdict arrived; 0 before the first
+	proposals    []string // each proposal with its verdict, newest first
+	fault        string   // the core's newest fault
+	fault_at     i64
+	refusals     []string // armor refusals, newest first
+	outcomes     []string // every other outcome, newest first
+	dropped      string   // why the newest dropped message was dropped
 }
 
 // take_view folds in a view from the field unit, which arrived at now.
@@ -38,13 +43,36 @@ fn (mut s State) take_view(v lcl.FieldView, now i64) {
 	}
 }
 
-// take_event folds in an event from HQ, which arrived at now: a verdict, or a core fault.
+// take_event folds in an event from HQ, which arrived at now: a proposal going to the vote, a
+// ballot landing, a verdict, or a core fault. A ballot or verdict for a proposal the bridge has
+// not seen go to the vote opens it, since the watch stream may drop the opening.
 fn (mut s State) take_event(e lcl.HqEvent, now i64) {
 	if e.fault != '' {
 		s.fault = e.fault
 		s.fault_at = now
+
+		// main.v hq faults only before it puts a proposal to MAGI and pushes its events in order
+		// from one thread, so a fault while a vote is open means the stream dropped its verdict.
+		s.deliberating = false
 		return
 	}
+	if e.stage == 'deliberating' || !s.deliberating || e.proposal != s.proposal {
+		s.deliberating = true
+		s.proposal = e.proposal
+		s.ballots = map[string]lcl.Vote{}
+		s.landed = map[string]i64{}
+		s.code++
+	}
+	for v in e.votes {
+		if v.unit !in s.landed {
+			s.landed[v.unit] = now
+		}
+		s.ballots[v.unit] = v
+	}
+	if e.stage in ['deliberating', 'ballot'] {
+		return
+	}
+	s.deliberating = false
 	s.verdict = e
 	s.verdict_at = now
 	s.proposals = front(s.proposals,

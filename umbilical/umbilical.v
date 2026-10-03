@@ -60,3 +60,9 @@ pub fn (c Cable) remaining_ms(now i64) i64 {
 	left := c.budget_ms - (now - c.cut_ms)
 	return if left > 0 { left } else { 0 }
 }
+
+// silent_ms is how long ago HQ's last pulse arrived, for the view main.v's field loop shows the
+// bridge.
+pub fn (c Cable) silent_ms(now i64) i64 {
+	return now - c.last_ms
+}
