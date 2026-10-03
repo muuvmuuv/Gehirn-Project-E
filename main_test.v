@@ -118,6 +118,63 @@ fn test_jev_without_key_fails_safe() {
 	assert key_warning(load_config()!.units) == ''
 }
 
+struct FamilyCase {
+	env  map[string]string
+	want string // the line load_config refuses the lineup with, empty when it accepts it
+}
+
+// Invariant 4: two MAGI units on chat models that name the same model at the same URL stop gehirn,
+// naming both variables. Jev is a family of its own, and one id at two URLs may be two models.
+fn test_magi_units_need_three_model_families() {
+	keys := ['GEHIRN_URL', 'MELCHIOR_URL', 'BALTHASAR_URL', 'CASPER_URL', 'MELCHIOR_MODEL',
+		'BALTHASAR_MODEL', 'CASPER_MODEL', 'BALTHASAR_BACKEND']
+	other := 'http://127.0.0.1:8082/v1/chat/completions'
+	cases := [
+		FamilyCase{map[string]string{}, ''},
+		FamilyCase{{
+			'MELCHIOR_MODEL': 'llama3.1:8b'
+		}, 'MELCHIOR_MODEL and CASPER_MODEL are both "llama3.1:8b" at one URL, and the MAGI units need three model families'},
+		FamilyCase{{
+			'MELCHIOR_MODEL': 'llama3.1:8b'
+			'CASPER_URL':     other
+		}, ''},
+		FamilyCase{{
+			'MELCHIOR_MODEL': 'llama3.1:8b'
+			'GEHIRN_URL':     other
+		}, 'MELCHIOR_MODEL and CASPER_MODEL are both "llama3.1:8b" at one URL, and the MAGI units need three model families'},
+		FamilyCase{{
+			'BALTHASAR_MODEL': 'llama3.1:8b'
+		}, ''},
+		FamilyCase{{
+			'BALTHASAR_BACKEND': 'llm'
+			'BALTHASAR_MODEL':   'llama3.1:8b'
+		}, 'BALTHASAR_MODEL and CASPER_MODEL are both "llama3.1:8b" at one URL, and the MAGI units need three model families'},
+		FamilyCase{{
+			'BALTHASAR_BACKEND': 'llm'
+			'MELCHIOR_MODEL':    'm'
+			'BALTHASAR_MODEL':   'm'
+			'CASPER_MODEL':      'm'
+		}, 'MELCHIOR_MODEL and BALTHASAR_MODEL are both "m" at one URL, and the MAGI units need three model families'},
+		FamilyCase{{
+			'MELCHIOR_MODEL': 'm\nhq: forged'
+			'CASPER_MODEL':   'm\nhq: forged'
+		}, 'MELCHIOR_MODEL and CASPER_MODEL are both "m\\x0ahq: forged" at one URL, and the MAGI units need three model families'},
+	]
+	for c in cases {
+		for k in keys {
+			os.unsetenv(k)
+		}
+		for k, v in c.env {
+			os.setenv(k, v, true)
+		}
+		got := if _ := load_config() { '' } else { err.msg() }
+		assert got == c.want, '${c}'
+	}
+	for k in keys {
+		os.unsetenv(k)
+	}
+}
+
 struct ConfigCase {
 	key  string
 	val  string // empty leaves the variable unset

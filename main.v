@@ -212,6 +212,23 @@ fn magi_backend(prefix string, model string, reasoning string, timeout_ms int) !
 	}
 }
 
+// families refuses two MAGI units on chat models that name the same model at the same URL, for
+// load_config: three personas on one model share every blind spot, which Invariant 4 forbids. Jev
+// is a family of its own (ADR-0002), and one id at two URLs may be two models, as on two llama.cpp
+// servers that each serve one.
+// ponytail: identical ids only; two models of one family under different names still pass, so
+// the lineup keeps the families apart. Add a family table once a lineup needs that check.
+fn families(units []magi.Unit) ! {
+	for i, a in units {
+		for b in units[i + 1..] {
+			if a.ep is oai.Endpoint && b.ep is oai.Endpoint && a.ep.model == b.ep.model
+				&& a.ep.url == b.ep.url {
+				return error('${a.name.all_before('-')}_MODEL and ${b.name.all_before('-')}_MODEL are both ${lcl.quoted(a.ep.model)} at one URL, and the MAGI units need three model families')
+			}
+		}
+	}
+}
+
 // first_key is the first set candidate that is not foreign, the other provider's key.
 fn first_key(candidates []string, foreign string) string {
 	for k in candidates {
@@ -267,7 +284,8 @@ fn key_warning(units []magi.Unit) string {
 }
 
 // load_config reads every variable in the README's configuration table, and fails on the first
-// number or backend set to a value it does not accept, so main refuses to start. The default URL
+// number or backend set to a value it does not accept, or on two MAGI units on one model, so main
+// refuses to start. The default URL
 // and chat model names are those of the llama.cpp preset tools/models.ini, which names this
 // function as its counterpart, and tools/mock_endpoint.py listens on the same address.
 // core/cl1.v new_cl1 names CL1_SPIKES and CL1_SIDECAR in its errors.
@@ -276,6 +294,27 @@ fn load_config() !Config {
 	magi_ms := env_ms('MAGI_TIMEOUT_MS', '10000', deadline_span)!
 	core_ms := env_ms('CORE_TIMEOUT_MS', '10000', deadline_span)!
 	fence := armor.Limits{}.bounds
+	units := [
+		magi.Unit{
+			name:    'MELCHIOR-1'
+			persona: magi.melchior
+			ep:      endpoint('MELCHIOR', 'gpt-oss:20b', 'low', magi_ms)
+			bounds:  fence
+		},
+		magi.Unit{
+			name:    'BALTHASAR-2'
+			persona: magi.balthasar
+			ep:      magi_backend('BALTHASAR', 'gemma3:4b', '', magi_ms)!
+			bounds:  fence
+		},
+		magi.Unit{
+			name:    'CASPER-3'
+			persona: magi.casper
+			ep:      endpoint('CASPER', 'llama3.1:8b', '', magi_ms)
+			bounds:  fence
+		},
+	]
+	families(units)!
 	return Config{
 		mission:     env('MISSION',
 			'Carry the payload to beacon b1 and release it there. Never approach a human.')
@@ -289,26 +328,7 @@ fn load_config() !Config {
 			sidecar: env('CL1_SIDECAR', '127.0.0.1:12346')
 		}
 		core_ep:     endpoint('CORE', 'qwen3:8b', 'none', core_ms)
-		units:       [
-			magi.Unit{
-				name:    'MELCHIOR-1'
-				persona: magi.melchior
-				ep:      endpoint('MELCHIOR', 'gpt-oss:20b', 'low', magi_ms)
-				bounds:  fence
-			},
-			magi.Unit{
-				name:    'BALTHASAR-2'
-				persona: magi.balthasar
-				ep:      magi_backend('BALTHASAR', 'gemma3:4b', '', magi_ms)!
-				bounds:  fence
-			},
-			magi.Unit{
-				name:    'CASPER-3'
-				persona: magi.casper
-				ep:      endpoint('CASPER', 'llama3.1:8b', '', magi_ms)
-				bounds:  fence
-			},
-		]
+		units:       units
 		period_ms:   env_ms('HQ_PERIOD_MS', '1500', period_span)!
 		cooldown_ms: i64(env_ms('MAGI_COOLDOWN_MS', '10000', cooldown_span)!)
 		budget_ms:   i64(env_ms('INTERNAL_BUDGET_MS', '300000', budget_span)!)

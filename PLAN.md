@@ -61,7 +61,7 @@ These hold after every change. A commit that touches one of them explains in its
 1. The armor is the only holder of the body. Nothing outside `armor` gets a `Body` handle, and every actuation and effector goes through `Armor.drive` or `Armor.effect`.
 2. Irreversibility is policy: `lcl.irreversible_verbs` plus every verb missing from `lcl.known_verbs`. A proposal never declares its own class.
 3. Reversible goals need a simple majority of MAGI, irreversible ones every unit. A unit that errs, times out or answers unreadably votes no.
-4. The three MAGI units run on three different model families. Jev counts as a family of its own (ADR-0002); the default lineup is gpt-oss (OpenAI), Jev (TypeSafe) and llama (Meta).
+4. The three MAGI units run on three different model families. Jev counts as a family of its own (ADR-0002); the default lineup is gpt-oss (OpenAI), Jev (TypeSafe) and llama (Meta). `load_config` refuses two units on chat models that name the same model at the same URL; it compares ids only, so two models of one family under different names are the lineup's to avoid.
 5. MAGI approval is necessary, never sufficient. The armor checks every approved goal again, and refusals flow back to the core as outcomes.
 6. Without HQ there is no quorum, so nothing irreversible happens while the umbilical is cut, and the unit holds once the internal budget is spent.
 7. The dummy plug keeps its own sync ratio, is benched at or below the threshold until a pilot sits down again, and only acts toward an approved goal.
