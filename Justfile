@@ -36,6 +36,7 @@ zenoh:
     if [ "$(cat "$dir/VERSION" 2>/dev/null)" = "$version $target" ]; then
         exit 0
     fi
+    echo "zenoh: fetching zenoh-c $version for $target into $dir"
     tmp=$(mktemp -d)
     trap 'rm -rf "$tmp"' EXIT
     curl -fsSL -o "$tmp/zenoh-c.zip" "https://github.com/eclipse-zenoh/zenoh-c/releases/download/$version/zenoh-c-$version-$target-standalone.zip"
