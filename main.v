@@ -172,7 +172,7 @@ fn command(args []string) !string {
 // unit_id reads UNIT_ID, the unit's segment in every key expression of ADR-0003. Zenoh reads `*`,
 // `$`, `?`, `#` and `/` as syntax, so a unit named `*` would hear every unit.
 fn unit_id() !string {
-	val := env('UNIT_ID', 'eva01')
+	val := env('UNIT_ID', 'eva01') // bridge/main.v main repeats the default
 	wire.check_unit(val) or { return error('UNIT_ID is ${lcl.quoted(val)}, ${err.msg()}') }
 	return val
 }
@@ -320,7 +320,7 @@ fn key_warning(units []magi.Unit) string {
 // function as its counterpart, and tools/mock_endpoint.py listens on the same address.
 // core/cl1.v new_cl1 names CL1_SPIKES and CL1_SIDECAR in its errors.
 fn load_config() !Config {
-	pilot := env('PILOT_ID', 'shinji')
+	pilot := env('PILOT_ID', 'shinji') // gamepad/main.v main repeats the default
 	magi_ms := env_ms('MAGI_TIMEOUT_MS', '10000', deadline_span)!
 	core_ms := env_ms('CORE_TIMEOUT_MS', '10000', deadline_span)!
 	fence := armor.Limits{}.bounds
@@ -364,7 +364,7 @@ fn load_config() !Config {
 		mission:     env('MISSION',
 			'Carry the payload to beacon b1 and release it there. Never approach a human.')
 		pilot_id:    pilot
-		plug_at:     env('PLUG_LISTEN', '0.0.0.0:7777')
+		plug_at:     env('PLUG_LISTEN', '0.0.0.0:7777') // gamepad/main.v plug_addr dials the port
 		journal:     env('CORE_JOURNAL', 'core.${pilot}.jsonl')
 		recorder:    env('PLUG_RECORDER', 'plug.${pilot}.jsonl')
 		weights:     env('DUMMY_WEIGHTS', 'dummy.${pilot}.json')
@@ -383,7 +383,7 @@ fn load_config() !Config {
 		link:        link
 		pilot_key:   pilot_key
 		watch:       watch
-		bridge:      env('BRIDGE_ENDPOINT', 'tcp/127.0.0.1:7448')
+		bridge:      env('BRIDGE_ENDPOINT', 'tcp/127.0.0.1:7448') // bridge/main.v main repeats the default
 		endpoint:    env('UMBILICAL_ENDPOINT', 'tcp/127.0.0.1:7447')
 		start:       start_pose(fence)!
 	}

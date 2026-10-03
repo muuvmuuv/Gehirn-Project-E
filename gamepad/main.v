@@ -37,7 +37,7 @@ fn main() {
 		sdl_quit()
 		return
 	}
-	id := env('PILOT_ID', 'shinji')
+	id := env('PILOT_ID', 'shinji') // main.v load_config has the same default
 	addr := plug_addr() or {
 		eprintln('gehirn-gamepad: ${err.msg()}')
 		exit(2)
@@ -62,7 +62,7 @@ fn env(key string, fallback string) string {
 // plug_addr reads PLUG_ADDR as host:port. vlib would take a value without a colon as a Unix socket
 // path and a port that is no number as 0 (Known issue 18), and every datagram would vanish.
 fn plug_addr() !string {
-	addr := env('PLUG_ADDR', '127.0.0.1:7777')
+	addr := env('PLUG_ADDR', '127.0.0.1:7777') // the port of main.v load_config's PLUG_LISTEN
 	port := addr.all_after_last(':')
 	n := if addr.contains(':') && port.len <= 5 && port.contains_only('0123456789') {
 		strconv.atoi(port) or { 0 }

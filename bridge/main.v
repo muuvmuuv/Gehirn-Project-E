@@ -47,7 +47,7 @@ mut:
 }
 
 fn main() {
-	unit := env('UNIT_ID', 'eva01')
+	unit := env('UNIT_ID', 'eva01') // main.v unit_id has the same default
 	wire.check_unit(unit) or {
 		eprintln('gehirn-bridge: UNIT_ID is ${err.msg()}')
 		exit(2)
@@ -56,7 +56,7 @@ fn main() {
 		eprintln('gehirn-bridge: WATCH_KEY is ${err.msg()}')
 		exit(2)
 	}
-	at := env('BRIDGE_ENDPOINT', 'tcp/127.0.0.1:7448')
+	at := env('BRIDGE_ENDPOINT', 'tcp/127.0.0.1:7448') // main.v load_config has the same default
 	session := zenoh.open(zenoh.Config{ listen: [at] }) or {
 		eprintln('gehirn-bridge: cannot listen on BRIDGE_ENDPOINT; ${err.msg()}')
 		exit(1)
