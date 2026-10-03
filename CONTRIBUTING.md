@@ -95,6 +95,7 @@ A failing check is never unrelated. Fix it, or stop and report it.
 1. Only `main.v`, `eval.v` and `bridge/main.v` print, and the bridge draws. Modules return values and errors, and the caller that decides logs once. A thread with nothing to return to, such as `plug.listen`, logs its own failure once and ends.
 2. A status line starts with its source and a colon: `hq:`, `field:`, `armor:`, `magi:`. A line that `tools/trials.py` parses names the parser in a comment, the parser names the line, and one commit changes both.
 3. The journal and the recorder are data, not logs. Only `core.Memory` writes the journal and only `plug.Recorder` writes the recorder, both by appending (Invariant 11). No tool and no person edits a `.jsonl` file.
+4. Text from a model or a server, such as a proposal, a ballot's why or a fault, reaches a status line through `lcl.escaped`, so a model can neither break the line nor forge another. `lcl.quoted` does the same for a value from the environment and cuts it after 64 bytes.
 
 ### V 0.5.2
 

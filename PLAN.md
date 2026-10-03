@@ -198,7 +198,7 @@ Done when the bridge follows a full mission live on the Mac, from goto to releas
 19. Resolved on 2026-10-02: `new_cl1` quotes `CL1_SPIKES` and `CL1_SIDECAR` in its error through `lcl.quoted`, so the refusal stays one line.
 20. Resolved on 2026-10-02: every status line that shows a value from the environment quotes it through `lcl.quoted`: the `magi-eval:` unit lines, the `hq:` and `field:` startup lines, `ca_warning` and `plug.listen`'s failure line.
 21. `tools/trials.py` flies only the combined binary, so missions over the wire are checked by hand, as in State.
-22. Model text reaches HQ's printed notes unquoted: a proposal's verb and why, and every ballot's why. A model can therefore print a line that `tools/trials.py` counts as an armor refusal; the journal, from which it counts everything else, is unaffected. Escape control bytes in model text where a note shows it.
+22. Resolved on 2026-10-03: HQ's notes, the armor's refusal line and `magi-eval` show model text through `lcl.escaped`, a proposal's verb and why, every ballot's why and the core's fault, so a model can neither break a line nor send the terminal an escape sequence. `tools/trials.py` counts armor refusals from the journal, as it counts everything else.
 
 ## Open questions for the owner
 

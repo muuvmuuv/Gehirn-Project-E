@@ -29,8 +29,9 @@ from dataclasses import dataclass
 from withenv import load_env
 
 # The journal's text lines come from core/core.v Memory, its ballot lines from
-# main.v BallotEntry and its core fault lines from main.v FaultEntry. The log is gehirn's
-# stdout, of which only the "armor: ... refused" lines of main.v main() are counted.
+# main.v BallotEntry and its core fault lines from main.v FaultEntry. An armor refusal is the
+# outcome main.v main() reports as "armor refused <goal>" and hq journals as an outcome line.
+# The log is gehirn's stdout, which shows model text too, so it is read only for WARNINGS.
 RELEASE_VOTE = re.compile(r"^proposed release\b.*, (approved|rejected) \d+/\d+$", re.S)
 # Fault texts of a ballot the unit's reply could not be read for: oai/oai.v ask (unreadable
 # completion) and extract_json (no JSON object), magi/magi.v read_reply (unreadable ballot) and
@@ -103,8 +104,8 @@ def release(entries: list[dict]) -> str | None:
     return None
 
 
-def tally(journal: str, log: str) -> Tally:
-    """Count one run from its journal and its log."""
+def tally(journal: str) -> Tally:
+    """Count one run from its journal."""
     t = Tally()
     entries = read_journal(journal)
     where = release(entries)
@@ -121,16 +122,11 @@ def tally(journal: str, log: str) -> Tally:
                     t.parse_faults += 1
                 else:
                     t.other_faults += 1
+        elif e.get("text", "").startswith("outcome: armor refused "):
+            t.refusals += 1
         elif m := RELEASE_VOTE.match(e.get("text", "")):
             t.approved += m[1] == "approved"
             t.rejected += m[1] == "rejected"
-    try:
-        with open(log, encoding="utf-8", errors="replace") as f:
-            for line in f:
-                line = line.rstrip("\n")
-                t.refusals += line.startswith("armor: ") and line.endswith(" refused")
-    except FileNotFoundError:
-        pass
     return t
 
 
@@ -176,7 +172,7 @@ def fly(n: int, args: argparse.Namespace, slots: "queue.Queue[int]") -> Tally:
         elapsed = time.monotonic() - start
     finally:
         slots.put(slot)
-    t = tally(journal, log)
+    t = tally(journal)
     crash = "" if code is None else f"; gehirn exited {code} on its own"
     with print_lock:
         print(f"run {n:02d} after {elapsed:.0f} s: {t}{crash}", flush=True)

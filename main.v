@@ -370,7 +370,11 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqM
 				kind: 'core fault'
 				why:  err.msg()
 			})
-			note := if err.msg() != last_fault { 'hq: core fault: ${err.msg()}' } else { '' }
+			note := if err.msg() != last_fault {
+				'hq: core fault: ${lcl.escaped(err.msg())}'
+			} else {
+				''
+			}
 			last_fault = err.msg()
 			if note != '' {
 				_ = events.try_push(lcl.HqEvent{
@@ -431,7 +435,7 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqM
 			goal:     proposal
 			approved: verdict.approved
 			alive:    true
-			note:     'hq: ${proposal.label()} from ${proposal.origin}: ${proposal.why}\n${verdict}'
+			note:     'hq: ${lcl.escaped(proposal.label())} from ${lcl.quoted(proposal.origin)}: ${lcl.escaped(proposal.why)}\n${verdict}'
 		}
 		time.sleep(pause)
 	}
@@ -609,8 +613,9 @@ fn main() {
 				continue
 			}
 			if !ar.permits(msg.goal.verb, p) {
-				// tools/trials.py counts these armor: refused lines.
-				println('armor: ${msg.goal.label()} refused')
+				println('armor: ${lcl.escaped(msg.goal.label())} refused')
+
+				// tools/trials.py tally counts this outcome from the journal.
 				push_outcome(outcomes, mut seen, lcl.Outcome{
 					t_ms: now
 					kind: 'armor refused ${msg.goal.label()}'

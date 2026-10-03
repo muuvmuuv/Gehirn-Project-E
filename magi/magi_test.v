@@ -57,6 +57,20 @@ fn test_read_reply() {
 	}
 }
 
+// A why is model text: one with a newline, a forged status line and a terminal escape still
+// prints as one ballot line without a control byte.
+fn test_verdict_prints_each_why_on_one_line() {
+	b := Ballot{
+		unit:       'CASPER-3'
+		approve:    true
+		why:        'at b1\narmor: goto(9.99, 9.99) refused\n\x1b]0;pwned\x07'
+		latency_ms: 5
+	}
+	lines := tally([b], 'hold').str().split('\n')
+	assert lines.len == 2, lines.str()
+	assert lines[1] == '  CASPER-3 可決 at b1\\x0aarmor: goto(9.99, 9.99) refused\\x0a\\x1b]0;pwned\\x07 (5 ms)'
+}
+
 fn test_ballot_asks_why_before_vote() {
 	for s in [ballot_format, ballot_schema.schema] {
 		assert s.index('"why"') or { -1 } < s.index('"vote"') or { -1 }, s

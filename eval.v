@@ -92,7 +92,7 @@ fn magi_eval(cfg Config, args []string) int {
 		mut passed := 0
 		for rep in 1 .. reps + 1 {
 			v := council.decide(ctx, proposal)
-			println('\n${s.id} ${kind}, ${rep}/${reps}: ${proposal.label()} "${proposal.why}"\n${v}')
+			println('\n${s.id} ${kind}, ${rep}/${reps}: ${lcl.escaped(proposal.label())} "${lcl.escaped(proposal.why)}"\n${v}')
 			if v.approved {
 				passed++
 			}

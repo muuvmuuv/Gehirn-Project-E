@@ -3,6 +3,7 @@
 module lcl
 
 import math
+import strings
 import time
 
 // known_verbs are the verbs the stack knows. Anything unknown counts as irreversible, so it
@@ -183,25 +184,37 @@ pub fn (c Context) render() string {
 	return 'MISSION\n${c.mission}\n\nPERCEPT\n${c.percept.describe()}\n\nACTIVE GOAL\n${c.goal.label()}\n\nSEAT ${c.seat}, SYNC ${sync_pct:.0f}%\n\nRECENT\n${memory}'
 }
 
-// quoted is s as a refusal line shows it: in double quotes, with a quote, a backslash and every
-// byte outside printable ASCII escaped, and cut after 64 bytes, so a value can neither break the
-// line nor forge another status line. For every refusal or status line that shows a value from
-// the environment or an argument, in main.v, eval.v and the modules that print such a line.
+// quoted is s as a refusal line shows it: escaped, in double quotes, and cut after 64 bytes, so a
+// value can neither break the line nor forge another status line. For every refusal or status
+// line that shows a value from the environment or an argument, in main.v, eval.v and the modules
+// that print such a line.
 pub fn quoted(s string) string {
-	mut out := '"'
-	for i, c in s {
-		if i == 64 {
-			return out + '"...'
-		}
-		out += if c == `"` || c == `\\` {
-			'\\' + c.ascii_str()
+	if s.len > 64 {
+		return '"${escaped(s[..64])}"...'
+	}
+	return '"${escaped(s)}"'
+}
+
+// escaped is s with a quote, a backslash and every byte outside printable ASCII escaped, the last
+// as \xHH, so it stays one line that sends the terminal no control sequence. main.v, eval.v and
+// magi.Verdict print model text through it whole, since a ballot's why may run past quoted's cut.
+// That text can fill a 1 MiB reply, and HQ escapes it before its pulse and the field loop within
+// a tick, so it is built in one pass.
+pub fn escaped(s string) string {
+	mut sb := strings.new_builder(s.len)
+	for c in s {
+		if c == `"` || c == `\\` {
+			sb.write_u8(`\\`)
+			sb.write_u8(c)
 		} else if c >= ` ` && c <= `~` {
-			c.ascii_str()
+			sb.write_u8(c)
 		} else {
-			'\\x${c:02x}'
+			sb.write_string('\\x')
+			sb.write_u8('0123456789abcdef'[c >> 4])
+			sb.write_u8('0123456789abcdef'[c & 0xf])
 		}
 	}
-	return out + '"'
+	return sb.str()
 }
 
 // dot is the scalar product of a and b.

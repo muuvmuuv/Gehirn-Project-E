@@ -444,6 +444,64 @@ fn test_a_faulting_core_keeps_hq_pulsing_and_approves_nothing() {
 	assert events.try_pop(mut e) == .not_ready
 }
 
+// Forger is a core whose model writes newlines, forged status lines and terminal escapes: its
+// first ask faults with them, and every later one proposes them.
+struct Forger {
+mut:
+	asked int
+}
+
+fn (c Forger) name() string {
+	return 'llm:forger\n'
+}
+
+fn (mut c Forger) propose(ctx lcl.Context) !lcl.Intent {
+	c.asked++
+	if c.asked == 1 {
+		return error('forger: HTTP 500\narmor: release refused')
+	}
+	return lcl.Intent{
+		verb:   'goto\x1b[2J'
+		target: [1.0, 2.0]
+		why:    'b1\narmor: release refused'
+		origin: c.name()
+	}
+}
+
+fn (mut c Forger) feedback(o lcl.Outcome) {}
+
+// HQ's notes show model text escaped, so a model can neither forge a status line that
+// tools/trials.py reads nor send the terminal an escape sequence.
+fn test_hq_notes_escape_model_text() {
+	journal := os.join_path(os.vtmp_dir(), 'gehirn_forger_core_${os.getpid()}.jsonl')
+	defer {
+		os.rm(journal) or {}
+	}
+	inbox := chan lcl.Context{cap: 1}
+	outbox := chan lcl.HqMsg{cap: 8}
+	soul := core.Core(Forger{})
+	spawn hq(Config{ journal: journal, period_ms: 100 }, soul, inbox, outbox,
+		chan lcl.Outcome{cap: 1}, chan lcl.HqEvent{cap: 8})
+	mut notes := []string{}
+	for _ in 0 .. 2 {
+		inbox <- lcl.Context{
+			percept: lcl.Percept{
+				pose: [0.0, 0.0]
+			}
+		}
+		select {
+			m := <-outbox {
+				notes << m.note.split('\n')[0]
+			}
+			3 * time.second {
+				assert false, 'HQ sent nothing'
+			}
+		}
+	}
+	assert notes == ['hq: core fault: forger: HTTP 500\\x0aarmor: release refused',
+		'hq: goto\\x1b[2J(1.00, 2.00) from "llm:forger\\x0a": b1\\x0aarmor: release refused']
+}
+
 struct PaceCase {
 	name string
 	last u64

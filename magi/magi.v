@@ -206,14 +206,15 @@ pub fn tally(ballots []Ballot, verb string) Verdict {
 	}
 }
 
-// str renders the verdict the way the bridge displays did.
+// str renders the verdict the way the bridge displays did, one line per ballot, for main.v hq's
+// note and eval.v magi_eval. A why is model text, so it goes through lcl.escaped.
 pub fn (v Verdict) str() string {
 	mut lines := [
 		'MAGI ${v.yes}/${v.ballots.len}, need ${v.needed}: ${seal(v.approved)}',
 	]
 	for b in v.ballots {
 		mark := if b.fault { '故障' } else { seal(b.approve) }
-		lines << '  ${b.unit} ${mark} ${b.why} (${b.latency_ms} ms)'
+		lines << '  ${b.unit} ${mark} ${lcl.escaped(b.why)} (${b.latency_ms} ms)'
 	}
 	return lines.join('\n')
 }
