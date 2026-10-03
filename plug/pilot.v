@@ -26,6 +26,9 @@ fn seal(pilot string, u []f64, eject bool, seq i64, key []u8) []u8 {
 // below last, the newest the pilot took, so a replayed or reordered reply never rumbles.
 fn open_feel(raw []u8, key []u8, last i64) !lcl.Feel {
 	line := unseal(raw, key, feel_prefix, 'reply')!
+	if !complete(line) {
+		return error('plug: unreadable reply')
+	}
 	r := json2.decode[Reply](line) or { return error('plug: unreadable reply') }
 	if r.v != 1 {
 		return error('plug: reply of another version than 1')

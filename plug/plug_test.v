@@ -237,6 +237,11 @@ fn test_read_datagram() {
 			want: 'plug: datagram of another version than 1'
 		},
 		DatagramCase{
+			name: 'a signed datagram cut right after a number'
+			raw:  signed(line.all_before(',0.1]'))
+			want: 'plug: unreadable datagram'
+		},
+		DatagramCase{
 			name: 'a signed line that is no JSON object'
 			raw:  signed('[1]')
 			want: 'plug: unreadable datagram'

@@ -28,6 +28,9 @@ pub fn load_dummy(path string) Dummy {
 	mut d := Dummy{}
 	lines := os.read_lines(path) or { return d }
 	for line in lines {
+		if !complete(line) {
+			continue
+		}
 		r := json2.decode[Record](line) or { continue }
 		if r.seat == 'pilot' {
 			d.learn(r.pose, r.target, r.u_seat)
@@ -122,4 +125,44 @@ fn features(pose []f64, target []f64) []f64 {
 	mut f := [lcl.dist(pose, target)]
 	f << pose
 	return f
+}
+
+// complete reports whether s holds a JSON object or array whose every bracket closes, brackets in
+// strings aside, with nothing after it. V 0.5.2's x.json2 never returns from decoding a text that
+// ends right after a number inside an array, and a recorder line ends that way about every other
+// time a kill cuts it, so load_dummy decodes complete lines only, read_datagram complete
+// datagrams and open_feel complete replies. Drop this check once a V release returns an error
+// for such a text.
+fn complete(s string) bool {
+	mut depth := 0
+	mut quoted := false
+	mut escaped := false
+	for i, c in s {
+		if quoted {
+			if escaped {
+				escaped = false
+			} else if c == `\\` {
+				escaped = true
+			} else if c == `"` {
+				quoted = false
+			}
+			continue
+		}
+		match c {
+			`"` {
+				quoted = true
+			}
+			`{`, `[` {
+				depth++
+			}
+			`}`, `]` {
+				depth--
+				if depth <= 0 {
+					return depth == 0 && s[i + 1..].trim_space() == ''
+				}
+			}
+			else {}
+		}
+	}
+	return false
 }

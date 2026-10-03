@@ -92,6 +92,11 @@ fn test_open_feel() {
 			want: 'plug: unreadable reply'
 		},
 		FeelCase{
+			name: 'a signed reply cut right after a number inside an array'
+			raw:  signed_reply('{"v":1,"feel":{"t_ms":1,"x":[0.5')
+			want: 'plug: unreadable reply'
+		},
+		FeelCase{
 			name: 'a signed reply without a feel'
 			raw:  signed_reply('{"v":1}')
 			want: 'plug: reply repeats or precedes the last one taken'
