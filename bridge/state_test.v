@@ -107,6 +107,19 @@ fn test_link() {
 		assert s.link(c.now) == c.want, c.name
 	}
 	assert State{}.link(5000) == 'never'
+	for umbilical, want in {
+		'connected': 'awaiting'
+		'internal':  'cut'
+	} {
+		assert State{
+			view:    lcl.FieldView{
+				umbilical: umbilical
+				silent_ms: 41000
+				awaiting:  true
+			}
+			view_at: 1000
+		}.link(1000) == want, 'no pulse yet, ${umbilical}'
+	}
 	assert State{
 		view:    lcl.FieldView{
 			silent_ms: 1500

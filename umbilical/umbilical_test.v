@@ -36,3 +36,14 @@ fn test_state() {
 		assert c.silent_ms(s.at) == s.silent, s.name
 	}
 }
+
+fn test_cable_awaits_hq_until_the_first_pulse() {
+	mut c := plug_in(10_000, 5000, 1000)
+	assert c.awaiting()
+	assert c.state(11_001) == .internal
+	assert c.awaiting(), 'a cut before any pulse still awaits HQ'
+	c.pulse(11_500)
+	assert !c.awaiting()
+	assert c.state(13_000) == .internal
+	assert !c.awaiting(), 'a cut after a pulse no longer awaits HQ'
+}

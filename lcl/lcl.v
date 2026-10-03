@@ -120,7 +120,8 @@ pub:
 // FieldView is what the field unit shows the bridge ten times a second (ADR-0005): the percept,
 // the goal it pursues, the seat and whether the dummy plug is benched, the sync ratio, the core's
 // share of the controls, the umbilical's state, the internal power left, how long HQ has been
-// silent against the grace it gets, and the outcomes since the last view. main.v's field loop
+// silent against the grace it gets and whether it has pulsed at all, and the outcomes since the
+// last view. main.v's field loop
 // makes it, and wire carries it to the bridge.
 pub struct FieldView {
 pub:
@@ -134,6 +135,7 @@ pub:
 	internal_ms i64    // internal power left
 	silent_ms   i64    // since HQ's last pulse reached the field unit
 	grace_ms    i64    // how long HQ may stay silent before the cable counts as cut
+	awaiting    bool   // no pulse from HQ has reached the field unit since it started
 	outcomes    []Outcome
 }
 

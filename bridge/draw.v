@@ -283,6 +283,9 @@ fn draw_header(ctx &gg.Context, s State, unit string, now i64) {
 		'cut', 'depleted' {
 			alert, 'CUT'
 		}
+		'awaiting' {
+			dim, 'AWAITING'
+		}
 		else {
 			dim, 'NO DATA'
 		}
@@ -713,7 +716,8 @@ fn draw_limit(ctx &gg.Context, s State, now i64, x f32, y f32, w f32, h f32) {
 	// 内部 lights on internal power, 外部 while the cable counts as connected.
 	by := y + 152
 	for i, name in ['内部', '外部'] {
-		lit := (i == 0 && link in ['cut', 'depleted']) || (i == 1 && link in ['live', 'lost'])
+		lit := (i == 0 && link in ['cut', 'depleted'])
+			|| (i == 1 && link in ['live', 'lost', 'awaiting'])
 		bx := x + 14 + f32(i) * 96
 		if lit {
 			ctx.draw_rect_filled(bx, by, 88, 42, if urgent { alert } else { power })
@@ -760,6 +764,14 @@ fn draw_limit(ctx &gg.Context, s State, now i64, x f32, y f32, w f32, h f32) {
 				ctx.draw_rect_filled(sx - 4, by + 42, bw2 * f32(math.min(silence / grace, 1.0)), 6,
 					caution)
 			}
+		}
+		'awaiting' {
+			text(ctx, sx, by - 2, 'AWAITING HQ', size: 18, color: dim, family: black)
+			text(ctx, sx, by + 20, 'NO PULSE YET ${silence:.1f} S · CUT AT ${grace:.0f} S',
+				size:   13
+				color:  dim
+				family: black
+			)
 		}
 		'cut' {
 			text(ctx, sx, by - 2, 'INTERNAL BATTERY',

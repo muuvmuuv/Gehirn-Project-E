@@ -860,6 +860,7 @@ fn main() {
 					umbilical:   link.str()
 					internal_ms: cable.remaining_ms(now)
 					silent_ms:   cable.silent_ms(now)
+					awaiting:    cable.awaiting()
 					grace_ms:    cable.grace_ms
 					outcomes:    seen
 				})

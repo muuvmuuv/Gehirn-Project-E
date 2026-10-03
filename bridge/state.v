@@ -201,8 +201,9 @@ fn (s State) silence(now i64) i64 {
 
 // link is where the umbilical stands at now, as the bridge shows it: never before the first view,
 // stale once the newest view is older than silent_ms, since only the views tell of the cable and
-// of HQ's silence, live, lost once HQ has been silent for lost_ms while the cable still counts as
-// connected, cut on internal power, and depleted.
+// of HQ's silence, awaiting while the cable counts as connected but no pulse from HQ has reached
+// the field unit yet, live, lost once HQ has been silent for lost_ms while the cable still counts
+// as connected, cut on internal power, and depleted.
 fn (s State) link(now i64) string {
 	if s.view_at == 0 {
 		return 'never'
@@ -218,7 +219,9 @@ fn (s State) link(now i64) string {
 			'depleted'
 		}
 		else {
-			if s.silence(now) >= lost_ms {
+			if s.view.awaiting {
+				'awaiting'
+			} else if s.silence(now) >= lost_ms {
 				'lost'
 			} else {
 				'live'

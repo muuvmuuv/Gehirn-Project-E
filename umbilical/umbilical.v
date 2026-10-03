@@ -20,6 +20,7 @@ pub:
 mut:
 	last_ms i64
 	cut_ms  i64
+	pulsed  bool // a pulse has arrived since plug_in
 }
 
 // plug_in starts connected. A budget of 300000 ms is the five minutes of the Eva's internal
@@ -36,6 +37,7 @@ pub fn plug_in(now i64, budget_ms i64, grace_ms i64) Cable {
 pub fn (mut c Cable) pulse(now i64) {
 	c.last_ms = now
 	c.cut_ms = 0
+	c.pulsed = true
 }
 
 // state is where the cable stands at time now.
@@ -65,4 +67,10 @@ pub fn (c Cable) remaining_ms(now i64) i64 {
 // bridge.
 pub fn (c Cable) silent_ms(now i64) i64 {
 	return now - c.last_ms
+}
+
+// awaiting reports whether no pulse has arrived since plug_in, for the view main.v's field loop
+// shows the bridge: the cable counts as connected from the start, though HQ may not run yet.
+pub fn (c Cable) awaiting() bool {
+	return !c.pulsed
 }
