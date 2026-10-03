@@ -74,3 +74,117 @@ missions runs="10" port="8081": build
     export TYPESAFE_URL=http://127.0.0.1:{{ port }}/v1/systemone TYPESAFE_API_KEY=mock
     python3 tools/trials.py --runs {{ runs }} --jobs 3
     ./gehirn magi-eval 3
+
+# Flies one narrated mission on the mock with HQ, the field unit and the bridge apart; no keys.
+demo mock="8081" umbilical="7447" watch="7448" plug="7777" dir="": build bridge (_fly justfile_directory() / "gehirn-bridge" mock umbilical watch plug dir)
+
+[private]
+[no-exit-message]
+_fly bridge_bin mock umbilical watch plug dir:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # The ports dodge ones in use, and the run directory, a fresh temp dir unless given, takes
+    # the journal and the recorder, which are a pilot's data and never belong in the repo.
+
+    # Measured on 2026-10-02: these put the body at the beacon just after the walking human
+    # (body/body.v scene, one loop per 21 s) passes it, so MAGI refuses the first release and
+    # approves the next. Zenoh's redial lands the goto about 2 s after HQ starts.
+    hq_delay=5        # s from the field unit's start to HQ's
+    pilot_s=11        # plug/dummy.v needs 500 pilot ticks under a goal, 10 s at 50 Hz
+    pilot_speed=0.7
+    pilot_offset=-45  # south of the pillar, clear of the human's loop
+    reconnect_s=5
+    root=$PWD bin=$PWD/gehirn bridge_bin={{ quote(bridge_bin) }}
+    run={{ quote(dir) }}
+    if [ -z "$run" ]; then
+        run=$(mktemp -d "${TMPDIR:-/tmp}/gehirn-demo.XXXXXX")
+    elif [ -n "$(ls -A "$run" 2>/dev/null)" ]; then
+        echo "demo: $run is not empty, and the run needs a fresh journal and recorder" >&2
+        exit 2
+    fi
+    mkdir -p "$run/hq" "$run/field"
+    run=$(cd "$run" && pwd)
+
+    # Every variable of README's configuration table but SSL_CERT_FILE, so nothing hosted or
+    # personal leaks in; above all CORE_JOURNAL and PLUG_RECORDER, the pilot's data.
+    unset GEHIRN_URL GEHIRN_KEY CORE_URL CORE_KEY CORE_MODEL MELCHIOR_URL MELCHIOR_KEY \
+        MELCHIOR_MODEL BALTHASAR_URL BALTHASAR_KEY BALTHASAR_MODEL CASPER_URL CASPER_KEY \
+        CASPER_MODEL CORE_REASONING MELCHIOR_REASONING BALTHASAR_REASONING CASPER_REASONING \
+        BALTHASAR_BACKEND MAGI_TIMEOUT_MS CORE_TIMEOUT_MS CORE_BACKEND CL1_SPIKES CL1_SIDECAR \
+        PILOT_ID MISSION CORE_JOURNAL PLUG_RECORDER HQ_PERIOD_MS UNIT_ID
+    key() { python3 -c 'import secrets; print(secrets.token_hex(32))'; }
+    UMBILICAL_KEY=$(key) WATCH_KEY=$(key) PILOT_KEY=$(key)
+    export UMBILICAL_KEY WATCH_KEY PILOT_KEY TYPESAFE_API_KEY=mock
+    export GEHIRN_URL=http://127.0.0.1:{{ mock }}/v1/chat/completions
+    export TYPESAFE_URL=http://127.0.0.1:{{ mock }}/v1/systemone
+    export UMBILICAL_ENDPOINT=tcp/127.0.0.1:{{ umbilical }} BRIDGE_ENDPOINT=tcp/127.0.0.1:{{ watch }}
+    export PLUG_LISTEN=127.0.0.1:{{ plug }}
+    export MAGI_COOLDOWN_MS=5000 UMBILICAL_GRACE_MS=40000 INTERNAL_BUDGET_MS=300000
+
+    pids=""
+    trap 'kill $pids 2>/dev/null || true; wait; echo "demo: stopped everything; logs in $run"' EXIT
+    trap 'exit 130' INT TERM
+    say() {
+        printf '%d:%02d demo: %s\n' $((SECONDS / 60)) $((SECONDS % 60)) "$1"
+        echo "$SECONDS $1" >>"$run/beats"
+    }
+    fail() {
+        printf '%d:%02d demo: %s\n' $((SECONDS / 60)) $((SECONDS % 60)) "$1" >&2
+        exit 1
+    }
+
+    # beat waits up to $4 s for the text $3 in the log $2, then narrates $1. The texts come from
+    # magi/magi.v Verdict.str, the field:, umbilical: and release outcome lines of main.v and
+    # tools/mock_endpoint.py's first line, each of which names this recipe.
+    beat() {
+        for _ in $(seq $(($4 * 5))); do
+            if grep -qF "$3" "$2" 2>/dev/null; then
+                say "$1"
+                return
+            fi
+            sleep 0.2
+        done
+        fail "no \"$3\" in $2 within $4 s; its last line: $(tail -n 1 "$2" 2>/dev/null)"
+    }
+
+    # ballots prints the first verdict in HQ's log that contains $1, and the three ballots below.
+    ballots() { awk -v v="$1" 'index($0, v) && !seen { seen = n = 4 } n && n-- { print "       " $0 }' "$run/hq/hq.log"; }
+    alive() { kill -0 "$1" 2>/dev/null || fail "$2 stopped; its last line: $(tail -n 1 "$3")"; }
+    start() { (cd "$run/$1" && exec "$bin" "$1" >>"$1.log" 2>&1) & pids="$pids $!"; }
+
+    SECONDS=0
+    python3 tools/mock_endpoint.py --listen 127.0.0.1:{{ mock }} --quiet 2>"$run/mock.log" &
+    pids="$pids $!"
+    beat "mock models on 127.0.0.1:{{ mock }}, scripted by tools/mock_endpoint.py, so no keys" "$run/mock.log" 'mock: serving' 5
+    (cd "$run" && exec "$bridge_bin" >bridge.log 2>&1) &
+    bridge=$!
+    pids="$pids $bridge"
+    start field
+    field=$!
+    say "field unit up and waiting for HQ; a human walks a loop past beacon b1"
+    sleep "$hq_delay"
+    alive "$bridge" "gehirn-bridge" "$run/bridge.log"
+    alive "$field" "the field unit" "$run/field/field.log"
+    start hq
+    hq=$!
+    say "HQ up: the core proposes goals, and MAGI judge them"
+    beat "goto approved; the core steers toward the beacon" "$run/hq/hq.log" 'MAGI 3/3, need 2' 15
+    ballots 'MAGI 3/3, need 2'
+    (cd "$run/field" && exec python3 "$root/tools/pilot.py" --addr "$PLUG_LISTEN" --seconds "$pilot_s" \
+        --speed "$pilot_speed" --offset "$pilot_offset" >pilot.log 2>&1) &
+    pids="$pids $!"
+    beat "a pilot takes the seat and steers ${pilot_offset#-} degrees off the line to the beacon" "$run/field/field.log" 'seat pilot' 5
+    beat "the pilot leaves; the dummy plug, cloned from that pilot, takes the seat" "$run/field/field.log" 'seat dummy' $((pilot_s + 5))
+    beat "release refused: a human is within reach of the drop" "$run/hq/hq.log" 'need 3: 否決' 40
+    ballots 'need 3: 否決'
+    beat "release approved: the human walked on, and the 5 s cooldown passed" "$run/hq/hq.log" 'need 3: 可決' 30
+    ballots 'need 3: 可決'
+    beat "released on target" "$run/hq/core.shinji.jsonl" 'released on target' 10
+    kill "$hq"
+    say "HQ killed: the cable goes silent, and the field unit waits out the 40 s grace"
+    beat "the cable counts as cut; internal power, 5:00 counting down" "$run/field/field.log" 'connected to internal' 50
+    sleep "$reconnect_s"
+    start hq
+    say "HQ restarted"
+    beat "cable reconnected; the field unit never stopped" "$run/field/field.log" 'internal to connected' 20
+    sleep 5

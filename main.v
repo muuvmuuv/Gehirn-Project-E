@@ -666,6 +666,8 @@ fn main() {
 				// 0.1 m past lcl.beacon_reach, so a release approved at the reach lands on target.
 				// magi/jev.v jev_delivery repeats the 0.6 m.
 				on_target := near(p, 'beacon', lcl.beacon_reach + 0.1)
+
+				// The Justfile's _fly recipe waits on `released on target` in the journal.
 				push_outcome(outcomes, mut seen, lcl.Outcome{
 					t_ms: now
 					kind: if on_target { 'released on target' } else { 'released off target' }
@@ -684,6 +686,7 @@ fn main() {
 		// Umbilical. Once the internal budget is gone the unit holds.
 		state := cable.state(now)
 		if state != link {
+			// The Justfile's _fly recipe waits on `connected to internal` and `internal to connected`.
 			println('umbilical: ${link} to ${state}, ${cable.remaining_ms(now) / 1000} s internal left')
 			link = state
 		}
@@ -789,6 +792,8 @@ fn main() {
 		if now - last_status >= 1000 {
 			last_status = now
 			pct := ratio * 100.0
+
+			// The Justfile's _fly recipe waits on `seat pilot` and `seat dummy` in this line.
 			println('field: ${goal.label()} pose (${p.pose[0]:.2f}, ${p.pose[1]:.2f}) seat ${seat} sync ${pct:.0f}% authority ${authority:.2f} umbilical ${link}')
 		}
 		next, nap := pace(deadline, time.sys_mono_now())

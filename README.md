@@ -6,7 +6,27 @@ Today it drives a simulated body with hosted models on OpenRouter, or any other 
 
 ## Quick start
 
-The proof of concept runs on hosted models: the core, MELCHIOR and CASPER on OpenRouter, and BALTHASAR on TypeSafe's Jev. It needs V 0.5.2 or newer (the code uses `x.json2`), just, curl and unzip, with which `just build` fetches zenoh-c, an OpenRouter API key and a TypeSafe API key. Copy `.env.example` to `.env` and fill in both keys. `.env` hands the OpenRouter key on as `GEHIRN_KEY`, and `tools/withenv.py` passes both to gehirn without putting them on the command line. Then build, export the lineup that delivered 10 of 10 on OpenRouter, and start gehirn:
+One command flies the whole story on scripted mock models, without keys. It needs V 0.5.2, just, curl, unzip and Python 3.10 or newer, and ffmpeg only for recording.
+
+```sh
+just demo
+```
+
+It builds gehirn and the bridge, which takes about a minute, and on the first run `just zenoh` fetches zenoh-c. Then it starts the mock, the bridge in a window of its own, the field unit, HQ and later a scripted pilot, each a process of its own, and narrates each beat in the terminal with the time since the start:
+
+1. MAGI approve the goto 3 of 3, and the core steers toward beacon b1.
+2. A scripted pilot, `tools/pilot.py`, takes the seat, steers 45 degrees off the line to the beacon and leaves; the dummy plug, cloned from that pilot, takes the seat.
+3. MAGI refuse the release, 否決, while the walking human is within reach, and approve it, 可決, once the human has walked on and the cooldown has passed. The payload lands on target.
+4. HQ is killed. The cable goes silent, and after the 40 s grace the unit runs on internal power, counting down from 5:00.
+5. HQ restarts, and the cable reconnects.
+
+After about 90 s it stops everything, as Ctrl-C does at any time, and its last line names the fresh temp directory that holds the logs, the journal and the recorder. A beat that does not come in time stops the demo with one line that names the log it waited on. The mock scripts the core and MAGI (`tools/mock_endpoint.py`), so the demo shows how the stack reacts, not how real models judge. On Linux, point `VUI_FONT` at a font with CJK glyphs first, as [the bridge](#the-bridge) explains.
+
+Any port in use can move: `just demo 9081` serves the mock on 9081 instead of 8081. The parameters after it are the umbilical, watch and plug ports, 7447, 7448 and 7777 by default, and the run directory, which must be empty or new, as in `just demo 9081 9447 9448 9777 /tmp/gehirn-demo`.
+
+### Hosted models
+
+The proof of concept runs on hosted models: the core, MELCHIOR and CASPER on OpenRouter, and BALTHASAR on TypeSafe's Jev. Beyond what the demo needs, it takes an OpenRouter API key and a TypeSafe API key. Copy `.env.example` to `.env` and fill in both keys. `.env` hands the OpenRouter key on as `GEHIRN_KEY`, and `tools/withenv.py` passes both to gehirn without putting them on the command line. Then build, export the lineup that delivered 10 of 10 on OpenRouter, and start gehirn:
 
 ```sh
 just build
@@ -23,6 +43,8 @@ In the same shell, `tools/trials.py` flies ten missions with the keys from `.env
 python3 tools/trials.py --env-file .env --jobs 3
 python3 tools/withenv.py .env ./gehirn magi-eval 10
 ```
+
+### The mock by hand
 
 To run without models or keys, use the mock endpoint instead, in a new shell. It answers on gehirn's default URL as the core and the three MAGI, and on `/v1/systemone` as Jev, which takes any key. From a fresh clone, `just missions 3` builds gehirn, starts the mock in the background, flies three missions, puts the adversarial scenarios to the mock MAGI, and stops the mock; `just missions 3 9081` does the same with the mock on port 9081.
 
@@ -52,7 +74,7 @@ mkdir -p hq field
 cd hq && ../gehirn hq
 ```
 
-Kill HQ and the field unit runs on internal power once `UMBILICAL_GRACE_MS` has passed, then holds; start HQ again and the cable reconnects. Plain `./gehirn` keeps both in one process for development, and `tools/trials.py` flies only that.
+Kill HQ and the field unit runs on internal power once `UMBILICAL_GRACE_MS` has passed, then holds; start HQ again and the cable reconnects. `just demo` scripts all of this, with the bridge watching. Plain `./gehirn` keeps both in one process for development, and `tools/trials.py` flies only that.
 
 ## The bridge
 

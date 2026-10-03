@@ -4,7 +4,7 @@ Codename GEHIRN, repository and binary `gehirn`. In canon, Project E is the prog
 
 This file is the handoff to Claude Code: where the project stands, the rules that do not bend, and the work ahead. README.md explains the parts and how to run them, and docs/adr holds the decisions. Read this file completely before starting a task. Tick tasks when they land, and move anything learned the hard way into Known issues or an ADR.
 
-## State as of 2026-10-02
+## State as of 2026-10-03
 
 Builds on V 0.5.2 from Homebrew (45ae01d), which ships JSON as `x.json2`, with warnings as errors (`v -W`). `v vet` is clean apart from two notices about const arrays in `lcl`. `just check` runs every check: table driven tests for `armor`, `umbilical`, `plug.Sync`, `oai`, `jev`, `magi`, `core`, `zenoh`, `wire`, `main` and the scenario harness, and `tools/test_withenv.py` for the dotenv loader. `just missions` flies the mock missions.
 
@@ -30,6 +30,8 @@ On 2026-10-02 the `zenoh` module's tests passed against zenoh-c 1.10.1 on macOS 
 On 2026-10-02 `gehirn hq` and `gehirn field`, two processes linked over Zenoh on one Mac, flew the mock mission to "released on target". Killing HQ moved the field unit to internal power after the grace and to depleted after the budget, and restarting HQ reconnected it untouched.
 
 On 2026-10-02 `gehirn-bridge` followed split missions on the Mac and met Phase 9's done criterion. Against the mock, with HQ started 10 s after the field unit so the body reached the beacon as the human passed, it showed the goto approved 3/3, the release rejected 1/3 (MELCHIOR-1 and BALTHASAR-2 on the human within reach) and approved 3/3 after the cooldown, and, once HQ was killed, the umbilical on internal power counting down. Killing the bridge 10 s into another mission left it delivering on target at +35 s. On the hosted lineup it showed every ballot with its model, why and latency, and the mission delivered at +39 s.
+
+On 2026-10-03 `just demo` flew that mission against the mock on its own ports and narrated every beat: the goto approved 3/3 at 0:07, the pilot in the seat at 0:08 and the dummy plug at 0:20, the release refused 1/3 at 0:26 (MELCHIOR-1 and BALTHASAR-2 on the human within reach) and approved 3/3 at 0:32, released on target at 0:33, internal power at 1:13 after HQ was killed, and the cable reconnected at 1:20. Ctrl-C, a mock port in use and the normal end each left no process running.
 
 Never run: `sidecar/cl1_sidecar.py` and the `cl1` backend.
 
@@ -81,6 +83,7 @@ Work top to bottom. Phases 2, 3 and 9 can run in parallel once Phase 1 has lande
 ### Tooling
 
 1. [x] A Justfile as the one entry point: `just check` for the checks, `just missions` for the mock missions, `just build` for the binary, and later the image pipeline of Phase 6. CONTRIBUTING.md, `lefthook.yml` and the README then call the recipes instead of repeating the commands.
+2. [x] `just demo`: one command, without keys, that flies the whole story on the mock with HQ, the field unit and the bridge apart, narrates each beat in the terminal and stops everything on exit or Ctrl-C. The README's quick start leads with it.
 
 ### Phase 0: Real models
 
@@ -197,8 +200,9 @@ Done when the bridge follows a full mission live on the Mac, from goto to releas
 18. A UDP dial never contacts its peer: `net.dial_udp` resolves the address and binds a local socket, nothing more. So `new_cl1` fails only on a `CL1_SIDECAR` vlib cannot resolve, such as an unknown host or a port past 65535. A wrong but resolvable address starts, as does a port that is not a number, which vlib reads as 0, or a value without a colon, which vlib takes as a Unix socket path. `Cl1Core.send` drops every write error, so the stim packets then vanish unnoticed.
 19. Resolved on 2026-10-02: `new_cl1` quotes `CL1_SPIKES` and `CL1_SIDECAR` in its error through `lcl.quoted`, so the refusal stays one line.
 20. Resolved on 2026-10-02: every status line that shows a value from the environment quotes it through `lcl.quoted`: the `magi-eval:` unit lines, the `hq:` and `field:` startup lines, `ca_warning` and `plug.listen`'s failure line.
-21. `tools/trials.py` flies only the combined binary, so missions over the wire are checked by hand, as in State.
+21. `tools/trials.py` flies only the combined binary. `just demo` flies one mission over the wire and stops at a missing beat, but counts nothing, so missions over the wire are still measured by hand, as in State.
 22. Resolved on 2026-10-03: HQ's notes, the armor's refusal line and `magi-eval` show model text through `lcl.escaped`, a proposal's verb and why, every ballot's why and the core's fault, so a model can neither break a line nor send the terminal an escape sequence. `tools/trials.py` counts armor refusals from the journal, as it counts everything else.
+23. `just demo` times its rejection against the walking human's 21 s loop: HQ starts 5 s after the field unit, and Zenoh's redial lands the goto about 2 s later. A host slow enough to shift the body's arrival by several seconds finds the human out of reach, the first release passes, and the demo stops at the 否決 beat. Five runs on 2026-10-02 and 2026-10-03 refused the first release at 0:25 or 0:26.
 
 ## Open questions for the owner
 
