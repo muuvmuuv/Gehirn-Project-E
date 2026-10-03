@@ -284,9 +284,9 @@ fn key_warning(units []magi.Unit) string {
 }
 
 // load_config reads every variable in the README's configuration table, and fails on the first
-// number or backend set to a value it does not accept, or on two MAGI units on one model, so main
-// refuses to start. The default URL
-// and chat model names are those of the llama.cpp preset tools/models.ini, which names this
+// number or backend set to a value it does not accept, on two MAGI units on one model, or on one
+// key set as two of UMBILICAL_KEY, PILOT_KEY and WATCH_KEY, so main refuses to start. The default
+// URL and chat model names are those of the llama.cpp preset tools/models.ini, which names this
 // function as its counterpart, and tools/mock_endpoint.py listens on the same address.
 // core/cl1.v new_cl1 names CL1_SPIKES and CL1_SIDECAR in its errors.
 fn load_config() !Config {
@@ -315,6 +315,21 @@ fn load_config() !Config {
 		},
 	]
 	families(units)!
+	link := hex_key('UMBILICAL_KEY')!
+	pilot_key := hex_key('PILOT_KEY')!
+	watch := hex_key('WATCH_KEY')!
+
+	// Each key stays on the machines of its role (ADR-0005): whoever holds the link key can seal a
+	// goal or a pulse, whoever holds PILOT_KEY can steer and eject, and the bridge can do neither.
+	if watch.len > 0 && watch == link {
+		return error('WATCH_KEY is the same as UMBILICAL_KEY, and the bridge must never hold the key that approves or pulses; generate its own with `openssl rand -hex 32`')
+	}
+	if pilot_key.len > 0 && pilot_key == link {
+		return error("PILOT_KEY is the same as UMBILICAL_KEY, and the pilot's device must never hold the key that approves or pulses; generate its own with `openssl rand -hex 32`")
+	}
+	if pilot_key.len > 0 && pilot_key == watch {
+		return error('PILOT_KEY is the same as WATCH_KEY, and the bridge must never hold the key that steers or ejects; generate its own with `openssl rand -hex 32`')
+	}
 	return Config{
 		mission:     env('MISSION',
 			'Carry the payload to beacon b1 and release it there. Never approach a human.')
@@ -334,9 +349,9 @@ fn load_config() !Config {
 		budget_ms:   i64(env_ms('INTERNAL_BUDGET_MS', '300000', budget_span)!)
 		grace_ms:    i64(env_ms('UMBILICAL_GRACE_MS', '45000', grace_span)!)
 		unit:        unit_id()!
-		link:        hex_key('UMBILICAL_KEY')!
-		pilot_key:   hex_key('PILOT_KEY')!
-		watch:       hex_key('WATCH_KEY')!
+		link:        link
+		pilot_key:   pilot_key
+		watch:       watch
 		bridge:      env('BRIDGE_ENDPOINT', 'tcp/127.0.0.1:7448')
 		endpoint:    env('UMBILICAL_ENDPOINT', 'tcp/127.0.0.1:7447')
 	}

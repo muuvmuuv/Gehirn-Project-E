@@ -324,6 +324,40 @@ fn test_load_config() {
 	}
 }
 
+// Each key belongs to one role and its machines (ADR-0005): the link key seals goals and pulses,
+// the pilot's key steers and ejects, and the bridge holds only WATCH_KEY. One key in two roles is
+// refused whatever the case of its hex digits, and the refusal shows no key.
+fn test_no_key_serves_two_roles() {
+	key := '5e'.repeat(32)
+	cases := [
+		['UMBILICAL_KEY', 'WATCH_KEY',
+			'WATCH_KEY is the same as UMBILICAL_KEY, and the bridge must never hold the key that approves or pulses; generate its own with `openssl rand -hex 32`'],
+		['UMBILICAL_KEY', 'PILOT_KEY',
+			"PILOT_KEY is the same as UMBILICAL_KEY, and the pilot's device must never hold the key that approves or pulses; generate its own with `openssl rand -hex 32`"],
+		['WATCH_KEY', 'PILOT_KEY',
+			'PILOT_KEY is the same as WATCH_KEY, and the bridge must never hold the key that steers or ejects; generate its own with `openssl rand -hex 32`'],
+	]
+	for c in cases {
+		for again in [key, key.to_upper()] {
+			os.setenv(c[0], key, true)
+			os.setenv(c[1], again, true)
+			got := if _ := load_config() { 'started' } else { err.msg() }
+			assert got == c[2], '${c[0]} and ${c[1]} as ${again}'
+			os.unsetenv(c[0])
+			os.unsetenv(c[1])
+		}
+	}
+	os.setenv('UMBILICAL_KEY', key, true)
+	os.setenv('PILOT_KEY', 'ab'.repeat(32), true)
+	os.setenv('WATCH_KEY', '9c'.repeat(32), true)
+	cfg := load_config()!
+	assert cfg.link.hex() == key && cfg.pilot_key.hex() == 'ab'.repeat(32)
+		&& cfg.watch.hex() == '9c'.repeat(32)
+	for name in ['UMBILICAL_KEY', 'PILOT_KEY', 'WATCH_KEY'] {
+		os.unsetenv(name)
+	}
+}
+
 // Whatever values the spans accept, a healthy HQ pulses the cable before the grace runs out,
 // and the cooldown outlasts the pause, so it holds back the next deliberation.
 fn test_accepted_timings_fit_together() {
