@@ -10,9 +10,26 @@ import lcl
 import wire
 import zenoh
 
-// fonts are where macOS keeps a font with both Latin and CJK glyphs, for 可決, 否決 and 故障.
-// fontstash reads one face per file, so a .ttc collection such as Hiragino does not do.
-// ponytail: macOS paths only; a Linux image sets VUI_FONT to a CJK font such as Noto Sans CJK.
+// cond_ttf, black_ttf, mincho_ttf and seg_ttf are the bridge's own fonts, built into the binary so
+// no machine needs one installed, all under the SIL Open Font License beside them in bridge/fonts:
+// Barlow Condensed for Latin, Zen Old Mincho Black cut to ASCII and the Japanese that bridge/*.v
+// draws (bridge/fonts/README.md), and DSEG7 for the umbilical's clock. Static faces only, since
+// fontstash draws a variable font at its default weight, and one face per file, since it reads no
+// .ttc collection.
+const cond_ttf = $embed_file('fonts/BarlowCondensed-SemiBold.ttf')
+const black_ttf = $embed_file('fonts/BarlowCondensed-Black.ttf')
+const mincho_ttf = $embed_file('fonts/ZenOldMincho-Black-subset.ttf')
+const seg_ttf = $embed_file('fonts/DSEG7Classic-BoldItalic.ttf')
+
+// black, mincho and seg are the names under which init registers the bundled faces, for
+// TextCfg.family. The base face, Barlow Condensed SemiBold, needs no name.
+const black = 'barlow-black'
+const mincho = 'zen-old-mincho'
+const seg = 'dseg7'
+
+// fonts are where macOS keeps Arial Unicode, the last fallback for glyphs the bundled fonts lack,
+// such as Japanese in a model's why.
+// ponytail: macOS paths only; elsewhere VUI_FONT names such a font, for example Noto Sans CJK.
 const fonts = ['/Library/Fonts/Arial Unicode.ttf',
 	'/System/Library/Fonts/Supplemental/Arial Unicode.ttf']!
 
@@ -54,13 +71,15 @@ fn main() {
 		}
 	}
 	app.gg = gg.new_context(
-		width:        1280
-		height:       800
-		window_title: 'gehirn bridge ${unit}'
-		bg_color:     ink
-		frame_fn:     frame
-		user_data:    app
-		font_path:    font()
+		width:             1280
+		height:            800
+		window_title:      'gehirn bridge ${unit}'
+		bg_color:          ink
+		init_fn:           init
+		frame_fn:          frame
+		user_data:         app
+		font_bytes_normal: cond_ttf.to_bytes()
+		font_bytes_bold:   black_ttf.to_bytes()
 	)
 	app.gg.run()
 }
@@ -70,8 +89,36 @@ fn env(key string, fallback string) string {
 	return if val == '' { fallback } else { val }
 }
 
-// font is VUI_FONT, else the first of fonts this host has, else gg's own choice, which may lack
-// CJK glyphs.
+// init names the bundled faces for TextCfg.family and chains the mincho, then font(), behind each,
+// so a glyph one face lacks comes from the next. It runs before the first frame, since fontstash
+// caches a missing glyph as missing.
+fn init(mut app App) {
+	mut ft := app.gg.ft
+	for name, data in {
+		black:  black_ttf
+		mincho: mincho_ttf
+		seg:    seg_ttf
+	} {
+		ft.fonts_map[name] = ft.fons.add_font_mem(name, data.to_bytes().clone(), true)
+	}
+	mut chain := [ft.fonts_map[mincho]]
+	extra := font()
+	if extra != '' {
+		bytes := os.read_bytes(extra) or { []u8{} }
+		if bytes.len > 0 {
+			chain << ft.fons.add_font_mem('extra', bytes, true)
+		}
+	}
+	for base in [ft.font_normal, ft.font_bold, ft.fonts_map[black], ft.fonts_map[mincho]] {
+		for fallback in chain {
+			if fallback != base {
+				ft.fons.add_fallback_font(base, fallback)
+			}
+		}
+	}
+}
+
+// font is VUI_FONT, else the first of fonts this host has, else nothing.
 fn font() string {
 	set := os.getenv('VUI_FONT')
 	if set != '' {

@@ -179,7 +179,7 @@ Goal: a graphical bridge in the look of NERV's command center, the operator's vi
 3. [x] Panels: MAGI with 可決, 否決 and 故障 per unit and its reason, the active goal and each proposal, the sync ratio and the seat, the umbilical counting down from 5:00 once the cable is cut, the core's last fault (ADR-0004), armor refusals, and the scene from the percept.
 4. [x] Runs on the Mac against the mock and the hosted lineup.
 5. [x] Show the vote as it happens and HQ's silence, additive inside ADR-0005's two streams and keys: HQ puts each proposal as it goes to MAGI (`stage` deliberating) and each ballot as it lands (`stage` ballot) before the verdict, and the field's view carries `benched`, `silent_ms`, how long ago HQ's last pulse arrived, and `grace_ms`. README's "The bridge" lists them.
-6. [ ] Bundle the bridge's fonts under `bridge/fonts`, OFL licensed, and embed them, so no image needs a CJK font installed.
+6. [x] Bundle the bridge's fonts under `bridge/fonts`, OFL licensed, and embed them, so no image needs the CJK font ADR-0005 expected a Linux image to add; `VUI_FONT` remains a fallback for glyphs outside them.
 7. [ ] Redraw the bridge in Evangelion's on-screen design language: MAGI in its canon geometry with 審議中, the 活動限界 display with a warning while HQ is silent, the シンクロ率 harmonics, the scene as a radar, a boot sequence and a fan project line. Every element shows the stack's true state.
 
 Done when the bridge follows a full mission live on the Mac, from goto to release, including a MAGI rejection and a cut cable, and closing the bridge changes nothing in the mission.
