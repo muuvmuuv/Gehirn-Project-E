@@ -72,7 +72,8 @@ Meanwhile `PILOT_KEY=<the same key> python3 tools/pilot.py --offset 30 --seconds
 ```sh
 just build
 python3 tools/mock_endpoint.py --quiet &
-export TYPESAFE_URL=http://127.0.0.1:8081/v1/systemone TYPESAFE_API_KEY=mock UMBILICAL_KEY=$(openssl rand -hex 32)
+export TYPESAFE_URL=http://127.0.0.1:8081/v1/systemone TYPESAFE_API_KEY=mock UMBILICAL_KEY=$(openssl rand -hex 32) \
+  WATCH_KEY=$(openssl rand -hex 32)
 mkdir -p hq field
 (cd field && ../gehirn field) &
 cd hq && ../gehirn hq
@@ -90,11 +91,11 @@ Kill HQ and the field unit runs on internal power once `UMBILICAL_GRACE_MS` has 
 - **The scene** as a radar fitted to everything it has shown: the body's trail and velocity, range rings a meter apart, brackets on a goto's target, each human's 0.7 m and 2 m rings from the armor and the distance to the nearest.
 - **The core** with its active goal and a 故障 strip of its faults, **armor refusals** as 拒否, **outcomes**, and a header with the mission clock and lights for the field unit, HQ and MAGI.
 
-It boots for under three seconds through its own listening address and three lines from the show, and the boot screen and the footer say it is a fan project, not affiliated with khara or Gehirn Inc. It runs on a machine of its own and only watches ([ADR 0005](docs/adr/0005-the-bridge.md)): it listens on `BRIDGE_ENDPOINT` for the watch streams that `gehirn hq` and `gehirn field` publish under `WATCH_KEY`, declares no publisher, and holds no key that approves or pulses, so closing it changes nothing. A bridge that starts late misses what came before; it shows the newest from then on. Beyond ADR 0005's table, and inside the same two streams, HQ shows each proposal as it goes to MAGI and each ballot as it lands, so the bridge shows the units deliberating and answering one by one, and the field unit's view says whether the dummy plug is benched and how long HQ has been silent against `UMBILICAL_GRACE_MS`, so the bridge warns before the cable counts as cut. It reads `UNIT_ID`, `WATCH_KEY` and `BRIDGE_ENDPOINT`. Its fonts are built into the binary ([bridge/fonts](bridge/fonts/README.md)); `VUI_FONT` names a fallback for glyphs they lack, such as Japanese in a model's why, where macOS's Arial Unicode is missing, as on Linux. Next to the run above, with the same `WATCH_KEY` exported in all three shells:
+It boots for under three seconds through its own listening address and three lines from the show, and the boot screen and the footer say it is a fan project, not affiliated with khara or Gehirn Inc. It runs on a machine of its own and only watches ([ADR 0005](docs/adr/0005-the-bridge.md)): it listens on `BRIDGE_ENDPOINT` for the watch streams that `gehirn hq` and `gehirn field` publish under `WATCH_KEY`, declares no publisher, and holds no key that approves or pulses, so closing it changes nothing. A bridge that starts late misses what came before; it shows the newest from then on. Beyond ADR 0005's table, and inside the same two streams, HQ shows each proposal as it goes to MAGI and each ballot as it lands, so the bridge shows the units deliberating and answering one by one, and the field unit's view says whether the dummy plug is benched and how long HQ has been silent against `UMBILICAL_GRACE_MS`, so the bridge warns before the cable counts as cut. It reads `UNIT_ID`, `WATCH_KEY` and `BRIDGE_ENDPOINT`. Its fonts are built into the binary ([bridge/fonts](bridge/fonts/README.md)); `VUI_FONT` names a fallback for glyphs they lack, such as Japanese in a model's why, where macOS's Arial Unicode is missing, as on Linux. Next to the run above, in a second shell with the same `WATCH_KEY` exported:
 
 ```sh
 just bridge
-export WATCH_KEY=$(openssl rand -hex 32)   # once, then the same value for hq, field and the bridge
+export WATCH_KEY=<the run's key>
 ./gehirn-bridge
 ```
 
