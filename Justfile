@@ -133,20 +133,26 @@ demo-record mock="8081" umbilical="7447" watch="7448" plug="7777" dir="": build
     EOF
     )
 
-    # The 40 s grace shows nothing new, so it plays at 8x under a caption that says so. gg
-    # saves a Retina window at twice its size, and X takes at most 1920 by 1200.
+    # The edit runs from 3 s before the goto's verdict, so it opens on MAGI deliberating, to 2 s
+    # after the cable reconnects. The 40 s grace shows nothing new, so it plays at 8x under a
+    # caption at the bottom, clear of the mission clock that shows the speed. gg saves a Retina
+    # window at twice its size, and X takes at most 1920 by 1200.
     at() { awk -v k="$1" 'index($0, k) { print $1; exit }' "$out/run/beats"; }
+    s=$(($(at 'goto approved') - 3)) e=$(($(at 'cable reconnected') + 2))
+    s=$((s > 0 ? s : 0))
     a=$(($(at 'HQ killed') + 3)) b=$(($(at 'the cable counts as cut') - 2))
-    c=$(awk -v a="$a" -v b="$b" 'BEGIN { print a + (b - a) / 8 }')
+    c=$(awk -v s="$s" -v a="$a" -v b="$b" 'BEGIN { print a - s + (b - a) / 8 }')
     python3 tools/caption.py "40 S GRACE AT 8X" >"$out/caption.ppm"
     ffmpeg -hide_banner -loglevel error -y -f concat -i "$out/frames/frames.txt" -i "$out/caption.ppm" -filter_complex \
-        "[0:v]trim=0:$a,setpts=PTS-STARTPTS[x];[0:v]trim=$a:$b,setpts=(PTS-STARTPTS)/8[y];[0:v]trim=$b,setpts=PTS-STARTPTS[z];[x][y][z]concat=n=3,fps=30,scale=1280:-2:flags=lanczos[v];[v][1:v]overlay=(W-w)/2:12:enable='between(t,$a,$c)',format=yuv420p[o]" \
+        "[0:v]trim=$s:$a,setpts=PTS-STARTPTS[x];[0:v]trim=$a:$b,setpts=(PTS-STARTPTS)/8[y];[0:v]trim=$b:$e,setpts=PTS-STARTPTS[z];[x][y][z]concat=n=3,fps=30,scale=1280:-2:flags=lanczos[v];[v][1:v]overlay=(W-w)/2:H-h-6:enable='between(t,$((a - s)),$c)',format=yuv420p[o]" \
         -map '[o]' -c:v libx264 -crf 20 -movflags +faststart "$out/gehirn-demo.mp4"
 
-    # The GIF loops from the refused release to the approved one.
+    # The GIF shows the MAGI block alone, large enough to read on a phone (bridge/draw.v draw
+    # lays it out at 16, 58, 736 by 412), and loops from MAGI deliberating on the refused
+    # release to 3 s after the approved one.
     r=$(at 'release refused') p=$(at 'release approved')
-    ffmpeg -hide_banner -loglevel error -y -ss $((r - 3)) -t $((p - r + 6)) -i "$out/gehirn-demo.mp4" -vf \
-        'fps=12,scale=800:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=64[p];[s1][p]paletteuse=dither=none' \
+    ffmpeg -hide_banner -loglevel error -y -ss $((r - 1 - s)) -t $((p - r + 4)) -i "$out/gehirn-demo.mp4" -vf \
+        'crop=752:420:8:54,fps=12,scale=800:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=64[p];[s1][p]paletteuse=dither=none' \
         "$out/gehirn-magi.gif"
     rm -rf "$out/frames" "$out/caption.ppm" "$out/gehirn-bridge"
     echo "demo-record: $out/gehirn-demo.mp4 ($(du -h "$out/gehirn-demo.mp4" | cut -f1)) and $out/gehirn-magi.gif ($(du -h "$out/gehirn-magi.gif" | cut -f1)), from $n frames at $fps a second"

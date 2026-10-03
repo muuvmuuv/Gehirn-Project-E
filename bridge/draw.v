@@ -86,7 +86,7 @@ fn draw(ctx &gg.Context, s State, unit string, at string, now i64) {
 	}
 	ctx.draw_rect_filled(0, 0, screen_w, screen_h, ink)
 	draw_header(ctx, s, unit, now)
-	draw_magi(ctx, s, now, 16, 58, 736, 412)
+	draw_magi(ctx, s, now, 16, 58, 736, 412) // the Justfile's demo-record crops its GIF to this block
 	draw_harmonics(ctx, s, 16, 480, 736, 160)
 	draw_core(ctx, s, now, 16, 650, 736, 124)
 	draw_limit(ctx, s, now, 768, 58, 496, 210)
