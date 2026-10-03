@@ -198,6 +198,8 @@ python3 tools/train_dummy.py dummy.shinji.set    # writes dummy.shinji.json
 
 Then correct it DAgger style: fly with the dummy plug in the seat and take the seat whenever it steers wrong. The recorder marks every tick of a pilot who took the seat from the dummy plug while it drove toward a goal, or after it was benched, as a correction. Exporting and training again on the whole recorder learns from them, and `--corrections 2` counts each twice. `tools/pilot.py --avoid 1.2 --dagger 30` is a scripted pilot that does the correcting: it passes anything within 1.2 m of its rim on the side nearer the beacon, and takes the seat for two seconds whenever the dummy plug steers more than 30 degrees off its own command or nobody steers toward a goal.
 
+`tools/eval_dummy.py` compares the two dummy plugs. It flies each from the starts you give it, with the same ticks on file and a scripted pilot who leaves after three seconds, and counts how often each brings the body within reach of the beacon, how often it gets benched, and how far it steers off what the pilot would have steered; PLAN.md records what it measured.
+
 ## Safety
 
 The armor owns the body, and `main` never gets a handle to it. Every command passes a speed cap (1.0 m/s manned, 0.4 unmanned), an acceleration limit that never limits braking, a geofence, and speed and separation monitoring: slower from 2 m to a human, and inside 0.7 m nothing moves toward them. Nothing pushes into anything solid either; what remains of a command slides along the surface. Irreversible effectors need all three MAGI and no human within 2 m.

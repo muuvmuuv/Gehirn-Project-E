@@ -718,7 +718,7 @@ fn main() {
 				}
 
 				// 0.1 m past lcl.beacon_reach, so a release approved at the reach lands on target.
-				// magi/jev.v jev_delivery repeats the 0.6 m.
+				// magi/jev.v jev_delivery and tools/eval_dummy.py REACH repeat the 0.6 m.
 				on_target := near(p, 'beacon', lcl.beacon_reach + 0.1)
 
 				// The Justfile's _fly recipe waits on `released on target` in the journal.
@@ -788,6 +788,7 @@ fn main() {
 		} else if seat == 'dummy' {
 			authority = share(mut dummy_sync, u_seat, u_core)
 			if dummy_sync.ratio <= threshold {
+				// tools/eval_dummy.py BENCHED counts these lines.
 				pct := dummy_sync.ratio * 100.0
 				println('plug: dummy plug out of sync at ${pct:.0f}%, benched until the pilot is back')
 				benched = true
