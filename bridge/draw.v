@@ -6,8 +6,8 @@ import lcl
 
 // The bridge's palette: amber frames and labels on near black, as NERV's screens, with one color
 // per meaning. Every color is bright on ink, so text stays legible from across a room.
-const ink = gg.Color{10, 10, 12, 255}
-const amber = gg.Color{255, 140, 26, 255}
+const ink = gg.Color{10, 10, 12, 255} // tools/caption.py GROUND
+const amber = gg.Color{255, 140, 26, 255} // tools/caption.py INK
 const paper = gg.Color{236, 232, 225, 255}
 const dim = gg.Color{139, 134, 128, 255}
 const grid = gg.Color{30, 30, 34, 255}

@@ -24,6 +24,8 @@ After about 90 s it stops everything, as Ctrl-C does at any time, and its last l
 
 Any port in use can move: `just demo 9081` serves the mock on 9081 instead of 8081. The parameters after it are the umbilical, watch and plug ports, 7447, 7448 and 7777 by default, and the run directory, which must be empty or new, as in `just demo 9081 9447 9448 9777 /tmp/gehirn-demo`.
 
+`just demo-record` takes the same parameters and flies the same mission with a bridge that saves its frames. It turns them into `gehirn-demo.mp4`, 1280 by 800 with the 40 s grace at 8x under a caption that says so, and `gehirn-magi.gif`, a loop from the refused release to the approved one, and prints where both are. Keep the bridge's window uncovered while it records, since macOS slows a covered window's frames. A Retina display records 3 to 5 frames a second and a 1x display about 25, because the bridge saves every frame as a PNG at the screen's resolution.
+
 ### Hosted models
 
 The proof of concept runs on hosted models: the core, MELCHIOR and CASPER on OpenRouter, and BALTHASAR on TypeSafe's Jev. Beyond what the demo needs, it takes an OpenRouter API key and a TypeSafe API key. Copy `.env.example` to `.env` and fill in both keys. `.env` hands the OpenRouter key on as `GEHIRN_KEY`, and `tools/withenv.py` passes both to gehirn without putting them on the command line. Then build, export the lineup that delivered 10 of 10 on OpenRouter, and start gehirn:

@@ -78,6 +78,66 @@ missions runs="10" port="8081": build
 # Flies one narrated mission on the mock with HQ, the field unit and the bridge apart; no keys.
 demo mock="8081" umbilical="7447" watch="7448" plug="7777" dir="": build bridge (_fly justfile_directory() / "gehirn-bridge" mock umbilical watch plug dir)
 
+# Records `just demo` from the bridge's frames into an MP4 and a looping GIF; needs ffmpeg.
+demo-record mock="8081" umbilical="7447" watch="7448" plug="7777" dir="": build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    command -v ffmpeg >/dev/null || { echo "demo-record: needs ffmpeg" >&2; exit 1; }
+    out={{ quote(dir) }}
+    if [ -z "$out" ]; then
+        out=$(mktemp -d "${TMPDIR:-/tmp}/gehirn-record.XXXXXX")
+    elif [ -n "$(ls -A "$out" 2>/dev/null)" ]; then
+        echo "demo-record: $out is not empty" >&2
+        exit 2
+    fi
+    mkdir -p "$out/frames"
+    out=$(cd "$out" && pwd)
+
+    # OpenGL, because sokol's screenshot readback fails on Metal (CONTRIBUTING.md, V 0.5.2
+    # rule 6). gg saves frames 1 to 9000, 150 s at 60 fps, as gehirn-bridge_<n>.png. Keep the
+    # window uncovered, since macOS slows a covered window's frames.
+    v -prod -d gg_record -d darwin_sokol_glcore33 -o "$out/gehirn-bridge" bridge/
+    VGG_SCREENSHOT_FOLDER="$out/frames" VGG_SCREENSHOT_FRAMES=$(seq -s, 1 9000) \
+        {{ just_executable() }} --justfile {{ quote(justfile()) }} _fly "$out/gehirn-bridge" \
+        {{ quote(mock) }} {{ quote(umbilical) }} {{ quote(watch) }} {{ quote(plug) }} "$out/run"
+
+    # gg's frame rate follows how fast it saves each frame, which changes with what the
+    # frame shows, so each frame lasts until the next was saved. The newest is left out,
+    # since the kill may cut it short.
+    n=$(find "$out/frames" -name '*.png' | wc -l | tr -d ' ')
+    if [ "$n" -lt 100 ]; then
+        echo "demo-record: gg saved $n frames; see $out/run/bridge.log" >&2
+        exit 1
+    fi
+    fps=$(python3 - "$out/frames" "$n" <<'EOF'
+    import os, sys
+    d, n = sys.argv[1], int(sys.argv[2])
+    t = [os.path.getmtime(f"{d}/gehirn-bridge_{i}.png") for i in range(1, n + 1)]
+    with open(f"{d}/frames.txt", "w") as f:
+        for i in range(1, n):
+            f.write(f"file gehirn-bridge_{i}.png\nduration {t[i] - t[i - 1]:.4f}\n")
+    print(f"{(n - 2) / (t[n - 2] - t[0]):.1f}")
+    EOF
+    )
+
+    # The 40 s grace shows nothing new, so it plays at 8x under a caption that says so. gg
+    # saves a Retina window at twice its size, and X takes at most 1920 by 1200.
+    at() { awk -v k="$1" 'index($0, k) { print $1; exit }' "$out/run/beats"; }
+    a=$(($(at 'HQ killed') + 3)) b=$(($(at 'the cable counts as cut') - 2))
+    c=$(awk -v a="$a" -v b="$b" 'BEGIN { print a + (b - a) / 8 }')
+    python3 tools/caption.py "40 S GRACE AT 8X" >"$out/caption.ppm"
+    ffmpeg -hide_banner -loglevel error -y -f concat -i "$out/frames/frames.txt" -i "$out/caption.ppm" -filter_complex \
+        "[0:v]trim=0:$a,setpts=PTS-STARTPTS[x];[0:v]trim=$a:$b,setpts=(PTS-STARTPTS)/8[y];[0:v]trim=$b,setpts=PTS-STARTPTS[z];[x][y][z]concat=n=3,fps=30,scale=1280:-2:flags=lanczos[v];[v][1:v]overlay=(W-w)/2:12:enable='between(t,$a,$c)',format=yuv420p[o]" \
+        -map '[o]' -c:v libx264 -crf 20 -movflags +faststart "$out/gehirn-demo.mp4"
+
+    # The GIF loops from the refused release to the approved one.
+    r=$(at 'release refused') p=$(at 'release approved')
+    ffmpeg -hide_banner -loglevel error -y -ss $((r - 3)) -t $((p - r + 6)) -i "$out/gehirn-demo.mp4" -vf \
+        'fps=12,scale=800:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=64[p];[s1][p]paletteuse=dither=none' \
+        "$out/gehirn-magi.gif"
+    rm -rf "$out/frames" "$out/caption.ppm" "$out/gehirn-bridge"
+    echo "demo-record: $out/gehirn-demo.mp4 ($(du -h "$out/gehirn-demo.mp4" | cut -f1)) and $out/gehirn-magi.gif ($(du -h "$out/gehirn-magi.gif" | cut -f1)), from $n frames at $fps a second"
+
 [private]
 [no-exit-message]
 _fly bridge_bin mock umbilical watch plug dir:

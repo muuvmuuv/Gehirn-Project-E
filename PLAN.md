@@ -84,6 +84,7 @@ Work top to bottom. Phases 2, 3 and 9 can run in parallel once Phase 1 has lande
 
 1. [x] A Justfile as the one entry point: `just check` for the checks, `just missions` for the mock missions, `just build` for the binary, and later the image pipeline of Phase 6. CONTRIBUTING.md, `lefthook.yml` and the README then call the recipes instead of repeating the commands.
 2. [x] `just demo`: one command, without keys, that flies the whole story on the mock with HQ, the field unit and the bridge apart, narrates each beat in the terminal and stops everything on exit or Ctrl-C. The README's quick start leads with it.
+3. [x] `just demo-record`: the demo recorded from the bridge's own frames into an MP4 for X, with the grace sped up under a caption, and a looping GIF of the release going from 否決 to 可決.
 
 ### Phase 0: Real models
 
@@ -202,7 +203,8 @@ Done when the bridge follows a full mission live on the Mac, from goto to releas
 20. Resolved on 2026-10-02: every status line that shows a value from the environment quotes it through `lcl.quoted`: the `magi-eval:` unit lines, the `hq:` and `field:` startup lines, `ca_warning` and `plug.listen`'s failure line.
 21. `tools/trials.py` flies only the combined binary. `just demo` flies one mission over the wire and stops at a missing beat, but counts nothing, so missions over the wire are still measured by hand, as in State.
 22. Resolved on 2026-10-03: HQ's notes, the armor's refusal line and `magi-eval` show model text through `lcl.escaped`, a proposal's verb and why, every ballot's why and the core's fault, so a model can neither break a line nor send the terminal an escape sequence. `tools/trials.py` counts armor refusals from the journal, as it counts everything else.
-23. `just demo` times its rejection against the walking human's 21 s loop: HQ starts 5 s after the field unit, and Zenoh's redial lands the goto about 2 s later. A host slow enough to shift the body's arrival by several seconds finds the human out of reach, the first release passes, and the demo stops at the 否決 beat. Five runs on 2026-10-02 and 2026-10-03 refused the first release at 0:25 or 0:26.
+23. `just demo` times its rejection against the walking human's 21 s loop: HQ starts 5 s after the field unit, and Zenoh's redial lands the goto about 2 s later. A host slow enough to shift the body's arrival by several seconds finds the human out of reach, the first release passes, and the demo stops at the 否決 beat. Seven runs on 2026-10-02 and 2026-10-03 refused the first release at 0:25 or 0:26.
+24. gg saves every frame as a PNG at the screen's resolution inside the bridge's frame loop, so `just demo-record` got 3.5 to 4.9 frames a second on average on a Retina display, where frames are 2560 by 1600, and about 25 on a 1x display. Under `gg_record` the bridge could lower stbi's PNG compression level (`stbi.set_png_compression_level`) to save frames faster.
 
 ## Open questions for the owner
 
