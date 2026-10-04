@@ -64,7 +64,8 @@ const scene = [
 // shared_features is what tools/test_export_dummy.py SHARED expects from tools/export_dummy.py
 // features for the same percept, so the training set and the dummy plug see alike.
 const shared_features = [2.3323807579381204, -0.7383642874308872, -0.22239888175629136,
-	0.7711310417560499, 0.014280075529516156, -0.7854041541233885, 0.7855339622647798]
+	0.7711310417560499, -0.7711310417560499, 0.014280075529516156, -0.7854041541233885,
+	0.7855339622647798, -0.7855339622647798]
 
 fn close(a []f64, b []f64) bool {
 	return a.len == b.len && a.len > 0
@@ -78,13 +79,15 @@ fn seen(pose []f64, target []f64, entities []lcl.Entity) []f64 {
 fn test_observe() {
 	assert close(seen([1.0, 0.8], [3.0, 2.0], scene), shared_features)
 
-	// Inside a rim the closeness stops at 1, past sight the distance stops at sight.
+	// Inside a rim the closeness stops at 1, past sight the distance stops at sight. The pillar
+	// lies left of the way to the goal and the human right, which each kind's fourth number says.
 	f := seen([0.5, -0.9], [3.0, 2.0], scene)
-	assert f.len == inputs && f[0] == sight && f[3] == 1.0, '${f}'
+	assert f.len == inputs && f[0] == sight && f[3] == 1.0 && f[4] == 1.0 && f[8] == -f[7]
+		&& f[8] < 0.0, '${f}'
 
 	// Out of sight, or with nobody there, a kind reads as zeros.
-	assert seen([-4.0, -4.0], [3.0, 2.0], scene)[4..] == [0.0, 0.0, 0.0]
-	assert seen([1.0, 0.8], [3.0, 2.0], scene[..2])[4..] == [0.0, 0.0, 0.0]
+	assert seen([-4.0, -4.0], [3.0, 2.0], scene)[5..] == [0.0, 0.0, 0.0, 0.0]
+	assert seen([1.0, 0.8], [3.0, 2.0], scene[..2])[5..] == [0.0, 0.0, 0.0, 0.0]
 
 	// Without a goal frame the policy sees nothing.
 	assert seen([3.0, 2.0], [3.0, 2.0], scene) == []
@@ -93,7 +96,7 @@ fn test_observe() {
 
 // shared_policy is tools/test_train_dummy.py SHARED_NET, whose SHARED_Y tools/train_dummy.py
 // predict computes for SHARED_X, so the trainer and the dummy plug compute alike.
-const shared_policy = '{"v": 1, "w1": [[0.5, -0.25, 0.0, 1.0, 0.0, 0.0, -0.5], [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]], "b1": [0.1, -0.2], "w2": [[1.0, -1.0], [0.5, 0.25]], "b2": [0.3, -0.1]}'
+const shared_policy = '{"v": 2, "w1": [[0.5, -0.25, 0.0, 1.0, -0.5, 0.0, 0.0, -0.5, 0.25], [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]], "b1": [0.1, -0.2], "w2": [[1.0, -1.0], [0.5, 0.25], [0.3, 0.2]], "b2": [0.3, -0.1, 0.4]}'
 
 fn weights_file(name string, text string) string {
 	path := os.join_path(os.vtmp_dir(), 'gehirn_${name}_${os.getpid()}.json')
@@ -107,8 +110,11 @@ fn test_policy_act() {
 		os.rm(path) or {}
 	}
 	p := load_policy(path)!
-	assert close(p.act([2.0, -0.5, 0.25, 0.75, 0.0, -1.0, 0.5]), [1.2134674883172833,
-		0.3754798388849572])
+	assert close(p.act([2.0, -0.5, 0.25, 0.75, 0.75, 0.0, -1.0, 0.5, -0.5]), [
+		1.240790896256999,
+		0.29564445215978274,
+		0.6324032715646218,
+	])
 }
 
 struct PolicyCase {
@@ -118,29 +124,29 @@ struct PolicyCase {
 }
 
 fn test_load_policy() {
-	row7 := '[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]'
+	row9 := '[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]'
 	cases := [
 		PolicyCase{'the weights tools/train_dummy.py writes', shared_policy, ''},
-		PolicyCase{'an extra field', shared_policy.replace('"v": 1', '"v": 1, "mse": 0.01'), ''},
+		PolicyCase{'an extra field', shared_policy.replace('"v": 2', '"v": 2, "mse": 0.01'), ''},
 		PolicyCase{'no JSON', 'w1 = 1', 'plug: weights are no policy in JSON'},
 		PolicyCase{'a cut file', shared_policy[..40], 'plug: weights are no policy in JSON'},
-		PolicyCase{'a file cut right after a number', shared_policy.all_before(', 0.0, 0.0, -0.5]'), 'plug: weights are no policy in JSON'},
-		PolicyCase{'another version', shared_policy.replace('"v": 1', '"v": 2'), 'plug: weights of version 2, not 1'},
-		PolicyCase{'no version', shared_policy.replace('"v": 1, ', ''), 'plug: weights of version 0, not 1'},
-		PolicyCase{'no units', '{"v": 1, "w1": [], "b1": [], "w2": [[], []], "b2": [0, 0]}', 'plug: weights with 0 units; accepted 1 to 256'},
-		PolicyCase{'too many units', '{"v": 1, "b1": [${[]string{len: 257, init: '0'}.join(', ')}]}', 'plug: weights with 257 units; accepted 1 to 256'},
-		PolicyCase{'a row one input short', shared_policy.replace(row7, '[0.1, 0.2]'), 'plug: weights of another shape than 7 inputs, 2 units and 2 outputs'},
-		PolicyCase{'a unit without its row', shared_policy.replace(', ${row7}]', ']'), 'plug: weights of another shape than 7 inputs, 2 units and 2 outputs'},
-		PolicyCase{'one output', shared_policy.replace('"w2": [[1.0, -1.0], [0.5, 0.25]]',
-			'"w2": [[1.0, -1.0]]'), 'plug: weights of another shape than 7 inputs, 2 units and 2 outputs'},
-		PolicyCase{'an output bias too many', shared_policy.replace('[0.3, -0.1]',
-			'[0.3, -0.1, 0.0]'), 'plug: weights of another shape than 7 inputs, 2 units and 2 outputs'},
+		PolicyCase{'a file cut right after a number', shared_policy.all_before(', 0.0, 0.0, -0.5,'), 'plug: weights are no policy in JSON'},
+		PolicyCase{'another version', shared_policy.replace('"v": 2', '"v": 1'), 'plug: weights of version 1, not 2'},
+		PolicyCase{'no version', shared_policy.replace('"v": 2, ', ''), 'plug: weights of version 0, not 2'},
+		PolicyCase{'no units', '{"v": 2, "w1": [], "b1": [], "w2": [[], [], []], "b2": [0, 0, 0]}', 'plug: weights with 0 units; accepted 1 to 256'},
+		PolicyCase{'too many units', '{"v": 2, "b1": [${[]string{len: 257, init: '0'}.join(', ')}]}', 'plug: weights with 257 units; accepted 1 to 256'},
+		PolicyCase{'a row one input short', shared_policy.replace(row9, '[0.1, 0.2]'), 'plug: weights of another shape than 9 inputs, 2 units and 3 outputs'},
+		PolicyCase{'a unit without its row', shared_policy.replace(', ${row9}]', ']'), 'plug: weights of another shape than 9 inputs, 2 units and 3 outputs'},
+		PolicyCase{'no speed', shared_policy.replace('"w2": [[1.0, -1.0], [0.5, 0.25], [0.3, 0.2]]',
+			'"w2": [[1.0, -1.0], [0.5, 0.25]]'), 'plug: weights of another shape than 9 inputs, 2 units and 3 outputs'},
+		PolicyCase{'an output bias too many', shared_policy.replace('[0.3, -0.1, 0.4]',
+			'[0.3, -0.1, 0.4, 0.0]'), 'plug: weights of another shape than 9 inputs, 2 units and 3 outputs'},
 		PolicyCase{'an infinite weight', shared_policy.replace('0.25]', '1e999]'), 'plug: weights hold a number that is not finite or beyond 1e6'},
 		PolicyCase{'an infinite bias', shared_policy.replace('[0.1, -0.2]', '[-1e999, -0.2]'), 'plug: weights hold a number that is not finite or beyond 1e6'},
 		PolicyCase{'a weight at the bound', shared_policy.replace('0.25]', '-1e6]'), ''},
 		PolicyCase{'a weight past the bound', shared_policy.replace('0.25]', '-1.000001e6]'), 'plug: weights hold a number that is not finite or beyond 1e6'},
-		PolicyCase{'a finite output bias whose norm overflows', shared_policy.replace('[0.3, -0.1]',
-			'[1e200, -0.1]'), 'plug: weights hold a number that is not finite or beyond 1e6'},
+		PolicyCase{'a finite output bias whose norm overflows', shared_policy.replace('[0.3, -0.1, 0.4]',
+			'[1e200, -0.1, 0.4]'), 'plug: weights hold a number that is not finite or beyond 1e6'},
 	]
 	for c in cases {
 		path := weights_file('policy', c.text)
@@ -159,7 +165,7 @@ fn test_load_dummy() {
 	recorder := weights_file('recorder',
 		'{"t_ms":1,"seat":"pilot","pose":[0,0],"target":[3,2],"u_seat":[0.6,0]}\n'.repeat(600))
 	good := weights_file('good', shared_policy)
-	bad := weights_file('bad', shared_policy.replace('"v": 1', '"v": 2'))
+	bad := weights_file('bad', shared_policy.replace('"v": 2', '"v": 1'))
 	defer {
 		for path in [recorder, good, bad] {
 			os.rm(path) or {}
@@ -171,19 +177,38 @@ fn test_load_dummy() {
 	policy := load_dummy(recorder, good)!
 	assert policy.trained() && policy.ready() && policy.size() == 0
 	if _ := load_dummy(recorder, bad) {
-		assert false, 'a dummy plug loaded weights of version 2'
+		assert false, 'a dummy plug loaded weights of version 1'
 	} else {
-		assert err.msg() == 'plug: weights of version 2, not 1'
+		assert err.msg() == 'plug: weights of version 1, not 2'
 	}
 
-	// The policy acts in the goal's frame, only toward a goal and short of it.
+	// The policy acts in the goal's frame at the speed it predicts, only toward a goal and short
+	// of it.
 	at := lcl.Percept{
 		pose:  [1.0, 0.8]
 		scene: scene
 	}
 	y := policy.policy.act(shared_features)
 	g := [2.0 / math.sqrt(5.44), 1.2 / math.sqrt(5.44)]
-	assert close(policy.act(at, [3.0, 2.0]), [y[0] * g[0] - y[1] * g[1], y[0] * g[1] + y[1] * g[0]])
+	s := y[2] / math.hypot(y[0], y[1])
+	assert close(policy.act(at, [3.0, 2.0]), [(y[0] * g[0] - y[1] * g[1]) * s,
+		(y[0] * g[1] + y[1] * g[0]) * s])
+	assert math.abs(lcl.norm(policy.act(at, [3.0, 2.0])) - y[2]) < 1e-12
 	assert policy.act(at, []) == [0.0, 0.0]
 	assert policy.act(at, [1.2, 0.9]) == [0.0, 0.0]
+
+	// A policy that predicts no speed forward, or no direction, idles rather than back up or
+	// guess a heading.
+	speeds := '[0.3, -0.1, 0.4]'
+	idlers := {
+		'a negative speed': shared_policy.replace(speeds, '[0.3, -0.1, -5.0]')
+		'no direction':     shared_policy.replace('[[1.0, -1.0], [0.5, 0.25], [0.3, 0.2]]',
+			'[[0.0, 0.0], [0.0, 0.0], [0.3, 0.2]]').replace(speeds, '[0.0, 0.0, 0.4]')
+	}
+	for name, text in idlers {
+		path := weights_file('idler', text)
+		idler := load_dummy(recorder, path)!
+		os.rm(path) or {}
+		assert idler.trained() && idler.act(at, [3.0, 2.0]) == [0.0, 0.0], name
+	}
 }

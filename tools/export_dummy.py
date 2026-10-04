@@ -43,7 +43,8 @@ def features(pose: list[float], target: list[float], scene: list[dict]) -> list[
 
     In the goal's frame: the distance to the goal up to SIGHT, then for the nearest solid
     entity and the nearest human the direction to it, along and across, scaled by how close
-    its rim is, and that closeness, 1 at the rim and 0 at SIGHT or beyond.
+    its rim is, that closeness, 1 at the rim and 0 at SIGHT or beyond, and the closeness again,
+    positive when it lies left of the way to the goal and negative when right.
     """
     dx, dy = target[0] - pose[0], target[1] - pose[1]
     d = math.hypot(dx, dy)
@@ -61,7 +62,7 @@ def features(pose: list[float], target: list[float], scene: list[dict]) -> list[
             w = min(1.0, 1.0 - (n - e["r"]) / SIGHT)
             if w > near[2] and n > 1e-6:
                 near = [w * (rx * gx + ry * gy) / n, w * (ry * gx - rx * gy) / n, w]
-        f += near
+        f += [*near, math.copysign(near[2], near[1]) if near[1] else 0.0]
     return f
 
 

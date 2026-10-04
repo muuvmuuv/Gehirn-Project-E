@@ -202,9 +202,9 @@ The dummy plug earns its own ratio. At 30% it is benched until the pilot is back
 
 ## Training the dummy plug
 
-Without a weights file the dummy plug clones the pilot by nearest neighbor: each tick it averages what the pilot did at the seven ticks on file most like this one, by where the body was and how far the goal. It sees nothing of the scene. With a weights file it flies a small neural network trained offline on what the pilot saw: how far the goal is, and the direction to and closeness of the nearest obstacle and the nearest human, all in the goal's frame. gehirn loads `DUMMY_WEIGHTS` at startup and names it on the `field: plug` line. A file there that is cut short, of another version or shape, or holds a weight that is not finite or beyond 1e6, stops gehirn with one line that names the variable and the cause, and exits 1.
+Without a weights file the dummy plug clones the pilot by nearest neighbor: each tick it averages what the pilot did at the seven ticks on file most like this one, by where the body was and how far the goal. It sees nothing of the scene. With a weights file it flies a small neural network trained offline on what the pilot saw: how far the goal is, and the direction to and closeness of the nearest obstacle and the nearest human and which side of the way to the goal each lies on, all in the goal's frame. The network predicts the pilot's command and its speed, and the dummy plug flies the command's direction at that speed. gehirn loads `DUMMY_WEIGHTS` at startup and names it on the `field: plug` line. A file there that is cut short, of another version or shape, or holds a weight that is not finite or beyond 1e6, stops gehirn with one line that names the variable and the cause, and exits 1; weights of an older version have to be trained again from the recorder.
 
-Export the ticks the pilot flew toward a goal from the recorder, then train; a few thousand ticks take seconds:
+Export the ticks the pilot flew toward a goal from the recorder, then train; a few thousand ticks take seconds, 33000 about 40 seconds:
 
 ```sh
 python3 tools/export_dummy.py plug.shinji.jsonl > dummy.shinji.set

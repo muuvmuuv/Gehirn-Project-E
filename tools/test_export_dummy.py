@@ -15,7 +15,8 @@ SCENE = [
 
 # plug/dummy_test.v test_observe expects the same numbers from plug/dummy.v observe.
 SHARED = [2.3323807579381204, -0.7383642874308872, -0.22239888175629136, 0.7711310417560499,
-          0.014280075529516156, -0.7854041541233885, 0.7855339622647798]
+          -0.7711310417560499, 0.014280075529516156, -0.7854041541233885, 0.7855339622647798,
+          -0.7855339622647798]
 
 
 def close(a: list[float], b: list[float]) -> bool:
@@ -25,9 +26,10 @@ def close(a: list[float], b: list[float]) -> bool:
 assert close(features([1.0, 0.8], [3.0, 2.0], SCENE), SHARED), features([1.0, 0.8], [3.0, 2.0], SCENE)
 
 # Inside a rim the closeness stops at 1, past SIGHT the distance stops at 3, out of sight is zero.
+# The pillar lies left of the way there and the human right, which the fourth number of each says.
 f = features([0.5, -0.9], [3.0, 2.0], SCENE)
-assert f is not None and f[0] == 3.0 and f[3] == 1.0, f
-assert features([-4.0, -4.0], [3.0, 2.0], SCENE)[4:] == [0.0, 0.0, 0.0]
+assert f is not None and f[0] == 3.0 and f[3] == f[4] == 1.0 and f[8] == -f[7] < 0.0, f
+assert features([-4.0, -4.0], [3.0, 2.0], SCENE)[5:] == [0.0, 0.0, 0.0, 0.0]
 assert features([3.0, 2.0], [3.0, 2.0], SCENE) is None
 
 

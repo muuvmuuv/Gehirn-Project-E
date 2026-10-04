@@ -92,7 +92,11 @@ pub fn (d Dummy) act(p lcl.Percept, target []f64) []f64 {
 	}
 	if d.trained() {
 		y := d.policy.act(observe(p, target) or { return idle })
-		return lcl.add(lcl.scale(along, y[0]), lcl.scale(across, y[1]))
+		n := math.hypot(y[0], y[1])
+		if n < 1e-6 || y[2] <= 0.0 {
+			return idle
+		}
+		return lcl.add(lcl.scale(along, y[0] * y[2] / n), lcl.scale(across, y[1] * y[2] / n))
 	}
 	if d.xs.len == 0 {
 		return idle
@@ -157,12 +161,16 @@ const sight = 3.0
 
 // inputs is the length of observe's features, the policy's inputs. tools/train_dummy.py INPUTS
 // copies it.
-const inputs = 7
+const inputs = 9
 
 // observe is what the policy sees of a percept, in the goal's frame: the distance to the goal up
 // to sight, then for the nearest solid entity and the nearest human the direction to it, along and
-// across, scaled by how close its rim is, and that closeness, 1 at the rim and 0 at sight or
-// beyond. none without a goal frame. tools/export_dummy.py features computes the same.
+// across, scaled by how close its rim is, that closeness, 1 at the rim and 0 at sight or beyond,
+// and the closeness again, positive when it lies left of the way to the goal and negative when
+// right. none without a goal frame. tools/export_dummy.py features computes the same. A pilot
+// passes an entity on one side or the other, and which flips where it lies dead ahead; from the
+// smooth direction alone a tanh layer learns that flip only where the training flights met things
+// dead ahead from both sides, so the signed closeness hands it over.
 fn observe(p lcl.Percept, target []f64) ?[]f64 {
 	along, across := frame(p.pose, target) or { return none }
 	mut f := [math.min(lcl.dist(p.pose, target), sight)]
@@ -180,16 +188,23 @@ fn observe(p lcl.Percept, target []f64) ?[]f64 {
 			}
 		}
 		f << near
+		f << if near[1] > 0.0 {
+			near[2]
+		} else if near[1] < 0.0 {
+			-near[2]
+		} else {
+			0.0
+		}
 	}
 	return f
 }
 
 // policy_version is the weights format, and the features of observe, that load_policy accepts.
 // tools/train_dummy.py VERSION copies it.
-const policy_version = 1
+const policy_version = 2
 
 // max_units bounds a policy's tanh units, so no weights file can slow the field loop: at the
-// bound one tick costs about 2300 multiplications. tools/train_dummy.py MAX_UNITS copies it.
+// bound one tick costs about 3100 multiplications. tools/train_dummy.py MAX_UNITS copies it.
 const max_units = 256
 
 // max_weight bounds the magnitude of every weight and bias load_policy accepts. A finite output
@@ -198,13 +213,16 @@ const max_units = 256
 const max_weight = 1e6
 
 // Policy is the dummy plug's trained policy, a multilayer perceptron from observe's features
-// through one layer of tanh units to the command in the goal's frame. tools/train_dummy.py writes
-// its weights and load_policy reads them.
+// through one layer of tanh units to the command in the goal's frame and its speed, which
+// Dummy.act flies the command's direction at. Where the pilot passed things on both sides, a
+// regression averages the two commands into a short one, and a dummy plug much slower than the
+// core's reflex loses sync and is benched. tools/train_dummy.py writes its weights and
+// load_policy reads them.
 struct Policy {
 	v  int
 	w1 [][]f64 // per unit, one weight per input
 	b1 []f64
-	w2 [][]f64 // along, then across: one weight per unit
+	w2 [][]f64 // along, across, then speed: one weight per unit
 	b2 []f64
 }
 
@@ -223,9 +241,9 @@ fn load_policy(path string) !Policy {
 	if units < 1 || units > max_units {
 		return error('plug: weights with ${units} units; accepted 1 to ${max_units}')
 	}
-	if p.w1.len != units || p.w1.any(it.len != inputs) || p.w2.len != 2 || p.w2.any(it.len != units)
-		|| p.b2.len != 2 {
-		return error('plug: weights of another shape than ${inputs} inputs, ${units} units and 2 outputs')
+	if p.w1.len != units || p.w1.any(it.len != inputs) || p.w2.len != 3 || p.w2.any(it.len != units)
+		|| p.b2.len != 3 {
+		return error('plug: weights of another shape than ${inputs} inputs, ${units} units and 3 outputs')
 	}
 	if !bounded([p.b1, p.b2], max_weight) || !bounded(p.w1, max_weight)
 		|| !bounded(p.w2, max_weight) {
@@ -246,8 +264,8 @@ fn bounded(rows [][]f64, bound f64) bool {
 	return true
 }
 
-// act is the policy's command in the goal's frame, along and across, for observe's features x.
-// tools/train_dummy.py predict computes the same.
+// act is the policy's outputs for observe's features x: the command in the goal's frame, along
+// and across, then its speed. tools/train_dummy.py predict computes the same.
 fn (p Policy) act(x []f64) []f64 {
 	mut y := p.b2.clone()
 	for j, row in p.w1 {
@@ -256,8 +274,9 @@ fn (p Policy) act(x []f64) []f64 {
 			a += w * x[i]
 		}
 		h := math.tanh(a)
-		y[0] += p.w2[0][j] * h
-		y[1] += p.w2[1][j] * h
+		for k, out in p.w2 {
+			y[k] += out[j] * h
+		}
 	}
 	return y
 }

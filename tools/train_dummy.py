@@ -2,8 +2,8 @@
 """Train the dummy plug's policy on a training set from tools/export_dummy.py.
 
 The policy is a small multilayer perceptron: what plug/dummy.v observe sees, through one
-layer of tanh units, to the command in the goal's frame. Adam fits it to the mean squared
-error with the standard library only, and the seed fixes the result, so one set always gives
+layer of tanh units, to the command in the goal's frame and its speed. Adam fits it to the
+mean squared error with the standard library only, and the seed fixes the result, so one set always gives
 the same weights. Ticks the pilot flew to correct the dummy plug can weigh more than others.
 The weights go to a JSON file that plug/dummy.v load_policy reads, by default the one gehirn
 loads for pilot shinji:
@@ -20,8 +20,8 @@ import sys
 import time
 from operator import mul
 
-VERSION = 1  # plug/dummy.v policy_version: the weights format and the features of observe
-INPUTS = 7  # plug/dummy.v inputs: the distance, then three numbers for a solid and a human
+VERSION = 2  # plug/dummy.v policy_version: the weights format and the features of observe
+INPUTS = 9  # plug/dummy.v inputs: the distance, then four numbers for a solid and a human
 MAX_UNITS = 256  # plug/dummy.v max_units: the most tanh units gehirn accepts
 
 
@@ -50,9 +50,16 @@ def load_set(path: str) -> list[tuple[list[float], list[float], bool]]:
 # The counterpart of predict() is plug/dummy.v Policy.act; tools/test_train_dummy.py and
 # plug/dummy_test.v test_policy_act check one input against the same numbers.
 def predict(net: dict, x: list[float]) -> list[float]:
-    """Return the policy's command in the goal's frame, along and across, for the inputs x."""
+    """Return the policy's outputs for the inputs x: the command in the goal's frame, along and
+    across, then its speed."""
     h = [math.tanh(b + sum(map(mul, row, x))) for row, b in zip(net["w1"], net["b1"])]
     return [b + sum(map(mul, row, h)) for row, b in zip(net["w2"], net["b2"])]
+
+
+def target(command: list[float]) -> list[float]:
+    """Return what predict should give for a command in the goal's frame: the command, then
+    its speed."""
+    return [*command, math.hypot(*command)]
 
 
 def train(data: list[tuple[list[float], list[float], bool]], hidden: int = 32, epochs: int = 40,
@@ -64,11 +71,12 @@ def train(data: list[tuple[list[float], list[float], bool]], hidden: int = 32, e
     falls from lr to a tenth of it over the epochs.
     """
     rnd = random.Random(seed)
-    nin = len(data[0][0])
+    data = [(x, target(y), c) for x, y, c in data]
+    nin, nout = len(data[0][0]), len(data[0][1])
     w1 = [[rnd.gauss(0.0, 1.0 / math.sqrt(nin)) for _ in range(nin)] for _ in range(hidden)]
     b1 = [0.0] * hidden
-    w2 = [[rnd.gauss(0.0, 1.0 / math.sqrt(hidden)) for _ in range(hidden)] for _ in range(2)]
-    b2 = [0.0, 0.0]
+    w2 = [[rnd.gauss(0.0, 1.0 / math.sqrt(hidden)) for _ in range(hidden)] for _ in range(nout)]
+    b2 = [0.0] * nout
     params = [*w1, b1, *w2, b2]  # rows in place, so Adam updates the weights themselves
     m = [[0.0] * len(p) for p in params]
     v = [[0.0] * len(p) for p in params]
@@ -79,29 +87,26 @@ def train(data: list[tuple[list[float], list[float], bool]], hidden: int = 32, e
         rnd.shuffle(order)
         sse = 0.0
         for s in range(0, len(order), batch):
-            xs, hs, e0, e1 = [], [], [], []
+            xs, hs, es = [], [], []
             for k in order[s:s + batch]:
                 x, y, c = data[k]
                 h = [math.tanh(b + sum(map(mul, row, x))) for row, b in zip(w1, b1)]
-                d0 = b2[0] + sum(map(mul, w2[0], h)) - y[0]
-                d1 = b2[1] + sum(map(mul, w2[1], h)) - y[1]
-                sse += d0 * d0 + d1 * d1
+                d = [b + sum(map(mul, row, h)) - t for row, b, t in zip(w2, b2, y)]
+                sse += sum(map(mul, d, d))
                 weight = corrections if c else 1.0
                 xs.append(x)
                 hs.append(h)
-                e0.append(weight * d0)
-                e1.append(weight * d1)
+                es.append([weight * di for di in d])
 
             # Gradients of the batch's mean, the back pass summed over the batch column by column.
-            hcols = list(zip(*hs))
-            dh = [[(a * w2[0][j] + b * w2[1][j]) * (1.0 - hk[j] * hk[j]) for a, b, hk in zip(e0, e1, hs)]
+            hcols, ecols, w2cols = list(zip(*hs)), list(zip(*es)), list(zip(*w2))
+            dh = [[sum(map(mul, e, w2cols[j])) * (1.0 - hk[j] * hk[j]) for e, hk in zip(es, hs)]
                   for j in range(hidden)]
             xcols = list(zip(*xs))
             grads = [[sum(map(mul, d, col)) for col in xcols] for d in dh]
             grads.append([sum(d) for d in dh])
-            grads.append([sum(map(mul, e0, col)) for col in hcols])
-            grads.append([sum(map(mul, e1, col)) for col in hcols])
-            grads.append([sum(e0), sum(e1)])
+            grads += [[sum(map(mul, e, col)) for col in hcols] for e in ecols]
+            grads.append([sum(e) for e in ecols])
             step += 1
             scale = 2.0 / len(xs)
             c1, c2 = 1.0 - 0.9 ** step, 1.0 - 0.999 ** step
@@ -118,7 +123,7 @@ def train(data: list[tuple[list[float], list[float], bool]], hidden: int = 32, e
 
 def mse(net: dict, data: list[tuple[list[float], list[float], bool]]) -> float:
     """Return the policy's mean squared error over data, every tick counted once."""
-    return sum((p - t) ** 2 for x, y, _ in data for p, t in zip(predict(net, x), y)) / len(data)
+    return sum((p - t) ** 2 for x, y, _ in data for p, t in zip(predict(net, x), target(y))) / len(data)
 
 
 def main() -> None:
