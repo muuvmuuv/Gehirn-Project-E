@@ -88,11 +88,17 @@ missions runs="10" port="8081": build
     python3 tools/trials.py --runs {{ runs }} --jobs 3
     ./gehirn magi-eval 3
 
-# Flies one narrated mission on the mock with HQ, the field unit and the bridge apart; no keys.
-demo mock="8081" umbilical="7447" watch="7448" plug="7777" dir="": build bridge (_fly justfile_directory() / "gehirn-bridge" mock umbilical watch plug dir)
+# Which models `just demo` and `just demo-record` fly: mock, scripted by tools/mock_endpoint.py
+# without keys; hosted, README's hosted lineup; or magi, the hosted MAGI judging the mock's
+# scripted core, which proposes the release at the beacon whatever the human does. The last two
+# take GEHIRN_KEY and TYPESAFE_API_KEY: `python3 tools/withenv.py .env just lineup=magi demo`.
+lineup := "mock"
+
+# Flies one narrated mission with HQ, the field unit and the bridge apart, on lineup's models.
+demo mock="8081" umbilical="7447" watch="7448" plug="7777" dir="": _lineup build bridge (_fly justfile_directory() / "gehirn-bridge" mock umbilical watch plug dir lineup)
 
 # Records `just demo` from the bridge's frames into an MP4 and a looping GIF; needs ffmpeg.
-demo-record mock="8081" umbilical="7447" watch="7448" plug="7777" dir="": build
+demo-record mock="8081" umbilical="7447" watch="7448" plug="7777" dir="": _lineup build
     #!/usr/bin/env bash
     set -euo pipefail
     command -v ffmpeg >/dev/null || { echo "demo-record: needs ffmpeg" >&2; exit 1; }
@@ -112,7 +118,7 @@ demo-record mock="8081" umbilical="7447" watch="7448" plug="7777" dir="": build
     v -prod -d gg_record -d darwin_sokol_glcore33 -o "$out/gehirn-bridge" bridge/
     VGG_SCREENSHOT_FOLDER="$out/frames" VGG_SCREENSHOT_FRAMES=$(seq -s, 1 9000) \
         {{ just_executable() }} --justfile {{ quote(justfile()) }} _fly "$out/gehirn-bridge" \
-        {{ quote(mock) }} {{ quote(umbilical) }} {{ quote(watch) }} {{ quote(plug) }} "$out/run"
+        {{ quote(mock) }} {{ quote(umbilical) }} {{ quote(watch) }} {{ quote(plug) }} "$out/run" {{ quote(lineup) }}
 
     # gg's frame rate follows how fast it saves each frame, which changes with what the
     # frame shows, so each frame lasts until the next was saved. The newest is left out,
@@ -133,12 +139,21 @@ demo-record mock="8081" umbilical="7447" watch="7448" plug="7777" dir="": build
     EOF
     )
 
-    # The edit runs from 3 s before the goto's verdict, so it opens on MAGI deliberating, to 2 s
-    # after the cable reconnects. The 40 s grace shows nothing new, so it plays at 8x under a
-    # caption at the bottom, clear of the mission clock that shows the speed. gg saves a Retina
-    # window at twice its size, and X takes at most 1920 by 1200.
+    # The edit runs from MAGI deliberating on the goto to 2 s after the cable reconnects. The 40 s
+    # grace shows nothing new, so it plays at 8x under a caption at the bottom, clear of the
+    # mission clock that shows the speed. gg saves a Retina window at twice its size, and X takes
+    # at most 1920 by 1200.
     at() { awk -v k="$1" 'index($0, k) { print $1; exit }' "$out/run/beats"; }
-    s=$(($(at 'goto approved') - 3)) e=$(($(at 'cable reconnected') + 2))
+
+    # lead prints how many seconds before a verdict's beat a cut opens on MAGI deliberating: the
+    # slowest ballot of the first verdict in HQ's log that contains $1, rounded up, and 1 s, since
+    # the beat counts whole seconds. The mock's slowest takes 1.7 s, a hosted one up to 9 s.
+    lead() {
+        awk -v v="$1" 'index($0, v) && !seen { seen = n = 4 }
+            n && n-- && match($0, /[0-9]+ ms\)$/) { ms = substr($0, RSTART, RLENGTH - 4) + 0; if (ms > max) max = ms }
+            END { print int((max + 999) / 1000) + 1 }' "$out/run/hq/hq.log"
+    }
+    s=$(($(at 'goto approved') - $(lead 'need 2: 可決'))) e=$(($(at 'cable reconnected') + 2))
     s=$((s > 0 ? s : 0))
     a=$(($(at 'HQ killed') + 3)) b=$(($(at 'the cable counts as cut') - 2))
     c=$(awk -v s="$s" -v a="$a" -v b="$b" 'BEGIN { print a - s + (b - a) / 8 }')
@@ -149,17 +164,46 @@ demo-record mock="8081" umbilical="7447" watch="7448" plug="7777" dir="": build
 
     # The GIF shows the MAGI block alone, large enough to read on a phone (bridge/draw.v draw
     # lays it out at 16, 58, 736 by 412), and loops from MAGI deliberating on the refused
-    # release to 3 s after the approved one.
-    r=$(at 'release refused') p=$(at 'release approved')
-    ffmpeg -hide_banner -loglevel error -y -ss $((r - 1 - s)) -t $((p - r + 4)) -i "$out/gehirn-demo.mp4" -vf \
-        'crop=752:420:8:54,fps=12,scale=800:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=64[p];[s1][p]paletteuse=dither=none' \
-        "$out/gehirn-magi.gif"
+    # release to 3 s after the approved one, or around the one of them a run had.
+    r=$(at 'release refused') p=$(at 'release approved') v='need 3: 否決'
+    if [ -z "$r" ]; then
+        r=$p v='need 3: 可決'
+    fi
+    p=${p:-$r}
+    gif="no gehirn-magi.gif, since no release vote came within the demo's wait"
+    if [ -n "$r" ]; then
+        l=$(lead "$v")
+        ffmpeg -hide_banner -loglevel error -y -ss $((r - l - s)) -t $((p - r + l + 3)) -i "$out/gehirn-demo.mp4" -vf \
+            'crop=752:420:8:54,fps=12,scale=800:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=64[p];[s1][p]paletteuse=dither=none' \
+            "$out/gehirn-magi.gif"
+        gif="$out/gehirn-magi.gif ($(du -h "$out/gehirn-magi.gif" | cut -f1))"
+    fi
     rm -rf "$out/frames" "$out/caption.ppm" "$out/gehirn-bridge"
-    echo "demo-record: $out/gehirn-demo.mp4 ($(du -h "$out/gehirn-demo.mp4" | cut -f1)) and $out/gehirn-magi.gif ($(du -h "$out/gehirn-magi.gif" | cut -f1)), from $n frames at $fps a second"
+    echo "demo-record: $out/gehirn-demo.mp4 ($(du -h "$out/gehirn-demo.mp4" | cut -f1)) and $gif, from $n frames at $fps a second"
+
+# Refuses an unknown lineup, and hosted models without their keys, before anything builds.
+[private]
+[no-exit-message]
+_lineup:
+    #!/usr/bin/env bash
+    lineup={{ quote(lineup) }}
+    case "$lineup" in
+        mock) ;;
+        hosted | magi)
+            if [ -z "${GEHIRN_KEY:-}" ] || [ -z "${TYPESAFE_API_KEY:-}" ]; then
+                echo "demo: lineup $lineup needs GEHIRN_KEY and TYPESAFE_API_KEY; python3 tools/withenv.py .env just lineup=$lineup demo passes them from .env" >&2
+                exit 2
+            fi
+            ;;
+        *)
+            echo "demo: lineup is \"$lineup\", not mock, hosted or magi" >&2
+            exit 2
+            ;;
+    esac
 
 [private]
 [no-exit-message]
-_fly bridge_bin mock umbilical watch plug dir:
+_fly bridge_bin mock umbilical watch plug dir lineup:
     #!/usr/bin/env bash
     set -euo pipefail
     # The ports dodge ones in use, and the run directory, a fresh temp dir unless given, takes
@@ -176,7 +220,9 @@ _fly bridge_bin mock umbilical watch plug dir:
     pilot_s=11        # plug/dummy.v needs 500 pilot ticks under a goal, 10 s at 50 Hz
     pilot_speed=0.6
     pilot_offset=-45  # south of the pillar, clear of the human's loop
+    cooldown_s=8      # rather than 5 s, so the next release's percept has the human 4 m away, not 3.1
     reconnect_s=5
+    lineup={{ quote(lineup) }}
     root=$PWD bin=$PWD/gehirn bridge_bin={{ quote(bridge_bin) }}
     run={{ quote(dir) }}
     if [ -z "$run" ]; then
@@ -190,26 +236,43 @@ _fly bridge_bin mock umbilical watch plug dir:
 
     # Every variable of README's configuration table but SSL_CERT_FILE, so nothing hosted or
     # personal leaks in; above all CORE_JOURNAL, PLUG_RECORDER and DUMMY_WEIGHTS, the pilot's data.
-    unset GEHIRN_URL GEHIRN_KEY CORE_URL CORE_KEY CORE_MODEL MELCHIOR_URL MELCHIOR_KEY \
-        MELCHIOR_MODEL BALTHASAR_URL BALTHASAR_KEY BALTHASAR_MODEL CASPER_URL CASPER_KEY \
-        CASPER_MODEL CORE_REASONING MELCHIOR_REASONING BALTHASAR_REASONING CASPER_REASONING \
-        BALTHASAR_BACKEND MAGI_TIMEOUT_MS CORE_TIMEOUT_MS CORE_BACKEND CL1_SPIKES CL1_SIDECAR \
-        PILOT_ID PLUG_ADDR MISSION START CORE_JOURNAL PLUG_RECORDER DUMMY_WEIGHTS HQ_PERIOD_MS \
-        UNIT_ID
+    # Hosted models keep their variables, their endpoints and keys among them.
+    unset MAGI_TIMEOUT_MS CORE_TIMEOUT_MS CORE_BACKEND CL1_SPIKES CL1_SIDECAR PILOT_ID PLUG_ADDR \
+        MISSION START CORE_JOURNAL PLUG_RECORDER DUMMY_WEIGHTS HQ_PERIOD_MS UNIT_ID
+    if [ "$lineup" = mock ]; then
+        unset GEHIRN_URL GEHIRN_KEY CORE_URL CORE_KEY CORE_MODEL MELCHIOR_URL MELCHIOR_KEY \
+            MELCHIOR_MODEL BALTHASAR_URL BALTHASAR_KEY BALTHASAR_MODEL CASPER_URL CASPER_KEY \
+            CASPER_MODEL CORE_REASONING MELCHIOR_REASONING BALTHASAR_REASONING CASPER_REASONING \
+            BALTHASAR_BACKEND
+        export TYPESAFE_API_KEY=mock
+        export GEHIRN_URL=http://127.0.0.1:{{ mock }}/v1/chat/completions
+        export TYPESAFE_URL=http://127.0.0.1:{{ mock }}/v1/systemone
+
+        # The bridge shows these names on the units' ballots, so it says what answered. gehirn
+        # refuses two MAGI units on one model at one URL; BALTHASAR asks the mock's Jev route as
+        # jev-1.13.0.
+        export CORE_MODEL=mock-core MELCHIOR_MODEL=mock-melchior CASPER_MODEL=mock-casper
+    else
+        # README's lineup under "Hosted models", unless the environment names others.
+        export GEHIRN_URL=${GEHIRN_URL:-https://openrouter.ai/api/v1/chat/completions}
+        export CORE_MODEL=${CORE_MODEL:-qwen/qwen3-8b} MELCHIOR_MODEL=${MELCHIOR_MODEL:-openai/gpt-oss-20b}
+        export CASPER_MODEL=${CASPER_MODEL:-meta-llama/llama-3.1-8b-instruct}
+
+        # Hosted ballots take seconds, up to 9 s on 2026-10-04, so a shorter cooldown and pause bring
+        # the next release to MAGI 4.5 s sooner, before the human walks back toward the drop.
+        cooldown_s=6
+        export HQ_PERIOD_MS=1000
+    fi
+    if [ "$lineup" = magi ]; then
+        # Its own key keeps GEHIRN_KEY off the mock.
+        export CORE_URL=http://127.0.0.1:{{ mock }}/v1/chat/completions CORE_MODEL=mock-core CORE_KEY=mock
+    fi
     key() { python3 -c 'import secrets; print(secrets.token_hex(32))'; }
     UMBILICAL_KEY=$(key) WATCH_KEY=$(key) PILOT_KEY=$(key)
-    export UMBILICAL_KEY WATCH_KEY PILOT_KEY TYPESAFE_API_KEY=mock
-    export GEHIRN_URL=http://127.0.0.1:{{ mock }}/v1/chat/completions
-    export TYPESAFE_URL=http://127.0.0.1:{{ mock }}/v1/systemone
+    export UMBILICAL_KEY WATCH_KEY PILOT_KEY
     export UMBILICAL_ENDPOINT=tcp/127.0.0.1:{{ umbilical }} BRIDGE_ENDPOINT=tcp/127.0.0.1:{{ watch }}
     export PLUG_LISTEN=127.0.0.1:{{ plug }}
-    # An 8 s cooldown gives MAGI the second release on a percept with the human 4 m away, where 5 s
-    # would give one with the human 3.1 m away.
-    export MAGI_COOLDOWN_MS=8000 UMBILICAL_GRACE_MS=40000 INTERNAL_BUDGET_MS=300000
-
-    # The bridge shows these names on the units' ballots, so it says what answered. gehirn refuses
-    # two MAGI units on one model at one URL; BALTHASAR asks the mock's Jev route as jev-1.13.0.
-    export CORE_MODEL=mock-core MELCHIOR_MODEL=mock-melchior CASPER_MODEL=mock-casper
+    export MAGI_COOLDOWN_MS=$((cooldown_s * 1000)) UMBILICAL_GRACE_MS=40000 INTERNAL_BUDGET_MS=300000
 
     pids=""
     trap 'kill $pids 2>/dev/null || true; wait; echo "demo: stopped everything; logs in $run"' EXIT
@@ -223,33 +286,72 @@ _fly bridge_bin mock umbilical watch plug dir:
         exit 1
     }
 
-    # beat waits up to $4 s for the text $3 in the log $2, then narrates $1. The texts come from
-    # magi/magi.v Verdict.str, the hq:, field:, umbilical: and release outcome lines of main.v and
-    # tools/mock_endpoint.py's first line, each of which names this recipe.
-    beat() {
-        for _ in $(seq $(($4 * 5))); do
+    # waits waits up to $1 s for the text $3 in the log $2, and fails if it does not come. The texts
+    # come from magi/magi.v Verdict.str, the hq:, field:, umbilical:, armor: and release outcome
+    # lines of main.v and tools/mock_endpoint.py's first line, each of which names this recipe.
+    waits() {
+        for _ in $(seq $(($1 * 5))); do
             if grep -qF "$3" "$2" 2>/dev/null; then
-                say "$1"
                 return
             fi
             sleep 0.2
         done
-        fail "no \"$3\" in $2 within $4 s; its last line: $(tail -n 1 "$2" 2>/dev/null)"
+        return 1
     }
 
-    # ballots prints the first verdict in HQ's log that contains $1, and the three ballots below.
-    ballots() { awk -v v="$1" 'index($0, v) && !seen { seen = n = 4 } n && n-- { print "       " $0 }' "$run/hq/hq.log"; }
+    # beat waits up to $4 s for the text $3 in the log $2, then narrates $1, or stops the demo.
+    beat() {
+        waits "$4" "$2" "$3" || fail "no \"$3\" in $2 within $4 s; its last line: $(tail -n 1 "$2" 2>/dev/null)"
+        say "$1"
+    }
+
+    # either waits up to $1 s for the text $3 in the log $2 or the text $5 in the log $4, and
+    # prints 1 or 2 for the one it finds first, or nothing.
+    either() {
+        for _ in $(seq $(($1 * 5))); do
+            if grep -qF "$3" "$2" 2>/dev/null; then
+                echo 1
+                return
+            fi
+            if grep -qF "$5" "$4" 2>/dev/null; then
+                echo 2
+                return
+            fi
+            sleep 0.2
+        done
+    }
+
+    # ballots prints the newest verdict in HQ's log that contains $1, and the three ballots below.
+    ballots() {
+        awk -v v="$1" 'index($0, v) { out = ""; n = 4 } n && n-- { out = out "       " $0 "\n" } END { printf "%s", out }' "$run/hq/hq.log"
+    }
     alive() { kill -0 "$1" 2>/dev/null || fail "$2 stopped; its last line: $(tail -n 1 "$3")"; }
     start() { (cd "$run/$1" && exec "$bin" "$1" >>"$1.log" 2>&1) & pids="$pids $!"; }
 
-    # The units answer after 0.9, 1.7 and 0.5 s, so the bridge shows each one deliberating, 審議中,
-    # until its ballot lands, and the core after 2 s, which paces HQ as timed above; the mock
-    # answers at once otherwise.
     SECONDS=0
-    python3 tools/mock_endpoint.py --listen 127.0.0.1:{{ mock }} --quiet --slow melchior=900 \
-        --slow balthasar=1700 --slow casper=500 --slow core=2000 2>"$run/mock.log" &
-    pids="$pids $!"
-    beat "mock models on 127.0.0.1:{{ mock }}, scripted by tools/mock_endpoint.py, so no keys" "$run/mock.log" 'mock: serving' 5
+    if [ "$lineup" != hosted ]; then
+        # The units answer after 0.9, 1.7 and 0.5 s, so the bridge shows each one deliberating,
+        # 審議中, until its ballot lands, and the core after 2 s, which paces HQ as timed above; the
+        # mock answers at once otherwise. The magi lineup asks it for the core alone.
+        python3 tools/mock_endpoint.py --listen 127.0.0.1:{{ mock }} --quiet --slow melchior=900 \
+            --slow balthasar=1700 --slow casper=500 --slow core=2000 2>"$run/mock.log" &
+        pids="$pids $!"
+        waits 5 "$run/mock.log" 'mock: serving' || fail "the mock did not start; $(tail -n 1 "$run/mock.log")"
+    fi
+    if [ "$lineup" = mock ]; then
+        say "mock models on 127.0.0.1:{{ mock }}, scripted by tools/mock_endpoint.py, so no keys"
+    else
+        balthasar=Jev
+        if [ "${BALTHASAR_BACKEND:-jev}" != jev ]; then
+            balthasar=${BALTHASAR_MODEL:-a chat model}
+        fi
+        say "hosted MAGI: MELCHIOR-1 on $MELCHIOR_MODEL, BALTHASAR-2 on $balthasar and CASPER-3 on $CASPER_MODEL"
+        if [ "$lineup" = magi ]; then
+            say "the core is the mock's on 127.0.0.1:{{ mock }}, scripted to release at the beacon whatever the human does"
+        else
+            say "the core on $CORE_MODEL"
+        fi
+    fi
 
     # AppKit reads -NSAppSleepDisabled for this process only, so App Nap cannot slow a window
     # nobody sees while demo-record saves its frames (CONTRIBUTING.md, V 0.5.2 rule 6).
@@ -271,19 +373,60 @@ _fly bridge_bin mock umbilical watch plug dir:
     start field
     field=$!
     say "field unit up; a human walks a loop past beacon b1"
-    beat "goto approved; the core steers toward the beacon" "$run/hq/hq.log" 'MAGI 3/3, need 2' 15
-    ballots 'MAGI 3/3, need 2'
+    beat "goto approved; the core steers toward the beacon" "$run/hq/hq.log" 'need 2: 可決' 30
+    ballots 'need 2: 可決'
     alive "$field" "the field unit" "$run/field/field.log"
     (cd "$run/field" && exec python3 "$root/tools/pilot.py" --addr "$PLUG_LISTEN" --seconds "$pilot_s" \
         --speed "$pilot_speed" --offset "$pilot_offset" >pilot.log 2>&1) &
     pids="$pids $!"
     beat "a pilot takes the seat and steers ${pilot_offset#-} degrees off the line to the beacon" "$run/field/field.log" 'seat pilot' 5
     beat "the pilot leaves; the dummy plug, cloned from that pilot, takes the seat" "$run/field/field.log" 'seat dummy' $((pilot_s + 5))
-    beat "release refused: a human is within reach of the drop" "$run/hq/hq.log" 'need 3: 否決' 40
-    ballots 'need 3: 否決'
-    beat "release approved: the human walked on, and the 8 s cooldown passed" "$run/hq/hq.log" 'need 3: 可決' 30
-    ballots 'need 3: 可決'
-    beat "released on target" "$run/hq/core.shinji.jsonl" 'released on target' 10
+
+    # Real models judge for themselves: a hosted core holds while the human is within reach and may
+    # hold on through a loop or more of the human's (PLAN, Known issue 26), and the armor refuses a
+    # release MAGI approved on a percept from before the human came close, so a beat of the release
+    # may not come.
+
+    # missed narrates $1, a beat of the release that did not come, and flies on to the cut cable
+    # with hosted models, or stops the demo on the mock, which scripts every beat.
+    missed() {
+        if [ "$lineup" = mock ]; then
+            fail "$1"
+        fi
+        say "$1"
+    }
+    approved=""
+    case $(either 90 "$run/hq/hq.log" 'need 3: 否決' "$run/hq/hq.log" 'need 3: 可決') in
+        1)
+            say "release refused: a human is within reach of the drop"
+            ballots 'need 3: 否決'
+            if waits 60 "$run/hq/hq.log" 'need 3: 可決'; then
+                say "release approved: the human walked on, and the ${cooldown_s} s cooldown passed"
+                ballots 'need 3: 可決'
+                approved=1
+            else
+                missed "MAGI approved no release within 60 s of refusing one"
+            fi
+            ;;
+        2)
+            missed "release approved at its first vote, so this run shows no refusal"
+            ballots 'need 3: 可決'
+            approved=1
+            ;;
+        *)
+            missed "no release went to MAGI within 90 s"
+            ;;
+    esac
+    if [ -n "$approved" ]; then
+        if [ "$(either 30 "$run/hq/core.shinji.jsonl" 'released on target' "$run/field/field.log" 'armor: release refused')" = 2 ]; then
+            missed "the armor refused a release MAGI approved: by then a human was within 2 m of the drop"
+        fi
+        if waits 60 "$run/hq/core.shinji.jsonl" 'released on target'; then
+            say "released on target"
+        else
+            missed "no payload released on target"
+        fi
+    fi
     kill "$hq"
     say "HQ killed: the cable goes silent, and the field unit waits out the 40 s grace"
     beat "the cable counts as cut; internal power, 5:00 counting down" "$run/field/field.log" 'connected to internal' 50

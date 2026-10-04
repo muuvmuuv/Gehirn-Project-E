@@ -233,7 +233,7 @@ pub fn tally(ballots []Ballot, verb string) Verdict {
 
 // str renders the verdict the way the bridge displays did, one line per ballot, for main.v hq's
 // note and eval.v magi_eval. A why is model text, so it goes through lcl.escaped. The Justfile's
-// _fly recipe waits on its first line, such as `MAGI 3/3, need 2`, in HQ's log.
+// _fly recipe waits on the end of its first line, such as `need 3: 否決`, in HQ's log.
 pub fn (v Verdict) str() string {
 	mut lines := [
 		'MAGI ${v.yes}/${v.ballots.len}, need ${v.needed}: ${seal(v.approved)}',

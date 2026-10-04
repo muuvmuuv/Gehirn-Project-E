@@ -704,6 +704,7 @@ fn main() {
 				continue
 			}
 			if !ar.permits(msg.goal.verb, p) {
+				// The Justfile's _fly recipe waits on `armor: release refused`.
 				println('armor: ${lcl.escaped(msg.goal.label())} refused')
 
 				// tools/trials.py tally counts this outcome from the journal.
