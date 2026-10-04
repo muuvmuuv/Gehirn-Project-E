@@ -47,7 +47,8 @@ const release_keep = 2.0
 // seat, drawn as the harmonics graph's 絶対境界線; main.v threshold, which names this copy.
 const threshold = 0.3
 
-// boot_ms is how long the boot sequence runs before the panels, in milliseconds.
+// boot_ms is how long the boot sequence runs before the panels, in milliseconds. The Justfile's
+// _fly recipe waits it out before it starts the field unit.
 const boot_ms = 2800
 
 // fan_line says on the boot screen and in the footer whose this is not.

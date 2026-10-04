@@ -22,7 +22,7 @@ One command flies the whole story on scripted mock models, without keys. It need
 just demo
 ```
 
-It builds gehirn and the bridge, which takes about a minute, and on the first run `just zenoh` fetches zenoh-c. Then it starts the mock, the bridge in a window of its own, the field unit, HQ and later a scripted pilot, each a process of its own, and narrates each beat in the terminal with the time since the start:
+It builds gehirn and the bridge, which takes about a minute, and on the first run `just zenoh` fetches zenoh-c. Then it starts the mock, the bridge in a window of its own, HQ, the field unit and later a scripted pilot, each a process of its own, and narrates each beat in the terminal with the time since the start:
 
 1. MAGI approve the goto 3 of 3, and the core steers toward beacon b1.
 2. A scripted pilot, `tools/pilot.py`, takes the seat, steers 45 degrees off the line to the beacon and leaves; the dummy plug, cloned from that pilot, takes the seat.
@@ -30,7 +30,7 @@ It builds gehirn and the bridge, which takes about a minute, and on the first ru
 4. HQ is killed. The cable goes silent, and after the 40 s grace the unit runs on internal power, counting down from 5:00.
 5. HQ restarts, and the cable reconnects.
 
-After about 90 s it stops everything, as Ctrl-C does at any time, and its last line names the fresh temp directory that holds the logs, the journal and the recorder. A beat that does not come in time stops the demo with one line that names the log it waited on. The mock scripts the core and MAGI (`tools/mock_endpoint.py`), so the demo shows how the stack reacts, not how real models judge. Its MAGI units answer after 0.9, 1.7 and 0.5 s, so the bridge shows each one deliberating, and the bridge names the mock's models mock-core, mock-melchior and mock-casper; BALTHASAR keeps the name of the Jev model its thresholds are tuned on, jev-1.13.0, though the mock answers for it too.
+After about 95 s it stops everything, as Ctrl-C does at any time, and its last line names the fresh temp directory that holds the logs, the journal and the recorder. A beat that does not come in time stops the demo with one line that names the log it waited on. The mock scripts the core and MAGI (`tools/mock_endpoint.py`), so the demo shows how the stack reacts, not how real models judge. Its MAGI units answer after 0.9, 1.7 and 0.5 s, so the bridge shows each one deliberating, and its core after 2 s, which paces HQ against the walking human. The bridge names the mock's models mock-core, mock-melchior and mock-casper; BALTHASAR keeps the name of the Jev model its thresholds are tuned on, jev-1.13.0, though the mock answers for it too.
 
 Any port in use can move: `just demo 9081` serves the mock on 9081 instead of 8081. The parameters after it are the umbilical, watch and plug ports, 7447, 7448 and 7777 by default, and the run directory, which must be empty or new, as in `just demo 9081 9447 9448 9777 /tmp/gehirn-demo`.
 

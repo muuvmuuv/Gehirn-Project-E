@@ -165,13 +165,14 @@ _fly bridge_bin mock umbilical watch plug dir:
     # The ports dodge ones in use, and the run directory, a fresh temp dir unless given, takes
     # the journal and the recorder, which are a pilot's data and never belong in the repo.
 
-    # Measured on 2026-10-03: these put the body at the beacon about 18 s after the field unit
-    # starts, as the walking human (body/body.v scene, one loop per 21 s) comes within reach, so
-    # MAGI refuses the first release and approves the next once the human has walked on. Zenoh
-    # redials HQ about 3 s after the field unit starts, and the slowed ballots land the goto a
-    # second later. A pilot at 0.7 m/s brings the body there before the human, and one at 0.55
-    # m/s meets the human on the way, where the armor slows it, so it arrives as the human leaves.
-    hq_delay=2        # s from the field unit's start to HQ's
+    # The walking human (body/body.v scene, one loop per 21 s) starts with the field unit. HQ
+    # listens before the field unit starts, so the field unit's first dial reaches it, and on the
+    # mock the goto lands about 4 s in: 2 s for the core, 1.7 s for the slowest ballot. The pilot
+    # sits down as it lands, and the body reaches the beacon about 13.5 s later, as the human comes
+    # within reach. HQ deliberates every 3.5 s from the goto, the core's 2 s and the 1.5 s pause,
+    # so MAGI judge the first release on a percept from about 15.5 s after the goto, with the
+    # human 1.4 m from the beacon, and the next, after the 8 s cooldown, on one from 12 s later,
+    # with the human 4 m away. Both clocks run from the goto, so a slow host shifts them together.
     pilot_s=11        # plug/dummy.v needs 500 pilot ticks under a goal, 10 s at 50 Hz
     pilot_speed=0.6
     pilot_offset=-45  # south of the pillar, clear of the human's loop
@@ -202,8 +203,8 @@ _fly bridge_bin mock umbilical watch plug dir:
     export TYPESAFE_URL=http://127.0.0.1:{{ mock }}/v1/systemone
     export UMBILICAL_ENDPOINT=tcp/127.0.0.1:{{ umbilical }} BRIDGE_ENDPOINT=tcp/127.0.0.1:{{ watch }}
     export PLUG_LISTEN=127.0.0.1:{{ plug }}
-    # An 8 s cooldown puts the second release after the human has walked on, where 5 s can still
-    # find the human within reach, and MAGI refuses again.
+    # An 8 s cooldown gives MAGI the second release on a percept with the human 4 m away, where 5 s
+    # would give one with the human 3.1 m away.
     export MAGI_COOLDOWN_MS=8000 UMBILICAL_GRACE_MS=40000 INTERNAL_BUDGET_MS=300000
 
     # The bridge shows these names on the units' ballots, so it says what answered. gehirn refuses
@@ -223,7 +224,7 @@ _fly bridge_bin mock umbilical watch plug dir:
     }
 
     # beat waits up to $4 s for the text $3 in the log $2, then narrates $1. The texts come from
-    # magi/magi.v Verdict.str, the field:, umbilical: and release outcome lines of main.v and
+    # magi/magi.v Verdict.str, the hq:, field:, umbilical: and release outcome lines of main.v and
     # tools/mock_endpoint.py's first line, each of which names this recipe.
     beat() {
         for _ in $(seq $(($4 * 5))); do
@@ -242,10 +243,11 @@ _fly bridge_bin mock umbilical watch plug dir:
     start() { (cd "$run/$1" && exec "$bin" "$1" >>"$1.log" 2>&1) & pids="$pids $!"; }
 
     # The units answer after 0.9, 1.7 and 0.5 s, so the bridge shows each one deliberating, 審議中,
-    # until its ballot lands; the mock answers at once otherwise.
+    # until its ballot lands, and the core after 2 s, which paces HQ as timed above; the mock
+    # answers at once otherwise.
     SECONDS=0
     python3 tools/mock_endpoint.py --listen 127.0.0.1:{{ mock }} --quiet --slow melchior=900 \
-        --slow balthasar=1700 --slow casper=500 2>"$run/mock.log" &
+        --slow balthasar=1700 --slow casper=500 --slow core=2000 2>"$run/mock.log" &
     pids="$pids $!"
     beat "mock models on 127.0.0.1:{{ mock }}, scripted by tools/mock_endpoint.py, so no keys" "$run/mock.log" 'mock: serving' 5
 
@@ -254,17 +256,24 @@ _fly bridge_bin mock umbilical watch plug dir:
     (cd "$run" && exec "$bridge_bin" -NSAppSleepDisabled YES >bridge.log 2>&1) &
     bridge=$!
     pids="$pids $bridge"
-    start field
-    field=$!
-    say "field unit up and waiting for HQ; a human walks a loop past beacon b1"
-    sleep "$hq_delay"
-    alive "$bridge" "gehirn-bridge" "$run/bridge.log"
-    alive "$field" "the field unit" "$run/field/field.log"
+
+    # The boot sequence covers the bridge's panels for its first 2.8 s (bridge/draw.v boot_ms).
+    sleep 3 &
+    booting=$!
+
+    # HQ listens before the field unit starts, so the field unit's first dial reaches it.
     start hq
     hq=$!
-    say "HQ up: the core proposes goals, and MAGI judge them"
+    beat "HQ up: the core proposes goals, and MAGI judge them" "$run/hq/hq.log" 'listening for the field' 10
+    wait "$booting"
+    alive "$bridge" "gehirn-bridge" "$run/bridge.log"
+    alive "$hq" "HQ" "$run/hq/hq.log"
+    start field
+    field=$!
+    say "field unit up; a human walks a loop past beacon b1"
     beat "goto approved; the core steers toward the beacon" "$run/hq/hq.log" 'MAGI 3/3, need 2' 15
     ballots 'MAGI 3/3, need 2'
+    alive "$field" "the field unit" "$run/field/field.log"
     (cd "$run/field" && exec python3 "$root/tools/pilot.py" --addr "$PLUG_LISTEN" --seconds "$pilot_s" \
         --speed "$pilot_speed" --offset "$pilot_offset" >pilot.log 2>&1) &
     pids="$pids $!"

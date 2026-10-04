@@ -535,6 +535,8 @@ fn serve_hq(cfg Config) {
 	outcomes := chan lcl.Outcome{cap: 32}
 	notes := chan string{cap: 64}
 	events := chan lcl.HqEvent{cap: 16}
+
+	// The Justfile's _fly recipe waits on `listening for the field` before it starts the field unit.
 	println('hq: unit ${cfg.unit}, listening for the field at ${lcl.quoted(cfg.endpoint)}')
 	if cfg.watch.len > 0 {
 		mut w := wire.hq_watch(watch_session(cfg) or {
