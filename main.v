@@ -609,12 +609,15 @@ fn main() {
 		serve_hq(cfg)
 		return
 	}
-	mut ar := armor.restrain(body.new_sim(cfg.start), armor.Limits{})
 	mut dummy := plug.load_dummy(cfg.recorder, cfg.weights) or {
 		// tools/trials.py WARNINGS echoes this line from a run's log.
 		eprintln('gehirn: DUMMY_WEIGHTS is ${lcl.quoted(cfg.weights)}; ${err.msg()}')
 		exit(1)
 	}
+
+	// The body is made once the dummy plug has loaded: the nearest neighbor one replays the whole
+	// recorder, seconds for a long one, and the walking human's clock starts with the simulated body.
+	mut ar := armor.restrain(body.new_sim(cfg.start), armor.Limits{})
 	mut rec := plug.open_recorder(cfg.recorder) or { panic(err) }
 	mut cable := umbilical.plug_in(lcl.now_ms(), cfg.budget_ms, cfg.grace_ms)
 
@@ -662,6 +665,8 @@ fn main() {
 	} else {
 		'holds ${dummy.size()} samples'
 	}
+
+	// tools/eval_dummy.py PLUG_UP waits for this line before its pilot takes the seat.
 	println('field: plug for ${lcl.quoted(cfg.pilot_id)} on ${lcl.quoted(cfg.plug_at)}, dummy plug ${flies}')
 
 	dt := f64(tick) / f64(time.second)

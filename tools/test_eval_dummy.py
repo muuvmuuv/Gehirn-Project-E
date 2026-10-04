@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Self check for eval_dummy.outcome, pilot_ticks and summary: python3 tools/test_eval_dummy.py"""
+"""Self check for eval_dummy.outcome, pilot_ticks, plug_up and summary: python3 tools/test_eval_dummy.py"""
 
 import json
 import math
@@ -8,7 +8,7 @@ import re
 import tempfile
 from pathlib import Path
 
-from eval_dummy import KNN_LIMIT, outcome, pilot_ticks, summary
+from eval_dummy import KNN_LIMIT, outcome, pilot_ticks, plug_up, summary
 from pilot import parser
 
 STYLE = parser().parse_args(["--offset", "20"])
@@ -57,6 +57,7 @@ with tempfile.TemporaryDirectory() as d:
 
     # The three pilot ticks toward a goal, the one 0.1 m short of it included.
     assert pilot_ticks([recorder, recorder]) == 6, pilot_ticks([recorder])
+    assert plug_up(log) and not plug_up(recorder) and not plug_up(os.path.join(d, "none.log"))
 
 dummy = (Path(__file__).parent.parent / "plug" / "dummy.v").read_text()
 assert re.search(rf"\blimit +int = {KNN_LIMIT}\b", dummy), "plug/dummy.v Dummy.limit"

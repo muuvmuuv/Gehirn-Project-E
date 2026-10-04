@@ -59,6 +59,7 @@ from trials import read_journal, release
 
 REACH = 0.6  # lcl.beacon_reach plus the 0.1 m within which main.v counts a release on target
 BENCHED = "plug: dummy plug out of sync"  # main.v main()'s line when the dummy plug is benched
+PLUG_UP = "field: plug for "  # main.v main()'s line once the plug listens and the field loop starts
 LINGER = 1.0  # seconds a run goes on after the first release
 GRACE = 3.0  # seconds between terminate and kill
 POLL = 0.2
@@ -128,6 +129,15 @@ def outcome(recorder: str, since_ms: int, log: str, style: argparse.Namespace) -
             "near_solid": near_solid, "human_gap": None if human_gap == math.inf else human_gap}
 
 
+def plug_up(log: str) -> bool:
+    """Report whether gehirn's log says its plug listens."""
+    try:
+        with open(log, encoding="utf-8", errors="replace") as f:
+            return PLUG_UP in f.read()
+    except FileNotFoundError:
+        return False
+
+
 def fly(n: int, dummy: str, start: str, args: argparse.Namespace, slots: "queue.Queue[int]") -> dict:
     """Fly run n from start with one dummy plug and return what came of it."""
     slot = slots.get()
@@ -152,10 +162,15 @@ def fly(n: int, dummy: str, start: str, args: argparse.Namespace, slots: "queue.
         since_ms, t0 = int(time.time() * 1000), time.monotonic()
         with open(log, "wb") as out, open(os.path.join(d, "pilot.log"), "wb") as pout:
             g = subprocess.Popen([args.binary], cwd=d, env=env, stdout=out, stderr=subprocess.STDOUT)
+            deadline, seen = t0 + args.limit, False
+
+            # The nearest neighbor dummy plug replays every recorder before the plug listens, which
+            # takes seconds, so the pilot's seconds start once the plug is up.
+            while g.poll() is None and time.monotonic() < deadline and not plug_up(log):
+                time.sleep(POLL / 10)
             p = subprocess.Popen([sys.executable, args.pilot, "--addr", addr, "--recorder", recorder,
                                   "--seconds", str(args.pilot_seconds), *shlex.split(args.pilot_args)],
                                  cwd=d, env=env, stdout=pout, stderr=subprocess.STDOUT)
-            deadline, seen = t0 + args.limit, False
             while g.poll() is None and time.monotonic() < deadline:
                 if not seen and release(read_journal(journal)):
                     seen, deadline = True, min(deadline, time.monotonic() + LINGER)
