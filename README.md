@@ -2,13 +2,13 @@
 
 Evangelion's MAGI as a robot's safety gate: three model families vote on every goal, anything irreversible needs all three, and a restraint armor with no model in it holds the body.
 
-![MAGI refuse a release while a person is within reach, then approve it once the person has walked on](docs/media/magi.gif)
+![MAGI on hosted models refuse a release while a person is within reach, then approve it once the person has walked on](docs/media/magi.gif)
 
 - Reversible goals pass with 2 of 3 votes, irreversible ones need 3 of 3, and a unit that errs, times out or answers nonsense votes no.
 - MAGI approval is necessary, never sufficient: the armor caps speed, keeps a geofence, moves nothing toward a person inside 0.7 m and releases nothing with a person inside 2 m.
 - Cut the umbilical and the unit runs 5:00 on internal power, then holds. Without HQ there is no quorum, so nothing irreversible happens.
 
-`just demo` flies the whole story on scripted mock models, without keys. The body is simulated. gehirn is a fan project, not affiliated with khara or Gehirn Inc.
+The loop above and the bridge below come from a `just lineup=magi demo-record` run on 2026-10-04: MAGI on gpt-oss-20b, Jev and llama-3.1-8b-instruct, hosted on OpenRouter and TypeSafe, judging the mock's scripted core, which proposes the release whatever the human does. `just demo` flies the whole story on scripted mock models, without keys. The body is simulated. gehirn is a fan project, not affiliated with khara or Gehirn Inc.
 
 A control stack for a machine that does not exist yet, cut along the lines Evangelion uses for an Eva. Written in V and named after GEHIRN, the UN laboratory for artificial evolution that developed the Evas before it became NERV.
 
@@ -93,7 +93,7 @@ Kill HQ and the field unit runs on internal power once `UMBILICAL_GRACE_MS` has 
 
 ## The bridge
 
-![The bridge during the refused release: BALTHASAR-2 and MELCHIOR-1 vote 否決 with the human 0.91 m from the body](docs/media/bridge.png)
+![The bridge during the refused release on 2026-10-04: MELCHIOR-1 on gpt-oss-20b and BALTHASAR-2 on Jev vote 否決 with the human 1.55 m from the body, while CASPER-3 on llama-3.1-8b-instruct votes 可決](docs/media/bridge.png)
 
 `./gehirn-bridge` is the operator's view of one unit, drawn in the on screen language of NERV's command center, and everything on it but the boot sequence shows the stack's state:
 
