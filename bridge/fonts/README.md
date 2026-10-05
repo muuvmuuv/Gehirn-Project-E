@@ -1,6 +1,6 @@
 # The bridge's fonts
 
-`bridge/main.v` builds these into `gehirn-bridge` with `$embed_file`, so the bridge draws the same on every machine and no image needs a font installed. Each is licensed under the SIL Open Font License 1.1, whose text sits beside it; the license lets a font be bundled and embedded with software, free or sold, as long as the font is not sold on its own and its license travels with it.
+`bridge/main.v` builds these into `gehirn-bridge` with `$embed_file`, so the bridge draws the same on every machine and no image needs a font installed. [bridge/README.md](../README.md) explains how the bridge sets them: the fallback chain, the squeeze and the fonts fontstash cannot read. Each is licensed under the SIL Open Font License 1.1, whose text sits beside it; the license lets a font be bundled and embedded with software, free or sold, as long as the font is not sold on its own and its license travels with it.
 
 | File | Font | Source | License |
 | --- | --- | --- | --- |
@@ -10,7 +10,7 @@
 
 Neither Barlow nor Zen Old Mincho declares a Reserved Font Name, so the subset may keep its name. DSEG does reserve "DSEG", so its file stays exactly as released.
 
-The full Zen Old Mincho Black is 5.4 MB. The subset keeps printable ASCII and every non-ASCII character in `bridge/*.v`, about 100 KB. A string with a character the subset lacks draws that character from Arial Unicode or `VUI_FONT` where the machine has one and leaves it out elsewhere, so cut the subset again whenever the bridge draws new Japanese. fonttools lives in a throwaway virtual environment, never a global install:
+The full Zen Old Mincho Black is 5.4 MB. The subset keeps printable ASCII and the Japanese in `bridge/*.v`, about 100 KB. A string with a character the subset lacks draws that character from Arial Unicode or `VUI_FONT` where the machine has one and leaves it out elsewhere, so cut the subset again whenever the bridge draws new Japanese. fonttools lives in a throwaway virtual environment, never a global install:
 
 ```sh
 python3 -m venv /tmp/fonttools && /tmp/fonttools/bin/pip install fonttools
