@@ -18,6 +18,8 @@ Decisions the owner made that are not architecture, with the day, the reason and
 - **2026-10-04, hero media.** The README's hero shows real MAGI (gpt-oss-20b, Jev, llama-3.1-8b) judging a core scripted to be reckless, `just lineup=magi demo-record`, because the hosted qwen core never proposes a release with a person near, so a fully hosted take shows no refusal. The caption says what is scripted.
 - **Stance, no berserk mode and no commander override.** In canon, Unit-01 goes berserk when power and pilot fail, and Misato or Gendo overrule the MAGI. gehirn takes the opposite side on purpose, and the scenes say so: losing control leads to the safe state (a fault is a no, no quorum without HQ, a hold at zero; Invariants 3, 6 and 10), and nothing turns a no into a yes, since a single key that can approve would replace three independent judges (Invariant 3, ADR-0005). Overrides toward safety stay welcome: the pilot's eject, the hardware e-stop of Phase 5, a pilot steering under the armor.
 
+- **2026-10-05, the bridge's window.** The bridge opens borderless, without the operating system's title bar, with an edge and corner brackets of its own; a drag anywhere moves it, and Esc or Cmd-Q quits it ([bridge/README.md](../bridge/README.md)). A fullscreen kiosk mode waits for Phase 6's bridge image.
+
 ## Tooling
 
 - **2026-10-05, shell scripts.** The Justfile's long bash recipes move to `scripts/`, checked with shellcheck and formatted with shfmt in `just check` and the pre-commit hook. The owner installed shfmt for it.
