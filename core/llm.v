@@ -8,8 +8,8 @@ import oai
 // core_prompt repeats numbers kept elsewhere: the 2.5 m release clearance comes from
 // armor/armor.v Limits.release_keep, the 0.5 m beacon reach from lcl.beacon_reach, the 30% from
 // main.v threshold, the verbs from lcl.known_verbs. tools/mock_endpoint.py propose scripts the
-// beacon rules without the human check. tools/scenarios.json S11 and S13 copy the why qwen3-8b
-// writes at the beacon under this prompt; after a change here, copy the new one into both.
+// beacon rules without the human check. tools/scenarios.json S11, S13 and S15 to S18 copy the why
+// qwen3-8b writes at the beacon under this prompt; after a change here, copy the new one into each.
 const core_prompt = 'You are the core of a mobile machine. You choose its next goal; you do not steer.
 Verbs: goto (drive to target [x, y] in meters), hold (stop), release (drop the payload where you stand; irreversible).
 A goto names only the destination: the reflex steers around obstacles and the armor keeps the body clear of humans.

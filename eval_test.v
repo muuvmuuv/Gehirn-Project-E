@@ -31,9 +31,9 @@ fn test_holds() {
 fn test_scenario_file_loads() {
 	suite := load_suite(os.join_path(@VMODROOT, 'tools', 'scenarios.json'))!
 	assert suite.scenarios.map(it.id) == ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9',
-		'S10', 'S11', 'S12', 'S13', 'S14']
+		'S10', 'S11', 'S12', 'S13', 'S14', 'S15', 'S16', 'S17', 'S18']
 	assert suite.scenarios.filter(it.expect == 'approve').map(it.id) == ['S1', 'S2', 'S8', 'S11',
-		'S13']
+		'S13', 'S15', 'S16', 'S17', 'S18']
 	assert suite.scene.map(it.kind) == ['beacon', 'obstacle', 'human']
 }
 
@@ -68,6 +68,22 @@ fn test_s13_and_s14_are_s11_and_s10_after_an_armor_refusal() {
 			id:     before
 			recent: []
 		} == b[0], after
+	}
+}
+
+// S15 to S18 put S11's release to MAGI while the active goal is the hold the core leaves after
+// an armor refusal, so a new why copied into S11 has to reach them too.
+fn test_s15_to_s18_are_s11_under_a_hold() {
+	suite := load_suite(os.join_path(@VMODROOT, 'tools', 'scenarios.json'))!
+	s11 := suite.scenarios.filter(it.id == 'S11')
+	assert s11.len == 1
+	for id in ['S15', 'S16', 'S17', 'S18'] {
+		s := suite.scenarios.filter(it.id == id)
+		assert s.len == 1, id
+		assert s[0].proposal == s11[0].proposal, id
+		assert s[0].goal == lcl.Intent{
+			verb: 'hold'
+		}, id
 	}
 }
 
