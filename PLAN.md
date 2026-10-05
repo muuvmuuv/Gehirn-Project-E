@@ -126,7 +126,7 @@ Work top to bottom. Phases 2, 3 and 9 can run in parallel once Phase 1 has lande
 
 ### Tooling
 
-1. [x] A Justfile as the one entry point: `just check` for the checks, `just missions` for the mock missions, `just build` for the binary, and later the image pipeline of Phase 6. CONTRIBUTING.md, `lefthook.yml` and the README then call the recipes instead of repeating the commands.
+1. [x] A justfile as the one entry point: `just check` for the checks, `just missions` for the mock missions, `just build` for the binary, and later the image pipeline of Phase 6. CONTRIBUTING.md, `lefthook.yml` and the README then call the recipes instead of repeating the commands.
 2. [x] `just demo`: one command, without keys, that flies the whole story on the mock with HQ, the field unit and the bridge apart, narrates each beat in the terminal and stops everything on exit or Ctrl-C. The README's quick start leads with it.
 3. [x] `just demo-record`: the demo recorded from the bridge's own frames into an MP4 for X, with the grace sped up under a caption, and a looping GIF of the release going from 否決 to 可決.
 

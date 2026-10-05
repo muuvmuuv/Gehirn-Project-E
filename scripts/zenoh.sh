@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fetches the pinned zenoh-c release for this host into thirdparty/zenoh-c, which zenoh/zenoh.c.v
-# links, unless it is there already. The Justfile's zenoh recipe runs it before test, build and
+# links, unless it is there already. The justfile's zenoh recipe runs it before test, build and
 # bridge.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
