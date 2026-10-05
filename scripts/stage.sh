@@ -24,10 +24,10 @@ name=$(basename "$0" .sh)
 # release one from about 17.5 s after the goto, with the human 0.7 m from the beacon, and for
 # the next, after the 8 s cooldown, one from 12 s later, with the human 3.9 m away. Both clocks
 # run from the goto, so a slow host shifts them together.
-pilot_s=11        # plug/dummy.v needs 500 pilot ticks under a goal, 10 s at 50 Hz
+pilot_s=11 # plug/dummy.v needs 500 pilot ticks under a goal, 10 s at 50 Hz
 pilot_speed=0.6
-pilot_offset=-45  # south of the pillar, clear of the human's loop
-cooldown_s=8      # as PLAN's Known issue 23 times it; 5 s puts the next release to MAGI 3.5 s sooner
+pilot_offset=-45 # south of the pillar, clear of the human's loop
+cooldown_s=8     # as PLAN's Known issue 23 times it; 5 s puts the next release to MAGI 3.5 s sooner
 if [ -z "$run" ]; then
     run=$(mktemp -d "${TMPDIR:-/tmp}/gehirn-demo.XXXXXX")
 elif [ -n "$(ls -A "$run" 2>/dev/null)" ]; then
@@ -114,7 +114,10 @@ ballots() {
     awk -v v="$1" 'index($0, v) { out = ""; n = 4 } n && n-- { out = out "       " $0 "\n" } END { printf "%s", out }' "$run/hq/hq.log"
 }
 alive() { kill -0 "$1" 2>/dev/null || fail "$2 stopped; its last line: $(tail -n 1 "$3")"; }
-start() { (cd "$run/$1" && exec "$bin" "$1" >>"$1.log" 2>&1) & pids="$pids $!"; }
+start() {
+    (cd "$run/$1" && exec "$bin" "$1" >>"$1.log" 2>&1) &
+    pids="$pids $!"
+}
 
 # up starts the mock, unless the lineup is hosted, then the bridge, HQ and the field unit, and
 # narrates each. It leaves bridge, hq and field set to their process IDs.

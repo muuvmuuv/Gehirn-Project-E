@@ -70,8 +70,8 @@ demo-record mock="8081" umbilical="7447" watch="7448" plug="7777" dir="": _lineu
     @scripts/record.sh demo {{ quote(mock) }} {{ quote(umbilical) }} {{ quote(watch) }} {{ quote(plug) }} {{ quote(dir) }} {{ quote(lineup) }}
 
 # Refuses an unknown lineup, and hosted models without their keys, before anything builds.
-[private]
 [no-exit-message]
+[private]
 _lineup:
     #!/usr/bin/env bash
     lineup={{ quote(lineup) }}

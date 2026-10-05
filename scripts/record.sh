@@ -13,7 +13,10 @@ scene=${1:-demo} mock=${2:-} umbilical=${3:-} watch=${4:-} plug=${5:-} out=${6:-
 # V 0.5.2 uploads the failing C line and the V source around it to bugs.vlang.io when a C build
 # fails, and a run by hand has no justfile to export this (CONTRIBUTING.md, V 0.5.2 rule 9).
 export V_C_ERROR_BUG_REPORT_DISABLED=1
-command -v ffmpeg >/dev/null || { echo "demo-record: needs ffmpeg" >&2; exit 1; }
+command -v ffmpeg >/dev/null || {
+    echo "demo-record: needs ffmpeg" >&2
+    exit 1
+}
 if [ -z "$out" ]; then
     out=$(mktemp -d "${TMPDIR:-/tmp}/gehirn-record.XXXXXX")
 elif [ -n "$(ls -A "$out" 2>/dev/null)" ]; then
@@ -39,7 +42,8 @@ if [ "$n" -lt 100 ]; then
     echo "demo-record: gg saved $n frames; see $out/run/bridge.log" >&2
     exit 1
 fi
-fps=$(python3 - "$out/frames" "$n" <<'EOF'
+fps=$(
+    python3 - "$out/frames" "$n" <<'EOF'
 import os, sys
 d, n = sys.argv[1], int(sys.argv[2])
 t = [os.path.getmtime(f"{d}/gehirn-bridge_{i}.png") for i in range(1, n + 1)]

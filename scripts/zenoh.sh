@@ -19,7 +19,10 @@ case "$(uname -s)-$(uname -m)-$libc" in
     Linux-aarch64-gnu) target=aarch64-unknown-linux-gnu sum=65970bbed6dc10fec4fa39d05f3876e85fcb9b0f87d5be0a54bd7517240db501 ;;
     Linux-x86_64-musl) target=x86_64-unknown-linux-musl sum=293866bb632fd579fb0603bbfdb8d383e7c2d4eadc8ec3ae199fafa1dbc99c55 ;;
     Linux-x86_64-gnu) target=x86_64-unknown-linux-gnu sum=9ee0f2d732b0f3042a7e1cd3076042a2bc3ac0415587c40bc3ed7b8b62fbde11 ;;
-    *) echo "zenoh: no pinned zenoh-c build for $(uname -s)-$(uname -m)" >&2; exit 1 ;;
+    *)
+        echo "zenoh: no pinned zenoh-c build for $(uname -s)-$(uname -m)" >&2
+        exit 1
+        ;;
 esac
 dir=thirdparty/zenoh-c
 if [ "$(cat "$dir/VERSION" 2>/dev/null)" = "$version $target" ]; then
@@ -29,7 +32,7 @@ echo "zenoh: fetching zenoh-c $version for $target into $dir"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 curl -fsSL -o "$tmp/zenoh-c.zip" "https://github.com/eclipse-zenoh/zenoh-c/releases/download/$version/zenoh-c-$version-$target-standalone.zip"
-got=$( (sha256sum 2>/dev/null || shasum -a 256) < "$tmp/zenoh-c.zip" | cut -d' ' -f1)
+got=$( (sha256sum 2>/dev/null || shasum -a 256) <"$tmp/zenoh-c.zip" | cut -d' ' -f1)
 if [ "$got" != "$sum" ]; then
     echo "zenoh: checksum mismatch for zenoh-c $version $target" >&2
     exit 1
@@ -37,4 +40,4 @@ fi
 rm -rf "$dir"
 mkdir -p "$dir"
 unzip -q "$tmp/zenoh-c.zip" -d "$dir"
-echo "$version $target" > "$dir/VERSION"
+echo "$version $target" >"$dir/VERSION"
