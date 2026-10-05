@@ -10,7 +10,7 @@ fn at(px []u8, size int, x int, y int) gg.Color {
 }
 
 // IconCase is one of the bridge's icons with the place of the mark's grid on it, which follows
-// from the mark's box in docs/brand.md's table of icons.
+// from the mark's box in `ICONS` in assets/build.py and docs/brand.md's table of icons.
 struct IconCase {
 	px   []u8
 	size int

@@ -46,6 +46,10 @@ bridge: zenoh
 gamepad:
     v -prod -o gehirn-gamepad gamepad/
 
+# Renders the brand's raster files from the SVG masters in assets/brand; needs uv and rsvg-convert.
+assets:
+    uv run --script assets/build.py
+
 # Flies the mock missions and puts the adversarial scenarios to the mock MAGI; port is the mock's.
 missions runs="10" port="8081": build
     @scripts/missions.sh {{ quote(runs) }} {{ quote(port) }}

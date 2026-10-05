@@ -6,7 +6,7 @@ Rules are numbered per section, so a review can cite one: Errors 2, Tests 3. The
 
 ## Set up
 
-gehirn builds with V 0.5.2 from Homebrew, commit 45ae01d. The tools under `tools/` need Python 3.10 or newer and nothing else. The `justfile` is the one entry point for the checks, the build and the mock missions, so it needs just. `just zenoh` fetches zenoh-c, pinned to 1.10.1 and checked against its sha256, into `thirdparty/zenoh-c`, which git ignores; it needs curl and unzip, runs before `just test`, and covers macOS on Apple Silicon and Linux on aarch64 and x86_64, with musl or glibc. Moving the pin is its own commit that updates the version and every checksum in `scripts/zenoh.sh` and runs every check. `just gamepad` builds the gamepad bridge, the one part that needs SDL2's headers and library, which it finds through pkg-config: Homebrew's sdl2-compat on the Mac, `sdl2-compat-dev` on Alpine, `libsdl2-dev` on Debian and Ubuntu. `gamepad/` holds no tests, because its logic lives in `plug/pilot.v`, so `just check` never compiles it and passes without SDL; only `v -W -check gamepad/` and the build need SDL2. The scripts under `scripts/` run on bash 3.2, the one macOS ships, and `just shell` needs shellcheck and shfmt. The git hooks need lefthook and gitleaks; wire them once per clone:
+gehirn builds with V 0.5.2 from Homebrew, commit 45ae01d. The tools under `tools/` need Python 3.10 or newer and nothing else. `just assets`, which renders the brand's raster files, needs uv and rsvg-convert, and runs when the brand, the README's first sentence or the bridge's `fan_line` changes. The `justfile` is the one entry point for the checks, the build and the mock missions, so it needs just. `just zenoh` fetches zenoh-c, pinned to 1.10.1 and checked against its sha256, into `thirdparty/zenoh-c`, which git ignores; it needs curl and unzip, runs before `just test`, and covers macOS on Apple Silicon and Linux on aarch64 and x86_64, with musl or glibc. Moving the pin is its own commit that updates the version and every checksum in `scripts/zenoh.sh` and runs every check. `just gamepad` builds the gamepad bridge, the one part that needs SDL2's headers and library, which it finds through pkg-config: Homebrew's sdl2-compat on the Mac, `sdl2-compat-dev` on Alpine, `libsdl2-dev` on Debian and Ubuntu. `gamepad/` holds no tests, because its logic lives in `plug/pilot.v`, so `just check` never compiles it and passes without SDL; only `v -W -check gamepad/` and the build need SDL2. The scripts under `scripts/` run on bash 3.2, the one macOS ships, and `just shell` needs shellcheck and shfmt. The git hooks need lefthook and gitleaks; wire them once per clone:
 
 ```sh
 lefthook install
@@ -112,7 +112,7 @@ A failing check is never unrelated. Fix it, or stop and report it.
 ## Python tools
 
 1. Python stays outside the runtime. The tools drive, mock and measure gehirn from outside. `sidecar/cl1_sidecar.py` runs on the CL1 because its SDK is Python.
-2. Standard library only. The sidecar's `cl` SDK is the one import from outside it.
+2. Standard library only. The sidecar's `cl` SDK is the one import from outside it. `assets/build.py` is no tool but a design time generator: it declares its third party packages, pinned exactly, as inline script metadata for `uv run --script`, and nothing in the checks, the missions or the runtime runs it.
 3. A script opens with a docstring that says what it does and shows how to call it. Functions have type hints, and a function another tool imports has a docstring, as `withenv.load_env` does.
 4. A constant copied from V is an UPPER_CASE module constant with the comment of Comments 6.
 5. A function another tool imports, and every new parser or loader, has a self check, `tools/test_<name>.py`, that runs under plain `python3` and asserts, as `tools/test_withenv.py` does. `just py` runs every one.
@@ -132,7 +132,7 @@ A failing check is never unrelated. Fix it, or stop and report it.
 type   build chore ci docs feat fix perf refactor style test
 scope  optional: a module (lcl body armor plug core magi oai jev umbilical zenoh wire),
        or bridge, gamepad,
-       or eval, tools, scripts, sidecar, adr, vscode
+       or eval, tools, scripts, sidecar, adr, vscode, assets
 ```
 
 1. The `commit-msg` hook checks the type, the scope's form and the colon, and rejects the trailers of rule 7. Review checks the rest: after the colon the subject is lowercase and imperative, and names keep their case, as in `feat: tune MAGI for hosted models and make Jev BALTHASAR`.

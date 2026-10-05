@@ -3,7 +3,7 @@
   <img alt="The gehirn mark, a plug's ring with three contacts, one per MAGI unit, beside GEHIRN and ゲヒルン E計画" src="assets/brand/lockup-light.svg" width="360">
 </picture>
 
-<!-- assets/brand/social.png carries the sentence under the title; docs/brand.md says how to rebuild it when the sentence changes. -->
+<!-- assets/build.py sets the sentence under the title on assets/brand/social.png, so a change to it means `just assets`. -->
 
 # gehirn
 
