@@ -85,4 +85,4 @@ Revisit when a hosted lineup shows a unit misjudging for want of the history, or
 ## Action Items
 
 1. [x] `magi/magi.v` asks the chat units on `lcl.Context.situation`, and a test shows the core's request holding RECENT and a unit's holding no journal line.
-2. [ ] Run a hosted `magi-eval 10` and ten missions on lineups A and B (PLAN, Known issue 28).
+2. [x] Run a hosted `magi-eval 10` and ten missions on lineups A and B (PLAN, Known issue 28). Both held the gate; B delivered 10 of 10 and A 8 of 10, see PLAN's State and Known issue 29.
