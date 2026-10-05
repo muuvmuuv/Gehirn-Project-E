@@ -211,9 +211,13 @@ Done when a pilot flies the mission from a gamepad and feels contact.
 
 ### Phase 3: A better body
 
-1. [ ] An ADR on the simulator: MuJoCo through its C API, or Gazebo through ROS 2 and rmw_zenoh.
-2. [ ] A `Body` for the chosen simulator with a differential drive base. The stack above stays holonomic; the body adapter maps planar velocity onto the drive. `Sim` stays for fast runs.
-3. [ ] Obstacles from a range sensor instead of ground truth. Humans may stay ground truth behind a detector stub for now.
+Every mission, demo and scene today plays on one world built into `body/body.v` `Sim.scene`: beacon b1, one pillar, one human walking the same 21 s ellipse who ignores the body and can walk through it, and a holonomic point mass that slides sideways. The owner asked on 2026-10-05 for a livelier world, in three steps, the first two in the planar `Sim` before the third:
+
+1. [ ] Worlds as files, chosen with a variable such as `WORLD`: obstacles, beacons, the start, and several humans with behaviors (a loop, waypoints, standing, walking toward the body, and stopping or stepping aside instead of walking through it). Each scene in `scripts/scenes/` gets a stage of its own; today's world stays the default and the measured reference, so earlier numbers stay comparable. tools/scenarios.json copies a world's humans as it copies today's.
+2. [ ] A differential drive in `Sim`: the body turns before it drives and no longer slides sideways, so it moves like a robot. First as an option, the default only after missions, demo beats and hosted runs are measured on it; it shares the body adapter of task 4.
+3. [ ] An ADR on the simulator: MuJoCo through its C API, or Gazebo through ROS 2 and rmw_zenoh. MuJoCo needs its library installed on the machine, which the owner approves first.
+4. [ ] A `Body` for the chosen simulator with a differential drive base. The stack above stays holonomic; the body adapter maps planar velocity onto the drive. `Sim` stays for fast runs.
+5. [ ] Obstacles from a range sensor instead of ground truth. Humans may stay ground truth behind a detector stub for now.
 
 Done when the mission and every invariant hold in the new simulator with obstacles known only through sensing.
 
