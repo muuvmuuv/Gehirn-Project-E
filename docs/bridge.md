@@ -1,6 +1,6 @@
 # The bridge
 
-![The bridge during the refused release on 2026-10-04: MELCHIOR-1 on gpt-oss-20b and BALTHASAR-2 on Jev vote 否決 with the human 1.55 m from the body, while CASPER-3 on llama-3.1-8b-instruct votes 可決](media/bridge.png)
+![The bridge during the refused release on 2026-10-04: MELCHIOR-1 on gpt-oss-20b and BALTHASAR-2 on Jev vote 否決 with the human 1.55 m from the body, while CASPER-3 on llama-3.1-8b-instruct votes 可決](../assets/media/bridge.png)
 
 The frame comes from a `just lineup=magi demo-record` run on 2026-10-04: MAGI on gpt-oss-20b, Jev and llama-3.1-8b-instruct, hosted on OpenRouter and TypeSafe, judging the mock's scripted core, which proposes the release whatever the human does.
 

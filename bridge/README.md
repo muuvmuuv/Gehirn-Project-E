@@ -1,6 +1,6 @@
 # How the bridge is drawn
 
-![The bridge's MAGI block during a refused release: BALTHASAR • 2 and MELCHIOR • 1 red with 否決, CASPER • 3 green with 可決, and 決議 showing 否決 with 1/3 · NEED 3](../docs/media/bridge/magi-refused.png)
+![The bridge's MAGI block during a refused release: BALTHASAR • 2 and MELCHIOR • 1 red with 否決, CASPER • 3 green with 可決, and 決議 showing 否決 with 1/3 · NEED 3](../assets/media/bridge/magi-refused.png)
 
 People who see the bridge ask whether it runs on a custom engine or a UI library. Neither. It is V's own `gg` module, which ships with the compiler, drawing on sokol: Metal on the Mac, OpenGL on Linux. Text goes through fontstash. Every pixel comes from filled rectangles, triangles, convex polygons, circles, lines and glyphs, plus one matrix transform from `sokol.sgl` that squeezes type. There are no shaders of its own, no images on screen, no UI library, no layout engine and no animation library; two PNGs are only the window's icon. The whole bridge is about 1900 lines of V in `bridge/`, `draw.v` 1210 of them, plus 500 lines of tests for its state and its icons and 30 lines of Objective-C that let its borderless window take the keyboard and move on macOS.
 
@@ -151,7 +151,7 @@ Three 9 px `stroke`s connect them under the panels, one level at y 430 and two d
 
 ### 審議中 and a landing ballot
 
-![The MAGI block while MAGI deliberate on a goto: BALTHASAR • 2 blue with 審議中, MELCHIOR • 1 white as its 可決 lands, CASPER • 3 green with 可決, and 決議 showing 審議中 with 2/3 · NEED 2](../docs/media/bridge/magi-deliberating.png)
+![The MAGI block while MAGI deliberate on a goto: BALTHASAR • 2 blue with 審議中, MELCHIOR • 1 white as its 可決 lands, CASPER • 3 green with 可決, and 決議 showing 審議中 with 2/3 · NEED 2](../assets/media/bridge/magi-deliberating.png)
 
 While a unit deliberates, `blink(now, 250, 0.5, thinking, thinking_dim)` switches its fill every 125 ms, a hard step with no fade. The same call colors 審議中 in the 決議 box and the header's MAGI light, so all three flicker in phase. When a ballot lands, `unit_panel` lays `paper` over the outline at 85% and fades it out linearly over 160 ms from the time in `State.landed`, so each unit flashes white once as it answers, in the order the ballots arrive.
 
@@ -165,7 +165,7 @@ The 決議 box is two `draw_rect_empty` outlines 4 px apart, 210 by 74, in the v
 
 ### EMERGENCY
 
-![The EMERGENCY overlay as the cable is cut: red hexagon cells each labeled EMERGENCY, some dark, the panels showing through the seams between them, and a black band across the middle with EMERGENCY, 外部電源切断 内部電源に切り替え and UMBILICAL CABLE CUT · RUNNING ON INTERNAL POWER](../docs/media/bridge/emergency.png)
+![The EMERGENCY overlay as the cable is cut: red hexagon cells each labeled EMERGENCY, some dark, the panels showing through the seams between them, and a black band across the middle with EMERGENCY, 外部電源切断 内部電源に切り替え and UMBILICAL CABLE CUT · RUNNING ON INTERNAL POWER](../assets/media/bridge/emergency.png)
 
 `State.emergency` is true for `emergency_ms`, 3 s, after the field unit first reports internal power. `draw_emergency` then tiles the window with hexagons of radius 52 with a corner at the top and bottom: columns 90 px apart, rows 78 px apart, odd rows shifted by 45, 16 by 12 cells. A cell appears once 30 ms per ring have passed, its ring being the larger of its column and row distance from the center cell, so the grid grows from the middle as a square and fills in 240 ms. Each cell is three `hexagon`s, radius 50 lit, 45 black at 85% and 42 lit, which leaves a 5 px rim and a 3 px black gap, and EMERGENCY in black at 14 on top. A cell is lit `alert` unless `(now / 130 + row * 3 + col * 5) % 7` is 0, which turns about one cell in seven `alert_deep` and moves them every 130 ms. Since the outer hexagon's radius is 2 px short of the grid's, the panels below show through the seams.
 
@@ -173,7 +173,7 @@ Across the middle sits a band 164 px high, black at 90%, between two red hazard 
 
 ### Seven segment timer
 
-![The 活動限界 panel on internal power: 4:55 with 63 centiseconds in orange seven segment digits over unlit ghost segments, 内部 lit, and INTERNAL BATTERY with UMBILICAL CABLE CUT · NO QUORUM](../docs/media/bridge/limit-internal.png)
+![The 活動限界 panel on internal power: 4:55 with 63 centiseconds in orange seven segment digits over unlit ghost segments, 内部 lit, and INTERNAL BATTERY with UMBILICAL CABLE CUT · NO QUORUM](../assets/media/bridge/limit-internal.png)
 
 DSEG7 draws every digit at the same width, and its 8 lights every segment. `draw_limit` first draws 8:88 at size 88 in the ghost color 52, 26, 0 and :88 at size 40 beside it, then the real figure right aligned to the ghost's edge in `timer`, with a glow, and the centiseconds small to its right. So the unlit segments show behind the lit ones exactly where a real display has them. `clock` rounds up to the centisecond, so the full five minutes read 5:00 00 and the last moment of power 0:00 01. On internal power with under 30 s left, the figure turns `alert` and shows for 264 ms of every 330, and 内部 fills red; once the power is spent it stays red at 0:00 00. Before the first view, and once views stop, only the ghosts show. The header's mission clock does the same with 88:88 at 20.
 
@@ -189,7 +189,7 @@ While the cable counts as connected, 外部 is lit; on internal power, 内部. O
 
 ### Radar
 
-![The scene as a radar: the body EVA01 at beacon B1 inside orange target brackets, human H1 just beside it with its 0.7 m and 2 m rings, obstacle 01 as a gray disc, the trail curving around it, range rings a meter apart, and HUMAN 1.55 M in red](../docs/media/bridge/scene.png)
+![The scene as a radar: the body EVA01 at beacon B1 inside orange target brackets, human H1 just beside it with its 0.7 m and 2 m rings, obstacle 01 as a gray disc, the trail curving around it, range rings a meter apart, and HUMAN 1.55 M in red](../assets/media/bridge/scene.png)
 
 `draw_scene` fits a `Map` from meters to pixels to `State.span`, everything the scene has shown, plus a meter on every side, and centers it, so the view only ever zooms out. `Map.py` flips y, since the scene's y points up. A scissor keeps the radar inside its panel. Under it lies a 1 m grid in `umber`.
 
@@ -199,7 +199,7 @@ Around the body sit eight range rings a meter apart, every second one brighter, 
 
 ### Harmonics
 
-![The harmonics panel: 57.8% sync with the dummy plug in the seat, the sync trace in orange and the core's authority in blue against the dashed red 30% 絶対境界線](../docs/media/bridge/harmonics.png)
+![The harmonics panel: 57.8% sync with the dummy plug in the seat, the sync trace in orange and the core's authority in blue against the dashed red 30% 絶対境界線](../assets/media/bridge/harmonics.png)
 
 `draw_harmonics` sets the sync ratio at 46 with a glow, red at or under `threshold`, then the seat and the core's authority. Its graph keeps 300 samples, 30 s, newest at the right edge, over a grid of quarters and sixths, 5 s a column. The authority trace is a 1.5 px `cyan` stroke at 80%. The sync trace is drawn twice, a 6 px stroke at 22% as a halo and a 2 px one on top. The 30% 絶対境界線 is `gg`'s dashed `draw_line_with_config`, and its label sits over the traces on a black backing, so the sync trace never runs through it.
 
@@ -264,7 +264,7 @@ VGG_SCREENSHOT_FOLDER=/tmp/rec/frames VGG_SCREENSHOT_FRAMES=$(seq -s, 30 30 3000
 The stills in this file are cut from frames around the boxes in the Layout table, 4 to 8 px wider on each side, and EMERGENCY as an 800 by 360 cut from the middle of the window. A Retina frame is 2560 by 1600, so scale it to 1280 by 800 before cutting:
 
 ```sh
-ffmpeg -i frame.png -vf scale=1280:800,crop=504:356:764:274 docs/media/bridge/scene.png
+ffmpeg -i frame.png -vf scale=1280:800,crop=504:356:764:274 assets/media/bridge/scene.png
 ```
 
 ## Credits and references

@@ -40,7 +40,7 @@ const shown_as = ['MELCHIOR • 1', 'BALTHASAR • 2', 'CASPER • 3']!
 
 // contacts are the top left corners of the mark's 2 by 2 contacts on its 16 unit grid, in the
 // order of units: MELCHIOR-1 right, BALTHASAR-2 on top, CASPER-3 left, as draw_magi places the
-// units. docs/brand.md gives the same grid, which docs/media/brand/mark.svg draws.
+// units. docs/brand.md gives the same grid, which assets/brand/mark.svg draws.
 const contacts = [[f32(10), 8]!, [f32(7), 4]!, [f32(4), 8]!]!
 
 // human_stop and release_keep are the armor's distances around a human in meters, which the scene

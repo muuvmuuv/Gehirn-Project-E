@@ -1,8 +1,8 @@
 # Brand
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="media/brand/lockup-dark.svg">
-  <img alt="gehirn's mark, a ring with three square contacts, beside GEHIRN and ゲヒルン E計画, with an orange cable running from the ring under the name" src="media/brand/lockup-light.svg" width="400">
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/brand/lockup-dark.svg">
+  <img alt="gehirn's mark, a ring with three square contacts, beside GEHIRN and ゲヒルン E計画, with an orange cable running from the ring under the name" src="../assets/brand/lockup-light.svg" width="400">
 </picture>
 
 This page is for anyone putting gehirn's mark or name on a page, a slide or a video. It says what the mark means, which colors it takes, how small it may go and which file to use.
@@ -57,11 +57,11 @@ gehirn is a fan project, not affiliated with khara or Gehirn Inc. The mark is or
 
 | File | Use |
 | --- | --- |
-| [media/brand/mark.svg](media/brand/mark.svg) | The mark; it follows the viewer's light or dark scheme |
-| [media/brand/mark-mono.svg](media/brand/mark-mono.svg) | The mark in one color, `currentColor`, for print, stamps and embossing |
-| [media/brand/lockup-dark.svg](media/brand/lockup-dark.svg) | The lockup on a dark ground |
-| [media/brand/lockup-light.svg](media/brand/lockup-light.svg) | The lockup on a light ground |
-| [media/brand/social.png](media/brand/social.png) | The 1280 by 640 card for link previews: the fan project line, the lockup and the README's first sentence on ink |
+| [assets/brand/mark.svg](../assets/brand/mark.svg) | The mark; it follows the viewer's light or dark scheme |
+| [assets/brand/mark-mono.svg](../assets/brand/mark-mono.svg) | The mark in one color, `currentColor`, for print, stamps and embossing |
+| [assets/brand/lockup-dark.svg](../assets/brand/lockup-dark.svg) | The lockup on a dark ground |
+| [assets/brand/lockup-light.svg](../assets/brand/lockup-light.svg) | The lockup on a light ground |
+| [assets/brand/social.png](../assets/brand/social.png) | The 1280 by 640 card for link previews: the fan project line, the lockup and the README's first sentence on ink |
 | [website/favicon.svg](../website/favicon.svg) | The website's favicon, a copy of mark.svg |
 | `website/favicon.ico`, `favicon-96x96.png` | The mark on an ink tile, for browsers without SVG favicons, PDFs and search results; the icon holds 16, 32 and 48 px |
 | `website/apple-touch-icon.png` | 180 px on opaque ink, since iOS fills transparency black |
