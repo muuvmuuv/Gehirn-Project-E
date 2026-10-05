@@ -1,0 +1,23 @@
+module lcl
+
+fn test_complete() {
+	line := '{"t_ms":1,"seat":"pilot","pose":[0.5,-0.25],"target":[3,2]}'
+	cases := {
+		line:                                                true
+		line + ' \n':                                        true
+		'[[1, 2], [3]]':                                     true
+		'{"why": "a ] or a } in a string", "u": [1]}':       true
+		'{"why": "an escaped \\" and a ] after it"}':        true
+		line[..36]:                                          false // what json2 never returns from
+		line[..37]:                                          false
+		line[..line.len - 1]:                                false
+		'{"t_ms":1,"pose":[0.5{"t_ms":2,"pose":[1,2]}':      false // a cut line and the next one
+		line + line:                                         false
+		'{"why": "a } in a string never closes the object"': false
+		']':                                                 false
+		'':                                                  false
+	}
+	for s, want in cases {
+		assert complete(s) == want, s
+	}
+}

@@ -250,6 +250,46 @@ pub fn escaped(s string) string {
 	return sb.str()
 }
 
+// complete reports whether s holds a JSON object or array whose every bracket closes, brackets in
+// strings aside, with nothing after it. V 0.5.2's x.json2 never returns from decoding a text that
+// ends right after a number inside an array, and a recorder line ends that way about every other
+// time a kill cuts it, so every decoder of text a cut can end early checks it first: plug's
+// recorder lines, datagrams, A10 replies and weights file. Drop this check once a V release returns
+// an error for such a text.
+pub fn complete(s string) bool {
+	mut depth := 0
+	mut in_string := false
+	mut after_backslash := false
+	for i, c in s {
+		if in_string {
+			if after_backslash {
+				after_backslash = false
+			} else if c == `\\` {
+				after_backslash = true
+			} else if c == `"` {
+				in_string = false
+			}
+			continue
+		}
+		match c {
+			`"` {
+				in_string = true
+			}
+			`{`, `[` {
+				depth++
+			}
+			`}`, `]` {
+				depth--
+				if depth <= 0 {
+					return depth == 0 && s[i + 1..].trim_space() == ''
+				}
+			}
+			else {}
+		}
+	}
+	return false
+}
+
 // dot is the scalar product of a and b.
 pub fn dot(a []f64, b []f64) f64 {
 	mut s := 0.0

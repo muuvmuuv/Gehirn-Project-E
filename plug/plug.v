@@ -90,7 +90,7 @@ fn read_datagram(raw []u8, key []u8, pilot_id string, last i64, now_us i64) !Dat
 		return error('plug: no PILOT_KEY to check datagrams with')
 	}
 	line := unseal(raw, key, '', 'datagram')!
-	if !complete(line) {
+	if !lcl.complete(line) {
 		return error('plug: unreadable datagram')
 	}
 	d := json2.decode[Datagram](line) or { return error('plug: unreadable datagram') }

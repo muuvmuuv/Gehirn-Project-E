@@ -38,7 +38,7 @@ pub fn load_dummy(recorder string, weights string) !Dummy {
 	mut d := Dummy{}
 	lines := os.read_lines(recorder) or { return d }
 	for line in lines {
-		if !complete(line) {
+		if !lcl.complete(line) {
 			continue
 		}
 		r := json2.decode[Record](line) or { continue }
@@ -230,7 +230,7 @@ struct Policy {
 // are what act needs, so act never indexes past a row and every output and its norm stay finite.
 fn load_policy(path string) !Policy {
 	text := os.read_file(path) or { return error('plug: cannot read the weights') }
-	if !complete(text) {
+	if !lcl.complete(text) {
 		return error('plug: weights are no policy in JSON')
 	}
 	p := json2.decode[Policy](text) or { return error('plug: weights are no policy in JSON') }
@@ -279,44 +279,4 @@ fn (p Policy) act(x []f64) []f64 {
 		}
 	}
 	return y
-}
-
-// complete reports whether s holds a JSON object or array whose every bracket closes, brackets in
-// strings aside, with nothing after it. V 0.5.2's x.json2 never returns from decoding a text that
-// ends right after a number inside an array, and a recorder line ends that way about every other
-// time a kill cuts it, so load_dummy decodes complete lines only, read_datagram complete
-// datagrams, open_feel complete replies and load_policy a complete file. Drop this check once a V
-// release returns an error for such a text.
-fn complete(s string) bool {
-	mut depth := 0
-	mut quoted := false
-	mut escaped := false
-	for i, c in s {
-		if quoted {
-			if escaped {
-				escaped = false
-			} else if c == `\\` {
-				escaped = true
-			} else if c == `"` {
-				quoted = false
-			}
-			continue
-		}
-		match c {
-			`"` {
-				quoted = true
-			}
-			`{`, `[` {
-				depth++
-			}
-			`}`, `]` {
-				depth--
-				if depth <= 0 {
-					return depth == 0 && s[i + 1..].trim_space() == ''
-				}
-			}
-			else {}
-		}
-	}
-	return false
 }
