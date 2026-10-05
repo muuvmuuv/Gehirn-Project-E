@@ -544,7 +544,7 @@ fn serve_hq(cfg Config) {
 	notes := chan string{cap: 64}
 	events := chan lcl.HqEvent{cap: 16}
 
-	// The Justfile's _fly recipe waits on `listening for the field` before it starts the field unit.
+	// scripts/stage.sh up waits on `listening for the field` before it starts the field unit.
 	println('hq: unit ${cfg.unit}, listening for the field at ${lcl.quoted(cfg.endpoint)}')
 	if cfg.watch.len > 0 {
 		mut w := wire.hq_watch(watch_session(cfg) or {
@@ -718,7 +718,7 @@ fn main() {
 			}
 			refusal := ar.refusal(msg.goal.verb, p)
 			if refusal != '' {
-				// The Justfile's _fly recipe waits on `armor: release refused`.
+				// The scenes in scripts/scenes wait on this line, such as `armor: release refused`.
 				println('armor: ${lcl.escaped(msg.goal.label())} refused')
 				push_outcome(outcomes, mut seen, lcl.Outcome{
 					t_ms: now
@@ -736,7 +736,7 @@ fn main() {
 				// magi/jev.v jev_delivery and tools/eval_dummy.py REACH repeat the 0.6 m.
 				on_target := near(p, 'beacon', lcl.beacon_reach + 0.1)
 
-				// The Justfile's _fly recipe waits on `released on target` in the journal.
+				// The scenes in scripts/scenes wait on `released on target` in the journal.
 				push_outcome(outcomes, mut seen, lcl.Outcome{
 					t_ms: now
 					kind: if on_target { 'released on target' } else { 'released off target' }
@@ -755,7 +755,7 @@ fn main() {
 		// Umbilical. Once the internal budget is gone the unit holds.
 		state := cable.state(now)
 		if state != link {
-			// The Justfile's _fly recipe waits on `connected to internal` and `internal to connected`.
+			// The scenes in scripts/scenes wait on these lines, such as `connected to internal`.
 			println('umbilical: ${link} to ${state}, ${cable.remaining_ms(now) / 1000} s internal left')
 			link = state
 		}
@@ -887,7 +887,7 @@ fn main() {
 			last_status = now
 			pct := ratio * 100.0
 
-			// The Justfile's _fly recipe waits on `seat pilot` and `seat dummy` in this line.
+			// The scenes in scripts/scenes wait on `seat pilot` and `seat dummy` in this line.
 			println('field: ${goal.label()} pose (${p.pose[0]:.2f}, ${p.pose[1]:.2f}) seat ${seat} sync ${pct:.0f}% authority ${authority:.2f} umbilical ${link}')
 		}
 		next, nap := pace(deadline, time.sys_mono_now())

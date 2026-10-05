@@ -60,7 +60,7 @@ The window is fixed at `screen_w` by `screen_h`, 1280 by 800 logical pixels; a R
 | Armor 拒否 and outcomes 結果 | `draw_logs` | 768 | 636 | 496 | 138, two boxes of 242 with a 12 px gap |
 | Footer | `draw_footer` | 16 | 781 | | one line at size 13 |
 
-Most panels are a `frame_box`: the `ground` fill, a 1 px `ember` outline, 12 px `orange` brackets on the corners from `corners`, and a tab, an orange box 20 px high that holds the English name in Barlow Condensed Black at size 15 in black, with the Japanese name beside it in orange mincho. MAGI and 活動限界 draw their own frames, MAGI without a tab and 活動限界 with a hazard band on top. `lamp` draws the header's three lights. The Justfile's `demo-record` crops its GIF to the MAGI box, so a change to that box changes the recipe too.
+Most panels are a `frame_box`: the `ground` fill, a 1 px `ember` outline, 12 px `orange` brackets on the corners from `corners`, and a tab, an orange box 20 px high that holds the English name in Barlow Condensed Black at size 15 in black, with the Japanese name beside it in orange mincho. MAGI and 活動限界 draw their own frames, MAGI without a tab and 活動限界 with a hazard band on top. `lamp` draws the header's three lights. `scripts/record.sh` crops its GIF to the MAGI box, so a change to that box changes the script too.
 
 ## Palette
 
@@ -197,7 +197,7 @@ Around the body sit eight range rings a meter apart, every second one brighter, 
 
 ### Boot sequence
 
-For `boot_ms`, 2.8 s from launch, `draw` shows `draw_boot` instead of the panels, while `frame` already folds every message in. It shows GEHIRN at 96 squeezed by 0.8 with a glow, hazard bands at the top and bottom, then five lines, one at 300 ms and one more every 380 ms: the bridge's own listening address and unit, then three lines from the show, A10神経接続 異常なし, ハーモニクス 全て正常値 and ボーダーライン クリアー, each with a dotted leader from `draw_line_with_config` to its value. A bar fills linearly over the 2.8 s. Below it stand `fan_line` and the line that the bridge only watches. The Justfile's `_fly` waits the boot out before it starts the field unit, so a demo's first vote shows on the panels.
+For `boot_ms`, 2.8 s from launch, `draw` shows `draw_boot` instead of the panels, while `frame` already folds every message in. It shows GEHIRN at 96 squeezed by 0.8 with a glow, hazard bands at the top and bottom, then five lines, one at 300 ms and one more every 380 ms: the bridge's own listening address and unit, then three lines from the show, A10神経接続 異常なし, ハーモニクス 全て正常値 and ボーダーライン クリアー, each with a dotted leader from `draw_line_with_config` to its value. A bar fills linearly over the 2.8 s. Below it stand `fan_line` and the line that the bridge only watches. `scripts/stage.sh` waits the boot out before it starts the field unit, so a demo's first vote shows on the panels.
 
 ### Link lights
 

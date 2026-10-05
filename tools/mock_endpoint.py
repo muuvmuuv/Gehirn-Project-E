@@ -394,7 +394,7 @@ def main() -> None:
     host, _, port = args.listen.rpartition(":")
     server = Server((host, int(port)), Handler)
 
-    # The Justfile's _fly recipe waits on this line.
+    # scripts/stage.sh up waits on this line.
     print(f"mock: serving on {args.listen}", file=sys.stderr, flush=True)
     try:
         server.serve_forever()

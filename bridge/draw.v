@@ -47,8 +47,8 @@ const release_keep = 2.0
 // seat, drawn as the harmonics graph's 絶対境界線; main.v threshold, which names this copy.
 const threshold = 0.3
 
-// boot_ms is how long the boot sequence runs before the panels, in milliseconds. The Justfile's
-// _fly recipe waits it out before it starts the field unit.
+// boot_ms is how long the boot sequence runs before the panels, in milliseconds. scripts/stage.sh
+// up waits it out before it starts the field unit.
 const boot_ms = 2800
 
 // fan_line says on the boot screen and in the footer whose this is not.
@@ -88,7 +88,7 @@ fn draw(ctx &gg.Context, s State, unit string, at string, now i64) {
 	}
 	ctx.draw_rect_filled(0, 0, screen_w, screen_h, ink)
 	draw_header(ctx, s, unit, now)
-	draw_magi(ctx, s, now, 16, 58, 736, 412) // the Justfile's demo-record crops its GIF to this block
+	draw_magi(ctx, s, now, 16, 58, 736, 412) // scripts/record.sh crops its GIF to this block
 	draw_harmonics(ctx, s, 16, 480, 736, 160)
 	draw_core(ctx, s, now, 16, 650, 736, 124)
 	draw_limit(ctx, s, now, 768, 58, 496, 210)

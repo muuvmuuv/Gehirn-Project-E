@@ -17,7 +17,7 @@ import lcl
 pub struct Dummy {
 	k     int = 7
 	limit int = 20000 // pilot ticks kept; tools/eval_dummy.py KNN_LIMIT copies it
-	min   int = 500   // ticks; the Justfile's _fly recipe sets pilot_s to fly them
+	min   int = 500   // ticks; scripts/stage.sh sets pilot_s to fly them
 mut:
 	xs     [][]f64
 	ys     [][]f64
