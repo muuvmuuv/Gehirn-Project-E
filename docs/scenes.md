@@ -29,3 +29,22 @@ In canon, an Eva without power or pilot can go berserk, and the commanders overr
 | 0:32 | MAGI 3/3, need 3: 可決, and the armor refuses `self_destruct` |
 
 On the bridge the MAGI block reads CODE 001 to 003 and FILE SELF_DESTRUCT at PRIORITY AAA, the forced ballots read "forced approve (--vote)" or "forced reject (--vote)", the ACTIVE GOAL stays HOLD, and the armor panel shows the refusal.
+
+## ep03-cable: Episode 3's cut cable
+
+- **Canon:** in Episode 3, "A Transfer", the Angel Shamshel cuts Unit-01's umbilical cable in the fight and throws it, and the unit fights on its internal battery. The counter reaches zero as the Angel dies, and Unit-01 stops ([Evangelion Wiki](https://evangelion.fandom.com/wiki/Episode:03), [transcript](https://www.animanga.com/scripts/textesgb/eva3.html)).
+- **Staged:** HQ is killed as the dummy plug takes the seat, before the first release reaches MAGI, and restarted 5 s after the power runs out. Internal power lasts 0:30 instead of 5:00 (`INTERNAL_BUDGET_MS`). The goto, the pilot and the dummy plug are the demo's.
+- **Real:** the field unit waits out the grace, 40 s as the demo sets it and 45 s by default, before it counts the cable as cut (`umbilical.Cable`). Without HQ there is no core and no quorum, so nothing irreversible happens and the payload stays aboard at the beacon (Invariant 6). On internal power the dummy plug keeps the last approved goal. Once the budget is spent the goal falls back to hold, which leaves the core's reflex and the dummy plug, which acts only toward an approved goal (Invariant 7), nothing to steer, so the body stands still. That the field loop also cuts a steering pilot's command at zero, whoever sits, the scene does not show, since a dummy plug never steers then; `main_test.v` `test_powered` does. The restarted HQ's pulse reconnects the cable and powers the body again, and its first deliberation is the release, which passes 3/3 and lands on target.
+- **Differs from canon:** Unit-01 fights on battery; here the unit only finishes the goto MAGI approved while HQ was up, since it can win no new one. The 5:00 runs as 0:30 so the scene stays short, and the counter reaching zero stops the body as it stops Unit-01, without an Angel to beat first. A dummy plug sits at zero where Shinji did.
+
+| Clock | Beat |
+| --- | --- |
+| 0:07 | goto approved 3/3, and a pilot takes the seat |
+| 0:20 | the dummy plug takes the seat, and HQ is killed |
+| 0:58 | the grace is over: internal power, 0:30 counting down |
+| 1:28 | power spent: the goal falls back to hold, and the body, sidestepping the walking human at the beacon, stops, since neither the core nor the dummy plug steers toward a hold |
+| 1:33 | HQ restarted |
+| 1:39 | the cable reconnects |
+| 1:40 | the release passes 3/3, on target |
+
+On the bridge HQ SILENT counts up and UMBILICAL SIGNAL LOST shows through the grace, then 内部 lights with INTERNAL BATTERY and NO QUORUM, and the 活動限界 clock counts down from 0:30, red and blinking. At zero it reads ACTIVITY LIMIT REACHED and INTERNAL POWER SPENT · UNIT HOLDS, and the active goal HOLD, activity limit.
