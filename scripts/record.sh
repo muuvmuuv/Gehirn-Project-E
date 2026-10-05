@@ -27,6 +27,9 @@ fi
 mkdir -p "$out/frames"
 out=$(cd "$out" && pwd)
 
+# A failed or stopped take leaves thousands of Retina frames otherwise; run/ keeps its logs.
+trap 'rm -rf "$out/frames" "$out/caption.ppm" "$out/gehirn-bridge"' EXIT
+
 # OpenGL, because sokol's screenshot readback fails on Metal (CONTRIBUTING.md, V 0.5.2
 # rule 6). gg saves frames 1 to 9000, 150 s at 60 fps, as gehirn-bridge_<n>.png. Keep the
 # window uncovered, since macOS slows a covered window's frames.
@@ -95,5 +98,4 @@ if [ -n "$r" ]; then
         "$out/gehirn-magi.gif"
     gif="$out/gehirn-magi.gif ($(du -h "$out/gehirn-magi.gif" | cut -f1))"
 fi
-rm -rf "$out/frames" "$out/caption.ppm" "$out/gehirn-bridge"
 echo "demo-record: $out/gehirn-demo.mp4 ($(du -h "$out/gehirn-demo.mp4" | cut -f1)) and $gif, from $n frames at $fps a second"
