@@ -55,6 +55,8 @@ gehirn is a fan project, not affiliated with khara or Gehirn Inc. The mark is or
 
 ## Files
 
+These are the brand's files. [assets/README.md](../assets/README.md) is the catalog of every asset in the repository, these included, with where each is used and its license.
+
 | File | Use |
 | --- | --- |
 | [assets/brand/mark.svg](../assets/brand/mark.svg) | The mark; it follows the viewer's light or dark scheme |
