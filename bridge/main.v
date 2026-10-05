@@ -33,17 +33,19 @@ const seg = 'dseg7'
 const fonts = ['/Library/Fonts/Arial Unicode.ttf',
 	'/System/Library/Fonts/Supplemental/Arial Unicode.ttf']!
 
-// App is the bridge: the unit it shows and where it listens, its ports, its opener and what it
-// shows. frame draws it 60 times a second.
+// App is the bridge: the unit it shows and where it listens, its ports, its opener, what it
+// shows, and its icons with the contacts the Dock icon shows. frame draws it 60 times a second.
 @[heap]
 struct App {
-	unit string
-	at   string
+	unit  string
+	at    string
+	icons Icons
 mut:
 	gg     &gg.Context = unsafe { nil }
 	ports  wire.BridgePorts
 	opener wire.Opener
 	state  State
+	docked [3]gg.Color = [orange, orange, orange]!
 }
 
 fn main() {
@@ -64,6 +66,7 @@ fn main() {
 	mut app := &App{
 		unit:   unit
 		at:     at
+		icons:  load_icons()
 		state:  State{
 			born: lcl.now_ms()
 		}
@@ -80,6 +83,7 @@ fn main() {
 		width:             screen_w
 		height:            screen_h
 		window_title:      'gehirn bridge ${unit}'
+		icon:              window_icon(app.icons)
 		bg_color:          ink
 		borderless_window: true
 		resizable:         false
@@ -171,6 +175,7 @@ fn frame(mut app App) {
 		}
 		app.state.take_event(e, now)
 	}
+	app.show_votes(now)
 	app.gg.begin()
 	draw(app.gg, app.state, app.unit, app.at, now)
 

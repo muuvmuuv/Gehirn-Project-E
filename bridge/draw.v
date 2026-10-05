@@ -38,6 +38,11 @@ const power = gg.Color{231, 130, 0, 255} // a lit 内部 or 外部 box
 const units = ['MELCHIOR-1', 'BALTHASAR-2', 'CASPER-3']!
 const shown_as = ['MELCHIOR • 1', 'BALTHASAR • 2', 'CASPER • 3']!
 
+// contacts are the top left corners of the mark's 2 by 2 contacts on its 16 unit grid, in the
+// order of units: MELCHIOR-1 right, BALTHASAR-2 on top, CASPER-3 left, as draw_magi places the
+// units. docs/brand.md gives the same grid, which docs/media/brand/mark.svg draws.
+const contacts = [[f32(10), 8]!, [f32(7), 4]!, [f32(4), 8]!]!
+
 // human_stop and release_keep are the armor's distances around a human in meters, which the scene
 // draws as rings; armor/armor.v Limits holds them and names this copy.
 const human_stop = 0.7
@@ -263,12 +268,53 @@ fn lamp(ctx &gg.Context, x f32, y f32, name string, state string, c gg.Color) f3
 	return 24 + nw + measure(ctx, state, size: 15, family: black)
 }
 
+// emblem draws gehirn's mark (docs/brand.md) on its 16 unit grid, u pixels a unit, at x, y: the
+// ring in paper and each contact in its unit's state at now (State.contact), flickering with
+// 審議中 while the unit deliberates, blinking with the panel's 故障 on a fault, and fading back
+// to orange after the verdict.
+fn emblem(ctx &gg.Context, s State, now i64, x f32, y f32, u f32) {
+	ctx.draw_circle_filled(x + 8 * u, y + 8 * u, 7 * u, paper)
+	ctx.draw_circle_filled(x + 8 * u, y + 8 * u, 5 * u, ink)
+	for i, p in contacts {
+		state, faded := s.contact(units[i], now)
+		c := match state {
+			'deliberating' { blink(now, 250, 0.5, thinking, thinking_dim) }
+			'fault' { mix(blink(now, 1000, 0.5, alert, alert_deep), orange, faded) }
+			else { mix(vote_color(state), orange, faded) }
+		}
+
+		ctx.draw_rect_filled(x + p[0] * u, y + p[1] * u, 2 * u, 2 * u, c)
+	}
+}
+
+// vote_color is a contact's steady color in state (State.contact), which the window's icons show:
+// orange idle, blue while the unit deliberates, green or red for an approval or a rejection, and
+// for a fault the dark red of the panel's blinking 故障, so a fault never reads as a rejection.
+fn vote_color(state string) gg.Color {
+	return match state {
+		'idle' { orange }
+		'deliberating' { thinking }
+		'approve' { aye }
+		'reject' { alert }
+		else { alert_deep }
+	}
+}
+
+// mix is the color t of the way from a to b, with t from 0 to 1.
+fn mix(a gg.Color, b gg.Color, t f64) gg.Color {
+	m := fn [t] (x u8, y u8) u8 {
+		return u8(f64(x) + (f64(y) - f64(x)) * t)
+	}
+	return gg.Color{m(a.r, b.r), m(a.g, b.g), m(a.b, b.b), m(a.a, b.a)}
+}
+
 fn draw_header(ctx &gg.Context, s State, unit string, now i64) {
 	hazard(ctx, 0, 0, screen_w, 8, orange, gg.Color{20, 11, 2, 255}, f32(now / 40))
-	glow(ctx, 16, 12, 'GEHIRN', size: 32, color: orange, family: mincho, sx: 0.82)
+	emblem(ctx, s, now, 16, 12, 2)
+	glow(ctx, 56, 12, 'GEHIRN', size: 32, color: orange, family: mincho, sx: 0.82)
 	tw := measure(ctx, 'GEHIRN', size: 32, family: mincho, sx: 0.82)
-	text(ctx, 28 + tw, 14, '発令所', size: 16, color: orange, family: mincho)
-	text(ctx, 28 + tw, 32, 'OPERATIONS BRIDGE', size: 11, color: ember, family: black)
+	text(ctx, 68 + tw, 14, '発令所', size: 16, color: orange, family: mincho)
+	text(ctx, 68 + tw, 32, 'OPERATIONS BRIDGE', size: 11, color: ember, family: black)
 	text(ctx, 330, 18, 'UNIT', size: 13, color: ember, family: black)
 	text(ctx, 362, 12, unit.to_upper(), size: 24, color: orange, family: black)
 	text(ctx, 470, 18, 'MISSION', size: 13, color: ember, family: black)

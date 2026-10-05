@@ -158,6 +158,59 @@ fn test_panel() {
 	}
 }
 
+struct ContactCase {
+	name   string
+	events []lcl.HqEvent // arriving at 1000, 2000, 3000 and on
+	unit   string
+	now    i64
+	want   string
+	faded  f64
+}
+
+fn test_contact() {
+	rejected := verdict(release, 2, 3, 'MELCHIOR-1=reject', 'BALTHASAR-2=approve',
+		'CASPER-3=approve')
+	cases := [
+		ContactCase{'idle before the first vote', [], 'CASPER-3', 5000, 'idle', 0},
+		ContactCase{'deliberating once the proposal goes to MAGI', [
+			opened(release),
+		], 'MELCHIOR-1', 1100, 'deliberating', 0},
+		ContactCase{'a ballot shows as it lands', [
+			opened(release),
+			ballot(release, 'CASPER-3', 'fault'),
+		], 'CASPER-3', 2100, 'fault', 0},
+		ContactCase{'the ballot holds after the verdict', [
+			rejected,
+		], 'MELCHIOR-1', 1000 + hold_ms, 'reject', 0},
+		ContactCase{'then fades', [
+			rejected,
+		], 'MELCHIOR-1', 1000 + hold_ms + fade_ms / 2, 'reject', 0.5},
+		ContactCase{'and is idle once faded', [
+			rejected,
+		], 'MELCHIOR-1', 1000 + hold_ms + fade_ms, 'idle', 0},
+		ContactCase{'a new vote turns it blue', [
+			rejected,
+			opened(reach),
+		], 'MELCHIOR-1', 2100, 'deliberating', 0},
+		ContactCase{'a vote that ends without a verdict leaves it idle', [
+			opened(release),
+			ballot(release, 'CASPER-3', 'approve'),
+			lcl.HqEvent{
+				fault: 'qwen3:8b: HTTP 429'
+			},
+		], 'CASPER-3', 3100, 'idle', 0},
+	]
+	for c in cases {
+		mut s := State{}
+		for i, e in c.events {
+			s.take_event(e, 1000 * (i + 1))
+		}
+		state, faded := s.contact(c.unit, c.now)
+		assert state == c.want, c.name
+		assert faded == c.faded, c.name
+	}
+}
+
 fn test_status_block() {
 	for seat, want in {
 		'pilot': 'PILOT'

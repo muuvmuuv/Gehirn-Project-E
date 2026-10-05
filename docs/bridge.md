@@ -16,7 +16,7 @@ export WATCH_KEY=<the key the run printed>
 ./gehirn-bridge
 ```
 
-Its window is its own: 1280 by 800, without the operating system's title bar or frame, and fixed in size. Drag it anywhere to move it, and quit it with Esc, or Cmd-Q on the Mac; on Linux the window manager moves it, most on Alt and drag.
+Its window is its own: 1280 by 800, without the operating system's title bar or frame, and fixed in size. Drag it anywhere to move it, and quit it with Esc, or Cmd-Q on the Mac; on Linux the window manager moves it, most on Alt and drag. Its icon in the Dock or the task bar is gehirn's mark, whose contacts follow the votes as the header's do.
 
 It boots for under three seconds through its own listening address and three lines from the show, and the boot screen and the footer say it is a fan project, not affiliated with khara or Gehirn Inc. Its fonts are built into the binary ([bridge/fonts](../bridge/fonts/README.md)); `VUI_FONT` names a fallback for glyphs they lack, such as Japanese in a model's why, where macOS's Arial Unicode is missing, as on Linux.
 
@@ -26,7 +26,7 @@ It boots for under three seconds through its own listening address and three lin
 - **活動限界**, the umbilical, in seven segment digits with centiseconds: the whole budget and 外部 while the cable holds, a dim AWAITING HQ until HQ's first pulse reaches the field unit, an amber UMBILICAL SIGNAL LOST with the seconds since HQ's last pulse once HQ has been silent for 5 s, an EMERGENCY overlay for 3 s as the field unit goes to internal power, then 内部 counting down, red and blinking for the last 30 s, and NO FIELD DATA once the field unit's views stop, since only they tell of the cable.
 - **シンクロ率**, the harmonics: the sync ratio and the core's authority over the last 30 s against the 30% 絶対境界線, with the seat and a benched dummy plug.
 - **The scene** as a radar fitted to everything it has shown: the body's trail and velocity, range rings a meter apart, brackets on a goto's target, each human's 0.7 m and 2 m rings from the armor and the distance to the nearest.
-- **The core** with its active goal and a 故障 strip of its faults, **armor refusals** as 拒否, **outcomes**, and a header with the mission clock and lights for the field unit, HQ and MAGI.
+- **The core** with its active goal and a 故障 strip of its faults, **armor refusals** as 拒否, **outcomes**, and a header with gehirn's mark, whose three contacts light up with each unit's ballot ([brand](brand.md#the-live-contacts)), the mission clock and lights for the field unit, HQ and MAGI.
 
 [website/index.html](../website/index.html) explains every panel on an annotated frame, for anyone who watches the bridge rather than runs it, and [bridge/README.md](../bridge/README.md) how it is drawn: V's `gg` on sokol with no UI library, its layout, palette and type, and every technique and rate of motion.
 

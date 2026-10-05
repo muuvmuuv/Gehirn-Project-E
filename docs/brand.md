@@ -24,7 +24,20 @@ It is drawn on a 16 unit grid. The ring runs around (8, 8) with an outer radius 
 | Dim | `#8B8680` | ゲヒルン E計画 on a dark ground, the bridge's `dim` |
 | Dim on light | `#5E5852` | ゲヒルン E計画 on a light ground |
 
-On a light ground the ring and the name turn ink.
+On a light ground the ring and the name turn ink. The contacts take four more colors, MAGI's states, but only where the mark shows a live vote:
+
+| State | Hex | The bridge's constant |
+| --- | --- | --- |
+| 審議中, deliberating | `#3CAEE0` | `thinking` |
+| 可決, approved | `#52E691` | `aye` |
+| 否決, rejected | `#FF2030` | `alert` |
+| 故障, fault | `#FF2030` blinking with `#6E0000`, or `#6E0000` held on the window's icons | `alert`, `alert_deep` |
+
+## The live contacts
+
+In the bridge's header, beside GEHIRN, each contact shows its unit's ballot in the current vote or the last one: orange before any vote, blue flickering in step with 審議中 while the unit deliberates, then green or red as its ballot lands, or on a fault blinking red in step with 故障. Three seconds after the verdict the contacts fade back to orange over one second, and a vote that ends without a verdict leaves them orange. The bridge's Dock icon on macOS, and its window icon on Linux, follow the same states, held steady without the flicker and the fade, a fault in the dark red of its blink. [bridge/README.md](../bridge/README.md#the-mark) says how both are drawn; `contacts` in `bridge/draw.v` holds the grid above.
+
+Everywhere else the contacts stay orange. A mark printed green or red would claim a vote that never happened.
 
 ## Size and space
 
@@ -32,6 +45,7 @@ On a light ground the ring and the name turn ink.
 - The lockup goes down to 200 px wide, where ゲヒルン E計画 stands about 10 px tall. Below that, use the mark and set the name in text.
 - Keep clear space of one ring width around the ring, 2 units of the grid, and the same around the lockup.
 - Scale the mark only as a whole. Do not stretch it, rotate it, round the contacts, add a notch, outline it or set the name in another face.
+- The bridge's header is the one place the mark stands beside GEHIRN set otherwise: the bridge's own title in Zen Old Mincho, squeezed and glowing in the show's style, which is not the lockup.
 
 The name in the lockup is Barlow Condensed Black and the Japanese Zen Old Mincho Black, both under the SIL Open Font License. Barlow Condensed is in [bridge/fonts](../bridge/fonts/README.md), but the bridge holds only a subset of Zen Old Mincho that lacks ゲ, ヒ, 計 and 画, so the full face comes from google/fonts, `ofl/zenoldmincho`. The lockup's SVGs hold both as outlines, so they need no font installed.
 
@@ -52,6 +66,7 @@ gehirn is a fan project, not affiliated with khara or Gehirn Inc. The mark is or
 | `website/favicon.ico`, `favicon-96x96.png` | The mark on an ink tile, for browsers without SVG favicons, PDFs and search results; the icon holds 16, 32 and 48 px |
 | `website/apple-touch-icon.png` | 180 px on opaque ink, since iOS fills transparency black |
 | `website/icon-192.png`, `icon-512.png`, `icon-maskable-512.png` | The web app manifest's icons; the maskable one keeps the ring inside the central 80% circle that Android's masks leave |
+| [bridge/icons](../bridge/icons) | The bridge's window icons, built into it: 32 px on an ink tile, and 128 px on an ink plate with a macOS icon's margins for the Dock |
 
 The social preview is not read from the repository. GitHub takes it only as an upload: Settings, General, Social preview, Edit, then social.png.
 
@@ -71,7 +86,9 @@ Each icon is an ink square under the mark in paper and orange, scaled into a box
 | icon-192.png | 192 | 192, 36 | 144 |
 | icon-512.png | 512 | 512, 96 | 384 |
 | icon-maskable-512.png | 512 | 512, 0 | 400 |
+| bridge/icons/icon-32.png | 32 | 32, 6 | 32 |
+| bridge/icons/icon-128.png | 128 | 104, 23 | 72 |
 
-The website's PNGs are then quantized to 64 colors without dithering, except the three in favicon.ico, which holds them as they are, as PNG entries of 32 bits.
+`bridge/icon_test.v` finds the contacts on the bridge's two by these boxes. The website's PNGs are then quantized to 64 colors without dithering, except the three in favicon.ico, which holds them as they are, as PNG entries of 32 bits.
 
 social.png is ink under a 12 px hazard band, stripes at 45 degrees as wide as the band is high, `#3D2200` on `#140B02`. The fan project line follows in Barlow Condensed Black at 34 px in paper, with 0.06 em between advances, on the base line 72 from x 96. lockup-dark.svg sits at three times its size with the ring's left edge at x 96 and its top at 128, and the README's first sentence follows in Barlow Condensed SemiBold at 38 px in paper, wrapped at 1088 px, its first base line 80 px below the lockup and each next one 48 px lower. `rsvg-convert` renders it, and it is quantized to 128 colors without dithering. The card copies that sentence, so a change to it in the README means a new card.

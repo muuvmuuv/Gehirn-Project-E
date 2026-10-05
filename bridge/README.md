@@ -2,7 +2,7 @@
 
 ![The bridge's MAGI block during a refused release: BALTHASAR • 2 and MELCHIOR • 1 red with 否決, CASPER • 3 green with 可決, and 決議 showing 否決 with 1/3 · NEED 3](../docs/media/bridge/magi-refused.png)
 
-People who see the bridge ask whether it runs on a custom engine or a UI library. Neither. It is V's own `gg` module, which ships with the compiler, drawing on sokol: Metal on the Mac, OpenGL on Linux. Text goes through fontstash. Every pixel comes from filled rectangles, triangles, convex polygons, circles, lines and glyphs, plus one matrix transform from `sokol.sgl` that squeezes type. There are no shaders of its own, no images, no UI library, no layout engine and no animation library. The whole bridge is about 1700 lines of V in `bridge/`, `draw.v` 1160 of them, plus 400 lines of tests for its state and 30 lines of Objective-C that let its borderless window take the keyboard and move on macOS.
+People who see the bridge ask whether it runs on a custom engine or a UI library. Neither. It is V's own `gg` module, which ships with the compiler, drawing on sokol: Metal on the Mac, OpenGL on Linux. Text goes through fontstash. Every pixel comes from filled rectangles, triangles, convex polygons, circles, lines and glyphs, plus one matrix transform from `sokol.sgl` that squeezes type. There are no shaders of its own, no images on screen, no UI library, no layout engine and no animation library; two PNGs are only the window's icon. The whole bridge is about 1900 lines of V in `bridge/`, `draw.v` 1210 of them, plus 500 lines of tests for its state and its icons and 30 lines of Objective-C that let its borderless window take the keyboard and move on macOS.
 
 This file is for anyone curious how the bridge is drawn or about to change its look. [docs/bridge.md](../docs/bridge.md) says how to run it and what each panel shows, [website/index.html](../website/index.html) explains the panels to someone watching, and [ADR-0005](../docs/adr/0005-the-bridge.md) says why the bridge exists and why it only watches. Function names and numbers below are the ones in `main.v`, `state.v` and `draw.v`; where this file and the code disagree, the code is right and this file is stale.
 
@@ -43,6 +43,8 @@ AppKit lets a window without a title bar neither become key nor be moved, and gi
 
 Esc quits, and on macOS Cmd-Q, the Quit item V's sokol puts in the menu bar. `on_event` exits on Esc instead of calling `gg`'s `quit`, because sokol closes a macOS window with `performClose:`, as if its close button were clicked, and AppKit only beeps at a window that has none, once a frame. The bridge holds nothing to save, so both end the process at once.
 
+The window's icon is gehirn's mark ([docs/brand.md](../docs/brand.md)), from two PNGs in `bridge/icons` that `icon.v` builds into the binary and `load_icons` decodes with `stbi` into the RGBA pixels sokol takes: 32 px on an ink tile and 128 px on an ink plate with a macOS icon's margins. `main` hands both to `gg.new_context` as `icon`, and sokol sets them as the window opens. On macOS, where a bare executable has no icon of its own, sokol puts the image nearest the Dock tile's 128 points into the tile, so the Dock shows the 128 px plate; X11 gets both as `_NET_WM_ICON` and lets the window manager choose, which no run has checked yet; each change replaces both. Both icons follow the votes too (The mark, below).
+
 `edge` gives the window the frame the panels have, a 1 px `ember` line around it with 24 px `orange` brackets on its corners. It is drawn after the panels and the EMERGENCY overlay, under the scanlines, and on the boot screen too, so the window ends at a monitor's edge instead of fading into a dark desktop. Saved frames carry it, since `gg` saves what `draw` paints.
 
 ## Layout
@@ -81,7 +83,7 @@ Most panels are a `frame_box`: the `ground` fill, a 1 px `ember` outline, 12 px 
 | `aye` | 82, 230, 145 | 可決, a good outcome, a live link | TomaszRewak/MAGI's `#52e691` |
 | `nay` | 164, 20, 19 | A unit's 否決 panel | TomaszRewak/MAGI's `#a41413` |
 | `alert` | 255, 32, 48 | 否決 as text, humans, refusals, faults, a cut cable | Own |
-| `alert_deep` | 110, 0, 0 | The dark phase of red blinks and red hazard bands | Own |
+| `alert_deep` | 110, 0, 0 | The dark phase of red blinks, held on the window's icons for a faulted unit, and red hazard bands | Own |
 | `caution` | 255, 200, 0 | HQ silent while the cable still counts as connected | Own |
 | `paper` | 236, 232, 225 | Body text, the white flashes | Kept from the bridge's first look |
 | `dim` | 139, 134, 128 | Secondary text, NO DATA | Kept from the bridge's first look |
@@ -140,6 +142,12 @@ Two kinds of font do not work with fontstash. A `.ttc` collection draws nothing,
 Three 9 px `stroke`s connect them under the panels, one level at y 430 and two diagonals, with MAGI between them in Barlow Black at 40. A unit shows its name at 22, its word in mincho at 34 (待機 idle, 審議中, 可決, 否決 or 故障), and once its ballot lands its model and latency at 13 and up to three lines of its why. Its fill says the state: `thinking` flickering while it deliberates, `aye` with black text on 可決, `nay` with `paper` text on 否決, `pitch` with a red 故障 blinking once a second on a fault, and 18, 18, 22 with `ember` text while idle.
 
 `header` draws 提 訴 and 決 議 between four 3 px `rule` lines 210 px wide, stretched by 1.5 and glowing. Below 提訴 sits the status block from the show, misspelled EXTENTION included, at 19 and stretched by 1.1: CODE counts the proposals, FILE is the verb, EXTENTION the slowest ballot in milliseconds, EX_MODE the seat, blinking red for DUMMY and BENCHED, and PRIORITY AAA when every unit must approve or AA for a majority.
+
+### The mark
+
+`emblem` draws gehirn's mark at the left of the header, 32 px square at 16, 12, on the mark's own 16 unit grid at 2 px a unit: a `paper` circle of radius 14 under an `ink` one of 10 make the ring, and `contacts` places three 4 px squares, MELCHIOR-1 right, BALTHASAR-2 on top and CASPER-3 left, as `draw_magi` places the units. GEHIRN follows at 56. Each contact shows its unit through `State.contact`: orange before a vote, `blink(now, 250, 0.5, thinking, thinking_dim)` while the unit deliberates, in phase with the panels' 審議中, then `aye` or `alert` from the moment its ballot lands, or on a fault `blink(now, 1000, 0.5, alert, alert_deep)`, in phase with the panel's 故障. `hold_ms`, 3 s after the verdict, the ballot starts to fade, and `mix` carries it linearly back to `orange` over `fade_ms`, 1 s. A vote that ends without a verdict, at a cut or a core fault, turns the contacts orange at once, since `abandon` clears `verdict_at`.
+
+`show_votes` puts the same states on the window's icons, steady: blue without the flicker, a fault in `alert_deep`, the dark phase of its blink, and orange again as soon as the fade starts, so the icons change only as a vote opens, as each ballot lands and once the hold ends. It compares the three colors with the ones it set last and only then calls `sapp_set_icon` through `show_icon` in `window.c.v`, about five times a vote. `recolor` copies each icon and turns each contact's orange into its color: red minus blue runs from -2 on ink to 255 on orange and 11 on paper, so it says how much orange a pixel holds, and the pixel keeps that much of the new color over ink, which keeps the contacts' antialiased edges; the direction from the icon's center tells the three contacts apart. `show_icon` hands sokol both recolored icons, since on X11 `sapp_set_icon` replaces every image it set before; on macOS that swaps the Dock tile's image.
 
 ### 審議中 and a landing ballot
 
@@ -221,6 +229,7 @@ Nothing eases. Every change is a hard step or a linear ramp, computed from `now`
 | 否決 bands on the MAGI block | `draw_magi` | For 1.6 s, 192 ms on in every 320 | Step |
 | 審議中: unit fill, 決議 box, MAGI light | `unit_panel`, `draw_magi`, `draw_header` | 250 ms period, half on | Step |
 | A ballot landing | `unit_panel` | 160 ms, white from 85% to nothing | Linear |
+| The mark's contacts | `emblem` | The 審議中 flicker while a unit deliberates and the 故障 blink on a fault; a ballot held until 3 s after the verdict, then 1 s back to orange | Step, then linear |
 | The verdict stamp | `draw_magi` | 140 ms, white from 70% to nothing, the word from 30% to full | Linear |
 | A faulted unit's 故障 | `unit_panel` | 1 s period, half on | Step |
 | The newest fault's hexagon | `draw_core` | 250 ms period, half on, for 2 s | Step |
@@ -268,4 +277,4 @@ ffmpeg -i frame.png -vf scale=1280:800,crop=504:356:764:274 docs/media/bridge/sc
 
 **The fonts** are Barlow Condensed and Zen Old Mincho from google/fonts and DSEG7 Classic from keshikan/DSEG, each under the SIL Open Font License 1.1 with its license text beside it; [fonts/README.md](fonts/README.md) lists the sources, the license terms and the subset.
 
-**What the bridge does not use.** It holds no asset of khara's or the show's: no frames, no audio, no Matisse font, no NERV fig leaf logo, no SEELE mark and no Evangelion silhouette. [khara's guideline for fan works](https://www.khara.co.jp/guideline/) asks fan works to leave out the show's video, music and audio and anything that could be mistaken for an official work. Every shape on the bridge is drawn by `draw.v` in the show's style, and its Japanese is ordinary words, the show's terms and three short lines from it; the MAGI units' names are in Latin letters. GEHIRN in the header is this project's name set in Zen Old Mincho, not a logo. Gehirn Inc. is a real company, which makes the NERV防災 disaster app, so `fan_line` says on the boot screen and in the footer that this is a fan project, not affiliated with khara or Gehirn Inc.
+**What the bridge does not use.** It holds no asset of khara's or the show's: no frames, no audio, no Matisse font, no NERV fig leaf logo, no SEELE mark and no Evangelion silhouette. [khara's guideline for fan works](https://www.khara.co.jp/guideline/) asks fan works to leave out the show's video, music and audio and anything that could be mistaken for an official work. Every shape on the bridge is drawn by `draw.v` in the show's style, and its Japanese is ordinary words, the show's terms and three short lines from it; the MAGI units' names are in Latin letters. GEHIRN in the header is this project's name set in Zen Old Mincho, and the ring beside it gehirn's own mark, original and resembling no official one ([docs/brand.md](../docs/brand.md#a-fan-project)). Gehirn Inc. is a real company, which makes the NERV防災 disaster app, so `fan_line` says on the boot screen and in the footer that this is a fan project, not affiliated with khara or Gehirn Inc.

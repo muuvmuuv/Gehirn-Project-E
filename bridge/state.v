@@ -23,6 +23,12 @@ const emergency_ms = 3000
 // unit's 10 views a second.
 const history = 300
 
+// hold_ms is how long the mark's contacts keep each unit's ballot after the verdict, in
+// milliseconds, and fade_ms how long they then take to fade back to orange; docs/brand.md gives
+// both.
+const hold_ms = 3000
+const fade_ms = 1000
+
 // Sample is one view's sync ratio and the core's share of the controls, for the harmonics graph.
 struct Sample {
 	sync      f64
@@ -159,6 +165,22 @@ fn (s State) panel(unit string) (string, lcl.Vote) {
 		}
 	}
 	return v.vote, v
+}
+
+// contact is what unit's contact in the mark shows at now, with how far it has faded back to idle,
+// from 0 to 1: its ballot from the moment it lands until hold_ms after the verdict, fading over
+// fade_ms; deliberating while MAGI have the proposal and its ballot has not landed; else idle,
+// also after a vote that ended without a verdict.
+fn (s State) contact(unit string, now i64) (string, f64) {
+	state, _ := s.panel(unit)
+	if s.deliberating || state == 'idle' {
+		return state, 0.0
+	}
+	t := f64(now - s.verdict_at - hold_ms) / fade_ms
+	if s.verdict_at == 0 || t >= 1 {
+		return 'idle', 0.0
+	}
+	return state, math.max(t, 0)
 }
 
 // front is list with x added in front, cut to keep.
