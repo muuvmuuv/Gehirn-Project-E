@@ -149,6 +149,10 @@ Work top to bottom. Phases 2, 3 and 9 can run in parallel once Phase 1 has lande
 1. [x] A justfile as the one entry point: `just check` for the checks, `just missions` for the mock missions, `just build` for the binary, and later the image pipeline of Phase 6. CONTRIBUTING.md, `lefthook.yml` and the README then call the recipes instead of repeating the commands.
 2. [x] `just demo`: one command, without keys, that flies the whole story on the mock with HQ, the field unit and the bridge apart, narrates each beat in the terminal and stops everything on exit or Ctrl-C. The README's quick start leads with it.
 3. [x] `just demo-record`: the demo recorded from the bridge's own frames into an MP4 for X, with the grace sped up under a caption, and a looping GIF of the release going from 否決 to 可決.
+4. [ ] Continuous checks and release binaries on GitHub Actions: `just check` on every push, validated with `actionlint` before it lands, and on a tag the binaries for macOS on Apple Silicon and Linux on x86_64 and aarch64 (gehirn, gehirn-bridge, gehirn-gamepad), plus the field unit as a static musl build (Invariant 9). V 0.5.2 comes from its release archive, pinned by checksum like zenoh-c. Open for the owner: signing and notarizing the macOS binaries, which needs an Apple Developer account, or telling users to clear the quarantine flag; and, while the repository is private, macOS runners count ten times against the free minutes, so releases build on tags only.
+5. [ ] Canon scenes as scripts in `scripts/scenes/`, flown with `just scene=<id> demo` and recorded with `just scene=<id> demo-record`: Episode 13 first, then Episodes 3, 19 and 6 ([docs/research/canon.md](docs/research/canon.md)). Each scene says what is staged and what is real.
+6. [ ] Split the docs: a short README with the pitch, the demo and links, and one document per topic under `docs/` (architecture, configuration, the bridge, piloting and the gamepad, MAGI and its measured lineups, safety, scenes), with PLAN staying the handoff.
+7. [ ] The website: a boot and a scene recording on `website/`, looping and muted, beside the guide to the bridge.
 
 ### Phase 0: Real models
 
