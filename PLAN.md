@@ -1,6 +1,6 @@
 # Project E
 
-Codename GEHIRN, repository and binary `gehirn`. In canon, Project E is the program GEHIRN ran to build the Evas. Here it builds a control stack in V for a body that does not exist yet: a core proposes goals, MAGI judge them, a pilot or the dummy plug steers, and a restraint armor holds the body.
+Codename GEHIRN, repository `gehirn-project-e`, binary `gehirn`. In canon, Project E is the program GEHIRN ran to build the Evas. Here it builds a control stack in V for a body that does not exist yet: a core proposes goals, MAGI judge them, a pilot or the dummy plug steers, and a restraint armor holds the body.
 
 This file is the handoff to Claude Code: where the project stands, the rules that do not bend, and the work ahead. README.md explains the parts and how to run them, and docs/adr holds the decisions. Read this file completely before starting a task. Tick tasks when they land, and move anything learned the hard way into Known issues or an ADR.
 
