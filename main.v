@@ -803,7 +803,8 @@ fn main() {
 		} else if seat == 'dummy' {
 			authority = share(mut dummy_sync, u_seat, u_core)
 			if dummy_sync.ratio <= threshold {
-				// tools/eval_dummy.py BENCHED counts these lines.
+				// tools/eval_dummy.py BENCHED counts these lines, and scripts/scenes/ep19-bench.sh
+				// waits on `benched until the pilot is back`.
 				pct := dummy_sync.ratio * 100.0
 				println('plug: dummy plug out of sync at ${pct:.0f}%, benched until the pilot is back')
 				benched = true

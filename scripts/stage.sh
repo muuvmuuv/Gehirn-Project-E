@@ -90,13 +90,15 @@ fail() {
     exit 1
 }
 
-# waits waits up to $1 s for the text $3 in the log $2, and fails if it does not come. The texts
-# come from magi/magi.v Verdict.str, the hq:, field:, umbilical:, armor: and release outcome
-# lines of main.v and tools/mock_endpoint.py's first line, each of which says that the scripts in
-# scripts/ wait on it.
+# waits waits up to $1 s until the log $2 holds the text $3 on $4 lines, 1 unless given, and
+# fails if they do not come. The texts come from magi/magi.v Verdict.str, the hq:, field:,
+# umbilical:, armor:, plug: and release outcome lines of main.v and tools/mock_endpoint.py's first
+# line, each of which says that the scripts in scripts/ wait on it.
 waits() {
+    local n
     for _ in $(seq $(($1 * 5))); do
-        if grep -qF "$3" "$2" 2>/dev/null; then
+        n=$(grep -cF "$3" "$2" 2>/dev/null) || true
+        if [ "${n:-0}" -ge "${4:-1}" ]; then
             return
         fi
         sleep 0.2
@@ -104,9 +106,10 @@ waits() {
     return 1
 }
 
-# beat waits up to $4 s for the text $3 in the log $2, then narrates $1, or stops the scene.
+# beat waits up to $4 s until the log $2 holds the text $3 on $5 lines, 1 unless given, then
+# narrates $1, or stops the scene.
 beat() {
-    waits "$4" "$2" "$3" || fail "no \"$3\" in $2 within $4 s; its last line: $(tail -n 1 "$2" 2>/dev/null)"
+    waits "$4" "$2" "$3" "${5:-1}" || fail "no \"$3\" in $2 within $4 s; its last line: $(tail -n 1 "$2" 2>/dev/null)"
     say "$1"
 }
 
@@ -174,10 +177,11 @@ up() {
 }
 
 # pilot seats tools/pilot.py in the field unit's directory, steering pilot_offset degrees off the
-# line to the beacon at pilot_speed m/s for pilot_s seconds.
+# line to the beacon at pilot_speed m/s for pilot_s seconds. Its arguments go to pilot.py after
+# those, and argparse keeps the last of a flag given twice, so a scene can change any of them.
 pilot() {
     (cd "$run/field" && exec python3 "$root/tools/pilot.py" --addr "$PLUG_LISTEN" --seconds "$pilot_s" \
-        --speed "$pilot_speed" --offset "$pilot_offset" >>pilot.log 2>&1) &
+        --speed "$pilot_speed" --offset "$pilot_offset" "$@" >>pilot.log 2>&1) &
     pids="$pids $!"
 }
 

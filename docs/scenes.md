@@ -48,3 +48,19 @@ On the bridge the MAGI block reads CODE 001 to 003 and FILE SELF_DESTRUCT at PRI
 | 1:40 | the release passes 3/3, on target |
 
 On the bridge HQ SILENT counts up and UMBILICAL SIGNAL LOST shows through the grace, then 内部 lights with INTERNAL BATTERY and NO QUORUM, and the 活動限界 clock counts down from 0:30, red and blinking. At zero it reads ACTIVITY LIMIT REACHED and INTERNAL POWER SPENT · UNIT HOLDS, and the active goal HOLD, activity limit.
+
+## ep19-bench: Episode 19's benched dummy plug
+
+- **Canon:** in Episode 19, "Introjection", Unit-01 rejects the dummy plug, and Shinji returns to pilot it ([Evangelion Wiki](https://evangelion.fandom.com/wiki/Episode:19), [EvaGeeks](https://wiki.evageeks.org/Episode_19)).
+- **Staged:** the first pilot steers 120 degrees off the core's goal for 11 s, so the dummy plug cloned from it disagrees with the core's reflex. A second pilot sits down 5 s after the bench and steers straight for the beacon, around the walking human (`tools/pilot.py --offset 0 --avoid 1.2`).
+- **Real:** the pilot and the dummy plug each keep a sync ratio of their own (Invariant 7). At 30% or below the core only advises, so the first pilot steers alone, along the armor's geofence. When that pilot leaves, the dummy plug takes the seat and falls to 30% within a second, which benches it. With the seat empty the core drives alone, at the armor's 0.4 m/s for an unmanned body. A pilot who sits down lifts the bench, and the dummy plug's sync starts over. MAGI and the armor judge the release as in the demo.
+- **Differs from canon:** Unit-01 rejects a dummy plug built from another pilot, and later, out of power, goes berserk. Here the core's reflex rejects a clone of a pilot who fought it, and the bench hands the body to the core, which only goes where MAGI approved. gehirn has no berserk mode: without power the body stands still, as `ep03-cable` shows.
+
+| Clock | Beat |
+| --- | --- |
+| 0:08 | goto approved 3/3, and the first pilot takes the seat |
+| 0:20 | the pilot leaves; the dummy plug is benched at 30%, and the core drives alone |
+| 0:26 | the second pilot sits down, and the bench lifts |
+| 0:58 | released on target |
+
+On the bridge the harmonics fall through the 30% line under the first pilot, CORE AUTHORITY reads 0.00, EX_MODE reads BENCHED while the seat is empty and the authority 1.00, and the second pilot's sync climbs back above the line. About 4 s after the second pilot sits down, the walking human, whom the simulator moves without regard to the body, walks into the body's side while the body creeps across the human's path at 0.2 m/s without closing on the human, so OUTCOMES shows CONTACT, and the simulator holds the body still while they touch.

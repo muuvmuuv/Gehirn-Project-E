@@ -2,6 +2,7 @@
 # Episode 3's cut cable, which docs/scenes.md describes: without HQ there is no quorum, the unit
 # runs on internal power and stands still once it is spent, and HQ's pulse reconnects it. `just
 # scene=ep03-cable demo` and scripts/record.sh fly it; scripts/stage.sh reads its arguments.
+# shellcheck disable=SC2119 # the scene adds no arguments to the stage's up and pilot
 set -euo pipefail
 
 # shellcheck source=scripts/stage.sh
@@ -13,7 +14,6 @@ export INTERNAL_BUDGET_MS=30000
 say "Episode 3, \"A Transfer\": Shamshel cuts the umbilical cable, and Unit-01 fights on internal power until the counter reaches zero and it stops"
 say "staged: HQ is killed as the dummy plug takes the seat, before the release reaches MAGI, so a dummy plug sits at zero where Shinji did, and internal power lasts 0:30 instead of 5:00"
 say "real: the grace, 40 s as the demo sets it, no quorum without HQ, the goal falling back to hold at zero, which leaves the core and the dummy plug nothing to steer, the reconnect on HQ's pulse, and the release after it"
-# shellcheck disable=SC2119 # the scene adds nothing to the mock's arguments
 up
 beat "goto approved; the core steers toward the beacon" "$run/hq/hq.log" 'need 2: 可決' 30
 ballots 'need 2: 可決'

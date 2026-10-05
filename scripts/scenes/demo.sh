@@ -2,6 +2,7 @@
 # The demo: the whole mission, narrated beat by beat, from the goto through the refused and the
 # approved release to the cut cable and the reconnect, with HQ, the field unit and the bridge
 # apart. `just demo` and scripts/record.sh fly it; scripts/stage.sh reads its arguments.
+# shellcheck disable=SC2119 # the demo adds no arguments to the stage's up and pilot
 set -euo pipefail
 
 # shellcheck source=scripts/stage.sh
@@ -24,7 +25,6 @@ either() {
     done
 }
 
-# shellcheck disable=SC2119 # the demo adds nothing to the mock's arguments
 up
 beat "goto approved; the core steers toward the beacon" "$run/hq/hq.log" 'need 2: 可決' 30
 ballots 'need 2: 可決'
