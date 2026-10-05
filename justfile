@@ -4,8 +4,9 @@
 # V 0.5.2 uploads the failing C line and the V source around it to bugs.vlang.io when a C build fails.
 export V_C_ERROR_BUG_REPORT_DISABLED := "1"
 
-# Runs every check on the working tree.
-check: fmt vet test py
+# Runs every check on the working tree, and verifies that this file is formatted; `just --fmt` fixes it.
+check: fmt vet test py shell
+    @{{ just_executable() }} --justfile {{ quote(justfile()) }} --fmt --check
 
 # Verifies that V files are formatted; `v fmt -w` fixes them.
 fmt *paths=".":
@@ -27,6 +28,11 @@ zenoh:
 py *paths="tools/*.py sidecar/*.py":
     for t in tools/test_*.py; do python3 "$t" || exit 1; done
     python3 -m py_compile {{ paths }}
+
+# Checks shell scripts with shellcheck, following sources, and their format; `shfmt -i 4 -ci -w` fixes it.
+shell *paths="scripts/*.sh scripts/scenes/*.sh .claude/hooks/*.sh":
+    shellcheck -x {{ paths }}
+    shfmt -i 4 -ci -d {{ paths }}
 
 # Builds the release binary ./gehirn.
 build: zenoh

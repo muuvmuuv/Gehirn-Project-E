@@ -3,6 +3,7 @@
 # warnings as errors (CONTRIBUTING.md, Checks). `v -check .` skips _test.v files, so an
 # edited test is checked on its own. Exit 2 hands the compiler output back to Claude.
 set -uo pipefail
+export V_C_ERROR_BUG_REPORT_DISABLED=1 # CONTRIBUTING.md, V 0.5.2 rule 9
 
 file=$(jq -r '.tool_input.file_path // empty')
 case "$file" in

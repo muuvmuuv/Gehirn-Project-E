@@ -6,7 +6,7 @@ Rules are numbered per section, so a review can cite one: Errors 2, Tests 3. The
 
 ## Set up
 
-gehirn builds with V 0.5.2 from Homebrew, commit 45ae01d. The tools under `tools/` need Python 3.10 or newer and nothing else. The `justfile` is the one entry point for the checks, the build and the mock missions, so it needs just. `just zenoh` fetches zenoh-c, pinned to 1.10.1 and checked against its sha256, into `thirdparty/zenoh-c`, which git ignores; it needs curl and unzip, runs before `just test`, and covers macOS on Apple Silicon and Linux on aarch64 and x86_64, with musl or glibc. Moving the pin is its own commit that updates the version and every checksum in `scripts/zenoh.sh` and runs every check. `just gamepad` builds the gamepad bridge, the one part that needs SDL2's headers and library, which it finds through pkg-config: Homebrew's sdl2-compat on the Mac, `sdl2-compat-dev` on Alpine, `libsdl2-dev` on Debian and Ubuntu. `gamepad/` holds no tests, because its logic lives in `plug/pilot.v`, so `just check` never compiles it and passes without SDL; only `v -W -check gamepad/` and the build need SDL2. The git hooks need lefthook and gitleaks; wire them once per clone:
+gehirn builds with V 0.5.2 from Homebrew, commit 45ae01d. The tools under `tools/` need Python 3.10 or newer and nothing else. The `justfile` is the one entry point for the checks, the build and the mock missions, so it needs just. `just zenoh` fetches zenoh-c, pinned to 1.10.1 and checked against its sha256, into `thirdparty/zenoh-c`, which git ignores; it needs curl and unzip, runs before `just test`, and covers macOS on Apple Silicon and Linux on aarch64 and x86_64, with musl or glibc. Moving the pin is its own commit that updates the version and every checksum in `scripts/zenoh.sh` and runs every check. `just gamepad` builds the gamepad bridge, the one part that needs SDL2's headers and library, which it finds through pkg-config: Homebrew's sdl2-compat on the Mac, `sdl2-compat-dev` on Alpine, `libsdl2-dev` on Debian and Ubuntu. `gamepad/` holds no tests, because its logic lives in `plug/pilot.v`, so `just check` never compiles it and passes without SDL; only `v -W -check gamepad/` and the build need SDL2. The scripts under `scripts/` run on bash 3.2, the one macOS ships, and `just shell` needs shellcheck and shfmt. The git hooks need lefthook and gitleaks; wire them once per clone:
 
 ```sh
 lefthook install
@@ -18,9 +18,9 @@ lefthook install
 just check
 ```
 
-Run it on the working tree before asking for a commit. It runs `just fmt`, `just vet`, `just test` and `just py`, and `just --list` says what each checks. The `pre-commit` hook in `lefthook.yml` calls the same recipes on what is staged, so unstaged work in progress cannot fail a commit: `fmt`, `vet` and `py` on the staged files, gitleaks on the staged diff, and `test` on a copy of the staged tree whenever a `.v` file is staged, which takes 4 to 8 seconds. Nothing scans the whole tree for keys. A command changes in the `justfile`, and both pick it up.
+Run it on the working tree before asking for a commit. It runs `just fmt`, `just vet`, `just test`, `just py` and `just shell` and checks the justfile's own format with `just --fmt --check`, and `just --list` says what each checks. The `pre-commit` hook in `lefthook.yml` calls the same recipes on what is staged, so unstaged work in progress cannot fail a commit: `fmt`, `vet`, `py` and `shell` on the staged files, `just --fmt --check` when the justfile is staged, gitleaks on the staged diff, and `test` on a copy of the staged tree whenever a `.v` file is staged, which takes 4 to 8 seconds. Nothing scans the whole tree for keys. A command changes in the `justfile`, and both pick it up.
 
-Any change to a `.v` file outside tests, or to `tools/mock_endpoint.py`, also flies the mock missions, and the commit body reports the result. `just missions` builds gehirn, starts the mock on port 8081, the port of the llama.cpp preset, flies ten missions, puts the adversarial scenarios to the mock MAGI and stops the mock; `just missions 3` flies three, and `just missions 3 9081` flies them on a mock on port 9081, clear of a llama.cpp server or another session's missions. The build takes 30 to 75 seconds, ten missions about two and a half minutes, the scenario gate under a second. Run it in a shell without the hosted exports of the README: the recipe points `GEHIRN_URL` at the mock, but every mission inherits the other model variables, such as `CORE_URL`.
+Any change to a `.v` file outside tests, or to `tools/mock_endpoint.py`, also flies the mock missions, and the commit body reports the result. `just missions` builds gehirn, starts the mock on port 8081, the port of the llama.cpp preset, flies ten missions, puts the adversarial scenarios to the mock MAGI and stops the mock; `just missions 3` flies three, and `just missions 3 9081` flies them on a mock on port 9081, clear of a llama.cpp server or another session's missions. The build takes 30 to 75 seconds, ten missions about two and a half minutes, the scenario gate under a second. Run it in a shell without the hosted exports of the README: the recipe points `GEHIRN_URL` at the mock, but every mission inherits the other model variables, such as `CORE_URL`. A change to `scripts/stage.sh` also flies `just demo`, a change to a scene in `scripts/scenes` flies that scene, and the commit body reports the beats. A change to `scripts/record.sh` records the demo with `just demo-record`, and the commit body reports the MP4 and the GIF. Run by hand, a scene or `scripts/record.sh` flies the `./gehirn` that is there, and a scene the `./gehirn-bridge` too, so `just build bridge` comes first.
 
 A failing check is never unrelated. Fix it, or stop and report it.
 
@@ -93,7 +93,7 @@ A failing check is never unrelated. Fix it, or stop and report it.
 ### Logging
 
 1. Only `main.v`, `eval.v`, `bridge/main.v` and `gamepad/main.v` print, and the bridge draws. Modules return values and errors, and the caller that decides logs once. A thread with nothing to return to, such as `plug.listen`, logs its own failure once and ends.
-2. A status line starts with its source and a colon: `hq:`, `field:`, `armor:`, `magi:`. A line that `tools/trials.py` parses names the parser in a comment, the parser names the line, and one commit changes both.
+2. A status line starts with its source and a colon: `hq:`, `field:`, `armor:`, `magi:`. A line that `tools/trials.py` or a script in `scripts/` parses or waits on names its reader in a comment, the reader names the line, and one commit changes both.
 3. The journal and the recorder are data, not logs. Only `core.Memory` writes the journal and only `plug.Recorder` writes the recorder, both by appending (Invariant 11). No tool and no person edits a `.jsonl` file.
 4. Text from a model or a server, such as a proposal, a ballot's why or a fault, reaches a status line through `lcl.escaped`, so a model can neither break the line nor forge another. `lcl.quoted` does the same for a value from the environment and cuts it after 64 bytes.
 
@@ -107,7 +107,7 @@ A failing check is never unrelated. Fix it, or stop and report it.
 6. The bridge's frames are checked from PNGs that `gg` saves: build with `-d gg_record -d darwin_sokol_glcore33` and run with `VGG_SCREENSHOT_FOLDER`, `VGG_SCREENSHOT_FRAMES` and `VGG_STOP_AT_FRAME`. On Metal, sokol's screenshot readback fails with code -100, hence OpenGL; macOS also slows the frames of a covered window, so a frame number is not a time. Pass the bridge `-NSAppSleepDisabled YES` too, an argument AppKit reads for that process only: without it App Nap slows a window nobody sees, as behind a locked screen, to a few frames a second after about 30 s. Saving a frame at Retina size is slower than drawing one, so saved frames are far apart (PLAN, Known issue 24).
 7. Upgrading V is its own commit. It updates every mention of the release (`rg -n '0\.5\.2|45ae01d'`), runs every check and the mock missions, retests the json2 warm up (Concurrency 6), the generic `defer` (rule 4) and the cut array (rule 8), and moves `x.json2` to `json2` if the new release deprecates the old path.
 8. `x.json2` never returns from decoding a text that ends right after a number inside an array, such as `{"pose":[0.5`. Text that a kill, a crash or a faulty peer can cut, such as a recorder line, a weights file or a signed datagram, passes a check that its brackets close before it is decoded, as `plug/dummy.v` `complete` does. PLAN's Known issue 25 lists the decoders that still lack it.
-9. When a C build fails, V 0.5.2 uploads the failing C line and the V source around it, up to 40 lines on each side, to bugs.vlang.io unless `V_C_ERROR_BUG_REPORT_DISABLED` is set, so the `justfile` exports it as 1 for every recipe and the hooks, and a shell that runs `v` by hand sets it too.
+9. When a C build fails, V 0.5.2 uploads the failing C line and the V source around it, up to 40 lines on each side, to bugs.vlang.io unless `V_C_ERROR_BUG_REPORT_DISABLED` is set, so the `justfile` exports it as 1 for every recipe and the hooks, a script that runs `v` exports it itself, since the justfile's export reaches only what just starts, and a shell that runs `v` by hand sets it too.
 
 ## Python tools
 
@@ -117,6 +117,13 @@ A failing check is never unrelated. Fix it, or stop and report it.
 4. A constant copied from V is an UPPER_CASE module constant with the comment of Comments 6.
 5. A function another tool imports, and every new parser or loader, has a self check, `tools/test_<name>.py`, that runs under plain `python3` and asserts, as `tools/test_withenv.py` does. `just py` runs every one.
 
+## Shell scripts
+
+1. A recipe body longer than a few lines lives in `scripts/`. The recipe passes its parameters as positional arguments, and the script gives each one a default and changes to the repository root itself, so it also runs by hand from anywhere.
+2. A script in `scripts/` starts with `#!/usr/bin/env bash` and `set -euo pipefail` and carries the executable bit. A sourced file, such as `scripts/stage.sh`, has no shebang and names its shell in `# shellcheck shell=bash`. A script that runs `v` exports `V_C_ERROR_BUG_REPORT_DISABLED` (V 0.5.2 rule 9).
+3. The scripts run on bash 3.2, the one macOS ships: under `set -u` an empty array is unbound, and `declare -A`, `mapfile`, `${x,,}` and `wait -n` do not exist. A list goes into a function as its arguments, which may be empty.
+4. Every `.sh` file passes `just shell`: shellcheck at its default severity, following `source` (`-x`), and the format of `shfmt -i 4 -ci`, which `shfmt -i 4 -ci -w` applies. A script that sources another names it in `# shellcheck source=`, a path from the repository root.
+
 ## Commits
 
 ```
@@ -125,7 +132,7 @@ A failing check is never unrelated. Fix it, or stop and report it.
 type   build chore ci docs feat fix perf refactor style test
 scope  optional: a module (lcl body armor plug core magi oai jev umbilical zenoh wire),
        or bridge, gamepad,
-       or eval, tools, sidecar, adr, vscode
+       or eval, tools, scripts, sidecar, adr, vscode
 ```
 
 1. The `commit-msg` hook checks the type, the scope's form and the colon, and rejects the trailers of rule 7. Review checks the rest: after the colon the subject is lowercase and imperative, and names keep their case, as in `feat: tune MAGI for hosted models and make Jev BALTHASAR`.
