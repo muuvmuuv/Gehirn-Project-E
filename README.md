@@ -1,3 +1,10 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/media/brand/lockup-dark.svg">
+  <img alt="The gehirn mark, a plug's ring with three contacts, one per MAGI unit, beside GEHIRN and ゲヒルン E計画" src="docs/media/brand/lockup-light.svg" width="360">
+</picture>
+
+<!-- docs/media/brand/social.png carries the sentence under the title; docs/brand.md says how to rebuild it when the sentence changes. -->
+
 # gehirn
 
 Evangelion's MAGI as a robot's safety gate: three model families vote on every goal, anything irreversible needs all three, and a restraint armor with no model in it holds the body.
