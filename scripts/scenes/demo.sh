@@ -24,6 +24,7 @@ either() {
     done
 }
 
+# shellcheck disable=SC2119 # the demo adds nothing to the mock's arguments
 up
 beat "goto approved; the core steers toward the beacon" "$run/hq/hq.log" 'need 2: 可決' 30
 ballots 'need 2: 可決'

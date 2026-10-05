@@ -57,18 +57,26 @@ missions runs="10" port="8081": build
 # `python3 tools/withenv.py .env just lineup=magi demo`.
 lineup := "mock"
 
-# Flies one narrated mission with HQ, the field unit and the bridge apart, on lineup's models.
+# Which story `just demo` and `just demo-record` fly: demo, the whole mission, or a canon scene,
+# the name of a script in scripts/scenes such as ep13-iruel, which docs/scenes.md describes.
+# Scenes are staged on the mock, so they fly on lineup=mock only: `just scene=ep13-iruel demo`.
+scene := "demo"
+
+# Flies one narrated mission, or the scene that scene names, with HQ, the field unit and the
+# bridge apart, on lineup's models.
 [no-exit-message]
 demo mock="8081" umbilical="7447" watch="7448" plug="7777" dir="": _lineup build bridge
-    @scripts/scenes/demo.sh {{ quote(justfile_directory() / "gehirn-bridge") }} {{ quote(mock) }} {{ quote(umbilical) }} {{ quote(watch) }} {{ quote(plug) }} {{ quote(dir) }} {{ quote(lineup) }}
+    @{{ quote("scripts/scenes/" + scene + ".sh") }} {{ quote(justfile_directory() / "gehirn-bridge") }} {{ quote(mock) }} {{ quote(umbilical) }} {{ quote(watch) }} {{ quote(plug) }} {{ quote(dir) }} {{ quote(lineup) }}
 
-# Records `just demo` from the bridge's frames into an MP4 and a looping GIF; needs ffmpeg.
+# Records `just demo`, or the scene that scene names, from the bridge's frames into an MP4 and
+# a looping GIF of MAGI; needs ffmpeg.
 [no-exit-message]
 demo-record mock="8081" umbilical="7447" watch="7448" plug="7777" dir="": _lineup build
-    @scripts/record.sh demo {{ quote(mock) }} {{ quote(umbilical) }} {{ quote(watch) }} {{ quote(plug) }} {{ quote(dir) }} {{ quote(lineup) }}
+    @scripts/record.sh {{ quote(scene) }} {{ quote(mock) }} {{ quote(umbilical) }} {{ quote(watch) }} {{ quote(plug) }} {{ quote(dir) }} {{ quote(lineup) }}
 
-# Refuses an unknown lineup, and hosted models without their keys, before anything builds.
+# Refuses an unknown lineup or scene, a scene on hosted models, and hosted models without their
+# keys, before anything builds.
 [no-exit-message]
 [private]
 _lineup:
-    @scripts/lineup.sh {{ quote(lineup) }}
+    @scripts/lineup.sh {{ quote(lineup) }} {{ quote(scene) }}

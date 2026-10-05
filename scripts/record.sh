@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Records a scene from the bridge's frames into an MP4 and a looping GIF; needs ffmpeg. The
-# justfile's demo-record recipe runs it for the demo. Its arguments are SCENE, the name of a script
-# in scripts/scenes, demo unless given, then that scene's own MOCK_PORT UMBILICAL_PORT WATCH_PORT
-# PLUG_PORT, DIR for the recording, an empty or new directory, and LINEUP; the scene defaults the
-# ones left empty, and a relative DIR starts at the repository root. By hand, run `just build`
-# first: the scene flies ./gehirn as it is.
+# justfile's demo-record recipe runs it for the scene its scene variable names. Its arguments
+# are SCENE, the name of a script in scripts/scenes, demo unless given, then that scene's own
+# MOCK_PORT UMBILICAL_PORT WATCH_PORT PLUG_PORT, DIR for the recording, an empty or new
+# directory, and LINEUP; the scene defaults the ones left empty, and a relative DIR starts at
+# the repository root. By hand, run `just build` first: the scene flies ./gehirn as it is.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 root=$PWD
@@ -13,7 +13,7 @@ scene=${1:-demo} mock=${2:-} umbilical=${3:-} watch=${4:-} plug=${5:-} out=${6:-
 # V 0.5.2 uploads the failing C line and the V source around it to bugs.vlang.io when a C build
 # fails, and a run by hand has no justfile to export this (CONTRIBUTING.md, V 0.5.2 rule 9).
 export V_C_ERROR_BUG_REPORT_DISABLED=1
-scripts/lineup.sh "$lineup"
+scripts/lineup.sh "$lineup" "$scene"
 command -v ffmpeg >/dev/null || {
     echo "demo-record: needs ffmpeg" >&2
     exit 1
@@ -58,10 +58,11 @@ print(f"{(n - 2) / (t[n - 2] - t[0]):.1f}")
 EOF
 )
 
-# The edit runs from MAGI deliberating on the goto to 2 s after the cable reconnects. The 40 s
-# grace shows nothing new, so it plays at 8x under a caption at the bottom, clear of the
-# mission clock that shows the speed. gg saves a Retina window at twice its size, and X takes
-# at most 1920 by 1200.
+# The edit runs from MAGI deliberating on the goto, or from the field unit's start in a scene
+# without one, to 2 s after the scene's last beat, or to the GIF's end below if that is later.
+# The 40 s grace shows nothing new, so in a scene that kills HQ it plays at 8x under a caption
+# at the bottom, clear of the mission clock that shows the speed. gg saves a Retina window at
+# twice its size, and X takes at most 1920 by 1200.
 at() { awk -v k="$1" 'index($0, k) { print $1; exit }' "$out/run/beats"; }
 
 # lead prints how many seconds before a verdict's beat a cut opens on MAGI deliberating: the
@@ -73,29 +74,50 @@ lead() {
         n && n-- && match($0, /[0-9]+ ms\)$/) { ms = substr($0, RSTART, RLENGTH - 4) + 0; if (ms > max) max = ms }
         END { print int((max + 999) / 1000) + 1 }' "$out/run/hq/hq.log"
 }
-s=$(($(at 'goto approved') - $(lead 'need 2: 可決'))) e=$(($(at 'cable reconnected') + 2))
-s=$((s > 0 ? s : 0))
-a=$(($(at 'HQ killed') + 3)) b=$(($(at 'the cable counts as cut') - 2))
-c=$(awk -v s="$s" -v a="$a" -v b="$b" 'BEGIN { print a - s + (b - a) / 8 }')
-python3 tools/caption.py "40 S GRACE AT 8X" >"$out/caption.ppm"
-ffmpeg -hide_banner -loglevel error -y -f concat -i "$out/frames/frames.txt" -i "$out/caption.ppm" -filter_complex \
-    "[0:v]trim=$s:$a,setpts=PTS-STARTPTS[x];[0:v]trim=$a:$b,setpts=(PTS-STARTPTS)/8[y];[0:v]trim=$b:$e,setpts=PTS-STARTPTS[z];[x][y][z]concat=n=3,fps=30,scale=1280:-2:flags=lanczos[v];[v][1:v]overlay=(W-w)/2:H-h-6:enable='between(t,$((a - s)),$c)',format=yuv420p[o]" \
-    -map '[o]' -c:v libx264 -crf 20 -movflags +faststart "$out/gehirn-demo.mp4"
+
+# votes prints the verdicts on an irreversible proposal that the scene shows with ballots, r
+# the second of the first and p of the last. The GIF loops from MAGI deliberating on r to 3 s
+# after p: in the demo the refused release and the approved one, or the one release vote a
+# run had.
+votes() { awk '$2 == "ballots" && /need 3:/' "$out/run/beats"; }
+r=$(votes | awk 'NR == 1 { print $1 }') p=$(votes | awk 'END { print $1 }')
+
+s=$(at 'goto approved')
+if [ -n "$s" ]; then
+    s=$((s - $(lead 'need 2: 可決')))
+else
+    s=$(at 'field unit up')
+fi
+s=$((s > 0 ? s : 0)) e=$(($(tail -n 1 "$out/run/beats" | cut -d ' ' -f 1) + 2))
+e=$((p + 3 > e ? p + 3 : e))
+mp4=$out/gehirn-$scene.mp4 fit="fps=30,scale=1280:-2:flags=lanczos"
+a=$(at 'HQ killed') b=$(at 'the cable counts as cut')
+if [ -n "$a" ] && [ -n "$b" ]; then
+    a=$((a + 3)) b=$((b - 2))
+    c=$(awk -v s="$s" -v a="$a" -v b="$b" 'BEGIN { print a - s + (b - a) / 8 }')
+    python3 tools/caption.py "40 S GRACE AT 8X" >"$out/caption.ppm"
+    ffmpeg -hide_banner -loglevel error -y -f concat -i "$out/frames/frames.txt" -i "$out/caption.ppm" -filter_complex \
+        "[0:v]trim=$s:$a,setpts=PTS-STARTPTS[x];[0:v]trim=$a:$b,setpts=(PTS-STARTPTS)/8[y];[0:v]trim=$b:$e,setpts=PTS-STARTPTS[z];[x][y][z]concat=n=3,${fit}[v];[v][1:v]overlay=(W-w)/2:H-h-6:enable='between(t,$((a - s)),$c)',format=yuv420p[o]" \
+        -map '[o]' -c:v libx264 -crf 20 -movflags +faststart "$mp4"
+else
+    a=$e b=$e
+    ffmpeg -hide_banner -loglevel error -y -f concat -i "$out/frames/frames.txt" -vf \
+        "trim=$s:$e,setpts=PTS-STARTPTS,$fit,format=yuv420p" -c:v libx264 -crf 20 -movflags +faststart "$mp4"
+fi
+
+# clip prints where the second $1 of the scene's clock falls in the MP4, whose grace from a to
+# b plays at 8x.
+clip() { awk -v t="$1" -v s="$s" -v a="$a" -v b="$b" 'BEGIN { if (t > b) t -= (b - a) * 7 / 8; else if (t > a) t = a + (t - a) / 8; print t - s }'; }
 
 # The GIF shows the MAGI block alone, large enough to read on a phone (bridge/draw.v draw
-# lays it out at 16, 58, 736 by 412), and loops from MAGI deliberating on the refused
-# release to 3 s after the approved one, or around the one of them a run had.
-r=$(at 'release refused') p=$(at 'release approved') v='need 3: 否決'
-if [ -z "$r" ]; then
-    r=$p v='need 3: 可決'
-fi
-p=${p:-$r}
-gif="no gehirn-magi.gif, since no release vote came within the demo's wait"
+# lays it out at 16, 58, 736 by 412).
+gif="no gehirn-magi.gif, since the scene showed no vote on an irreversible proposal"
 if [ -n "$r" ]; then
-    l=$(lead "$v")
-    ffmpeg -hide_banner -loglevel error -y -ss $((r - l - s)) -t $((p - r + l + 3)) -i "$out/gehirn-demo.mp4" -vf \
+    f=$(clip $((r - $(lead "$(votes | awk 'NR == 1 { sub(/^[0-9]+ ballots /, ""); print }')"))))
+    t=$(clip $((p + 3)))
+    ffmpeg -hide_banner -loglevel error -y -ss "$f" -t "$(awk -v f="$f" -v t="$t" 'BEGIN { print t - f }')" -i "$mp4" -vf \
         'crop=752:420:8:54,fps=12,scale=800:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=64[p];[s1][p]paletteuse=dither=none' \
         "$out/gehirn-magi.gif"
     gif="$out/gehirn-magi.gif ($(du -h "$out/gehirn-magi.gif" | cut -f1))"
 fi
-echo "demo-record: $out/gehirn-demo.mp4 ($(du -h "$out/gehirn-demo.mp4" | cut -f1)) and $gif, from $n frames at $fps a second"
+echo "demo-record: $mp4 ($(du -h "$mp4" | cut -f1)) and $gif, from $n frames at $fps a second"

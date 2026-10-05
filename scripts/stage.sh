@@ -1,9 +1,9 @@
 # shellcheck shell=bash
 # The stage every script in scripts/scenes sources. From the scene's arguments, BRIDGE_BIN
-# MOCK_PORT UMBILICAL_PORT WATCH_PORT PLUG_PORT DIR LINEUP, it checks the lineup with
-# scripts/lineup.sh, makes the run directory, sets the lineup's models, the keys and the ports,
-# and stops everything on exit; up starts the mock, the bridge, HQ and the field unit, and pilot
-# seats a scripted pilot. Every argument has a default and the stage changes to the repository
+# MOCK_PORT UMBILICAL_PORT WATCH_PORT PLUG_PORT DIR LINEUP, it checks the lineup and the scene
+# with scripts/lineup.sh, makes the run directory, sets the lineup's models, the keys and the
+# ports, and stops everything on exit; up starts the mock, the bridge, HQ and the field unit, and
+# pilot seats a scripted pilot. Every argument has a default and the stage changes to the repository
 # root, so a scene also runs by hand from anywhere, and a relative DIR starts at the root. By
 # hand, run `just build bridge` first: a scene flies ./gehirn and ./gehirn-bridge as they are.
 
@@ -12,9 +12,9 @@
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root" || exit
 bridge_bin=${1:-$root/gehirn-bridge} mock_port=${2:-8081} umbilical_port=${3:-7447} watch_port=${4:-7448} plug_port=${5:-7777} run=${6:-} lineup=${7:-mock}
-scripts/lineup.sh "$lineup" || exit
-bin=$root/gehirn
 name=$(basename "$0" .sh)
+scripts/lineup.sh "$lineup" "$name" || exit
+bin=$root/gehirn
 
 # The walking human (body/body.v scene, one loop per 21 s) starts with the field unit. HQ
 # listens before the field unit starts, so the field unit's first dial reaches it, and on the
@@ -110,9 +110,11 @@ beat() {
     say "$1"
 }
 
-# ballots prints the newest verdict in HQ's log that contains $1, and the three ballots below.
+# ballots prints the newest verdict in HQ's log that contains $1, and the three ballots below,
+# and notes the verdict among the beats, where scripts/record.sh finds the votes its GIF loops.
 ballots() {
     awk -v v="$1" 'index($0, v) { out = ""; n = 4 } n && n-- { out = out "       " $0 "\n" } END { printf "%s", out }' "$run/hq/hq.log"
+    echo "$SECONDS ballots $1" >>"$run/beats"
 }
 alive() { kill -0 "$1" 2>/dev/null || fail "$2 stopped; its last line: $(tail -n 1 "$3")"; }
 start() {
@@ -120,15 +122,16 @@ start() {
     pids="$pids $!"
 }
 
-# up starts the mock, unless the lineup is hosted, then the bridge, HQ and the field unit, and
-# narrates each. It leaves bridge, hq and field set to their process IDs.
+# up starts the mock, unless the lineup is hosted, with its arguments added to the mock's, then
+# the bridge, HQ and the field unit, and narrates each. It leaves bridge, hq and field set to
+# their process IDs.
 up() {
     if [ "$lineup" != hosted ]; then
         # The units answer after 0.9, 1.7 and 0.5 s, so the bridge shows each one deliberating,
         # 審議中, until its ballot lands, and the core after 2 s, which paces HQ as timed above; the
         # mock answers at once otherwise. The magi lineup asks it for the core alone.
         python3 tools/mock_endpoint.py --listen "127.0.0.1:$mock_port" --quiet --slow melchior=900 \
-            --slow balthasar=1700 --slow casper=500 --slow core=2000 2>"$run/mock.log" &
+            --slow balthasar=1700 --slow casper=500 --slow core=2000 "$@" 2>"$run/mock.log" &
         pids="$pids $!"
         waits 5 "$run/mock.log" 'mock: serving' || fail "the mock did not start; $(tail -n 1 "$run/mock.log")"
     fi
