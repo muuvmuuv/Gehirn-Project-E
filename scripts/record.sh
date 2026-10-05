@@ -13,6 +13,7 @@ scene=${1:-demo} mock=${2:-} umbilical=${3:-} watch=${4:-} plug=${5:-} out=${6:-
 # V 0.5.2 uploads the failing C line and the V source around it to bugs.vlang.io when a C build
 # fails, and a run by hand has no justfile to export this (CONTRIBUTING.md, V 0.5.2 rule 9).
 export V_C_ERROR_BUG_REPORT_DISABLED=1
+scripts/lineup.sh "$lineup"
 command -v ffmpeg >/dev/null || {
     echo "demo-record: needs ffmpeg" >&2
     exit 1

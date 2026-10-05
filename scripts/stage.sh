@@ -1,17 +1,18 @@
 # shellcheck shell=bash
 # The stage every script in scripts/scenes sources. From the scene's arguments, BRIDGE_BIN
-# MOCK_PORT UMBILICAL_PORT WATCH_PORT PLUG_PORT DIR LINEUP, it makes the run directory, sets the
-# lineup's models, the keys and the ports, and stops everything on exit; up starts the mock, the
-# bridge, HQ and the field unit, and pilot seats a scripted pilot. Every argument has a default
-# and the stage changes to the repository root, so a scene also runs by hand from anywhere, and a
-# relative DIR starts at the root. By hand, run `just build bridge` first: a scene flies ./gehirn
-# and ./gehirn-bridge as they are.
+# MOCK_PORT UMBILICAL_PORT WATCH_PORT PLUG_PORT DIR LINEUP, it checks the lineup with
+# scripts/lineup.sh, makes the run directory, sets the lineup's models, the keys and the ports,
+# and stops everything on exit; up starts the mock, the bridge, HQ and the field unit, and pilot
+# seats a scripted pilot. Every argument has a default and the stage changes to the repository
+# root, so a scene also runs by hand from anywhere, and a relative DIR starts at the root. By
+# hand, run `just build bridge` first: a scene flies ./gehirn and ./gehirn-bridge as they are.
 
 # The ports dodge ones in use, and the run directory, a fresh temp dir unless given, takes
 # the journal and the recorder, which are a pilot's data and never belong in the repo.
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root" || exit
 bridge_bin=${1:-$root/gehirn-bridge} mock_port=${2:-8081} umbilical_port=${3:-7447} watch_port=${4:-7448} plug_port=${5:-7777} run=${6:-} lineup=${7:-mock}
+scripts/lineup.sh "$lineup" || exit
 bin=$root/gehirn
 name=$(basename "$0" .sh)
 

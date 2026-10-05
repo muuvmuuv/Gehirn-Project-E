@@ -48,16 +48,7 @@ gamepad:
 
 # Flies the mock missions and puts the adversarial scenarios to the mock MAGI; port is the mock's.
 missions runs="10" port="8081": build
-    #!/usr/bin/env bash
-    set -euo pipefail
-    # 8081 is the port of the llama.cpp preset and gehirn's default GEHIRN_URL.
-    python3 tools/mock_endpoint.py --listen 127.0.0.1:{{ port }} --quiet &
-    mock=$!
-    trap 'kill $mock' EXIT
-    export GEHIRN_URL=http://127.0.0.1:{{ port }}/v1/chat/completions
-    export TYPESAFE_URL=http://127.0.0.1:{{ port }}/v1/systemone TYPESAFE_API_KEY=mock
-    python3 tools/trials.py --runs {{ runs }} --jobs 3
-    ./gehirn magi-eval 3
+    @scripts/missions.sh {{ quote(runs) }} {{ quote(port) }}
 
 # Which models `just demo` and `just demo-record` fly: mock, scripted by tools/mock_endpoint.py
 # without keys; hosted, README's hosted lineup; or magi, the hosted MAGI judging the mock's
@@ -79,18 +70,4 @@ demo-record mock="8081" umbilical="7447" watch="7448" plug="7777" dir="": _lineu
 [no-exit-message]
 [private]
 _lineup:
-    #!/usr/bin/env bash
-    lineup={{ quote(lineup) }}
-    case "$lineup" in
-        mock) ;;
-        hosted | magi)
-            if [ -z "${GEHIRN_KEY:-}" ] || [ -z "${TYPESAFE_API_KEY:-}" ]; then
-                echo "demo: lineup $lineup needs GEHIRN_KEY and TYPESAFE_API_KEY; python3 tools/withenv.py .env just lineup=$lineup demo passes them from .env" >&2
-                exit 2
-            fi
-            ;;
-        *)
-            echo "demo: lineup is \"$lineup\", not mock, hosted or magi" >&2
-            exit 2
-            ;;
-    esac
+    @scripts/lineup.sh {{ quote(lineup) }}
