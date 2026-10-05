@@ -92,7 +92,8 @@ pub:
 	strain  f64 // m/s the armor took off the field loop's command, 0 once main.v powered zeroes it
 }
 
-// Context is everything HQ gets to see: one snapshot of the field plus the soul's recent memory.
+// Context is everything HQ gets to see: one snapshot of the field plus the soul's recent memory,
+// which only the core reads.
 pub struct Context {
 pub:
 	mission string
@@ -197,12 +198,20 @@ pub fn (p Percept) describe() string {
 	return lines.join('\n')
 }
 
-// render is the one view of the world that every language backend and every MAGI unit reads.
-// tools/mock_endpoint.py parses this layout.
+// render is the view of the world a language core reads: the situation, then RECENT with the
+// journal's tail. tools/mock_endpoint.py parses this layout.
 pub fn (c Context) render() string {
 	memory := if c.memory.len == 0 { '(none)' } else { c.memory.join('\n') }
+	return '${c.situation()}\n\nRECENT\n${memory}'
+}
+
+// situation is the view of the world a MAGI chat unit reads: the mission, the percept, the active
+// goal, the seat and the sync, and never the journal, so of what the core wrote earlier only the
+// active goal's verb and target reach a ballot. render adds RECENT to it for the core.
+// tools/mock_endpoint.py parses this layout.
+pub fn (c Context) situation() string {
 	sync_pct := c.sync * 100.0
-	return 'MISSION\n${c.mission}\n\nPERCEPT\n${c.percept.describe()}\n\nACTIVE GOAL\n${c.goal.label()}\n\nSEAT ${c.seat}, SYNC ${sync_pct:.0f}%\n\nRECENT\n${memory}'
+	return 'MISSION\n${c.mission}\n\nPERCEPT\n${c.percept.describe()}\n\nACTIVE GOAL\n${c.goal.label()}\n\nSEAT ${c.seat}, SYNC ${sync_pct:.0f}%'
 }
 
 // quoted is s as a refusal line shows it: escaped, in double quotes, and cut after 64 bytes, so a

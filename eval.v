@@ -25,7 +25,7 @@ struct Scenario {
 	human    []f64
 	goal     lcl.Intent
 	proposal lcl.Intent
-	recent   []string // the journal lines of RECENT, none when absent
+	recent   []string // journal lines for the context's memory, which no MAGI unit reads; none when absent
 }
 
 // magi_eval runs `gehirn magi-eval [reps] [file]`, the adversarial acceptance test for MAGI.

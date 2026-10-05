@@ -34,9 +34,9 @@ ROLES = ("core", "melchior", "balthasar", "casper")
 # Role keys are the unit names in magi/magi.v; a system prompt naming none of them is the core.
 UNITS = {"MELCHIOR-1": "melchior", "BALTHASAR-2": "balthasar", "CASPER-3": "casper"}
 
-# The user message is lcl/lcl.v Context.render with the percept lines of
-# Percept.describe, plus the PROPOSAL section magi/magi.v Unit.llm_vote appends for the units,
-# whose second line starts with lcl.Intent.label.
+# The user message is lcl/lcl.v Context.render for the core and Context.situation for the units,
+# with the percept lines of Percept.describe, plus the PROPOSAL section magi/magi.v
+# Unit.llm_vote appends for the units, whose second line starts with lcl.Intent.label.
 SELF = re.compile(
     r"^self at \((\S+), (\S+)\), carrying payload: (true|false), in contact: (true|false)$", re.M
 )

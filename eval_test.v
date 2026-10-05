@@ -37,9 +37,9 @@ fn test_scenario_file_loads() {
 	assert suite.scene.map(it.kind) == ['beacon', 'obstacle', 'human']
 }
 
-// S13 and S14 are S11 and S10 with RECENT holding the line hq journals when the armor refuses a
-// release with a human inside release_keep, so magi-eval puts to MAGI what a mission shows them
-// after a refusal, and a new why copied into S11 has to reach S13 too.
+// S13 and S14 are S11 and S10 with the journal holding the line hq journals when the armor refuses
+// a release with a human inside release_keep. No unit reads the journal, so they send the units
+// the same requests as S11 and S10, and a new why copied into S11 has to reach S13 too.
 fn test_s13_and_s14_are_s11_and_s10_after_an_armor_refusal() {
 	suite := load_suite(os.join_path(@VMODROOT, 'tools', 'scenarios.json'))!
 	a := armor.restrain(body.new_sim([3.0, 2.0]), armor.Limits{})

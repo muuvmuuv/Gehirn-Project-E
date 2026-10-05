@@ -77,14 +77,6 @@ fn test_ballot_asks_why_before_vote() {
 	}
 }
 
-fn test_ballot_context_keeps_only_outcomes() {
-	ctx := lcl.Context{
-		memory: ['proposed release (all clear), rejected 2/3', 'outcome: armor refused release',
-			'proposed hold (a human is close), approved 3/3', 'outcome: reached']
-	}
-	assert ballot_context(ctx).memory == ['outcome: armor refused release', 'outcome: reached']
-}
-
 fn test_unreachable_unit_votes_fault() {
 	mut l := net.listen_tcp(.ip, '127.0.0.1:0')!
 	addr := l.addr()!

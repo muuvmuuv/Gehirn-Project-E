@@ -1,6 +1,6 @@
 # ADR-0002: Jev as a MAGI unit
 
-**Status:** Accepted on 2026-10-01
+**Status:** Accepted on 2026-10-01; what the chat units read superseded by ADR-0007
 **Date:** 2026-09-30
 **Deciders:** repository owner
 

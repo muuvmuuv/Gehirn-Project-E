@@ -401,10 +401,11 @@ fn new_backend(cfg Config) !core.Core {
 	}
 }
 
-// hq is NERV HQ: take the newest field snapshot, let the core propose, let MAGI judge. MAGI
-// judge on the newest snapshot that arrived while the core thought, so their percept is not as
-// old as the core's latency, and only when a proposal would change something; an irreversible
-// proposal that was just put to the vote waits out a cooldown before it may be put again.
+// hq is NERV HQ: take the newest field snapshot, let the core propose, let MAGI judge. The core
+// reads the journal's tail, MAGI never do. MAGI judge on the newest snapshot that arrived while
+// the core thought, so their percept is not as old as the core's latency, and only when a
+// proposal would change something; an irreversible proposal that was just put to the vote waits
+// out a cooldown before it may be put again.
 // backend is the core main built with new_backend; once spawned, only hq uses it.
 fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqMsg, outcomes chan lcl.Outcome, events chan lcl.HqEvent) {
 	mut soul := backend
@@ -421,8 +422,7 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqM
 		for outcomes.try_pop(mut o) == .success {
 			soul.feedback(o)
 
-			// magi/magi.v ballot_context shows MAGI only lines with this prefix, and
-			// tools/trials.py reads it.
+			// tools/trials.py reads this prefix.
 			journal.add('outcome: ${o.kind}')
 		}
 		snapshot := <-inbox
@@ -462,7 +462,6 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqM
 		judged := lcl.Context{
 			...pop_newest(inbox, snapshot)
 			mission: ctx.mission
-			memory:  ctx.memory
 		}
 		irreversible := lcl.is_irreversible(proposal.verb)
 		cooling := irreversible && lcl.now_ms() - last_irreversible < cfg.cooldown_ms

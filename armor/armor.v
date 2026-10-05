@@ -66,8 +66,8 @@ pub fn (a Armor) permits(verb string, p lcl.Percept) bool {
 }
 
 // refusal is why permits refuses verb on p, empty when it permits it. main.v's field loop puts it
-// into the outcome of a refused goal, which the core and MAGI read in RECENT, so a unit learns
-// that a refused release met a human within reach at that moment and was no flaw of the release.
+// into the outcome of a refused goal, which the core reads in RECENT, so it learns that a refused
+// release met a human within reach at that moment and was no flaw of the release.
 // tools/scenarios.json S13 and S14 copy the reason for a release.
 pub fn (a Armor) refusal(verb string, p lcl.Percept) string {
 	if a.ejected {

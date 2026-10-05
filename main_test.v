@@ -732,6 +732,77 @@ fn test_magi_judge_the_snapshot_that_arrived_during_the_core_latency() {
 	}
 }
 
+// asked is what a chat client sends on l's next connection, read until the client waits for an
+// answer; it hangs up without one. It is empty when no client connects within l's accept timeout.
+fn asked(mut l net.TcpListener) string {
+	mut conn := l.accept() or { return '' }
+	defer {
+		conn.close() or {}
+	}
+	conn.set_read_timeout(200 * time.millisecond)
+	mut got := []u8{}
+	mut buf := []u8{len: 4096}
+	for {
+		n := conn.read(mut buf) or { break }
+		got << buf[..n]
+	}
+	return got.bytestr()
+}
+
+// The core reads RECENT, the journal's tail with an armor refusal's reason, and a MAGI chat unit
+// asked on the same context reads neither RECENT nor any journal line (PLAN, Known issue 28).
+fn test_the_core_reads_recent_and_a_magi_unit_does_not() {
+	for persona in [magi.melchior, magi.balthasar, magi.casper] {
+		assert !persona.contains('RECENT'), persona.all_before('.')
+	}
+	mut l := net.listen_tcp(.ip, '127.0.0.1:0')!
+	defer {
+		l.close() or {}
+	}
+
+	// A client that never asks fails the asserts below instead of hanging the test.
+	l.set_accept_timeout(3 * time.second)
+	ep := oai.Endpoint{
+		url:     'http://${l.addr()!}/v1/chat/completions'
+		model:   'm'
+		timeout: 2 * time.second
+	}
+	ctx := lcl.Context{
+		mission: 'deliver to b1'
+		percept: lcl.Percept{
+			pose: [3.0, 2.0]
+		}
+		memory:  ['proposed release (b1), rejected 2/3',
+			'outcome: armor refused release: a human was within 2.0 m at that moment']
+	}
+	requests := chan string{cap: 2}
+	spawn fn [mut l, requests] () {
+		for _ in 0 .. 2 {
+			requests <- asked(mut l)
+		}
+	}()
+	mut soul := core.LlmCore{
+		ep: ep
+	}
+	soul.propose(ctx) or {}
+	core_asked := <-requests
+	assert core_asked.contains('SYNC 0%\\n\\nRECENT\\nproposed release (b1), rejected 2/3\\noutcome: armor refused release: a human was within 2.0 m at that moment'), core_asked
+
+	magi.Unit{
+		name:    'CASPER-3'
+		persona: magi.casper
+		ep:      ep
+	}.vote(ctx, lcl.Intent{
+		verb: 'release'
+	})
+	unit_asked := <-requests
+	assert unit_asked.contains('MISSION\\ndeliver to b1\\n\\nPERCEPT\\nself at (3.00, 2.00)'), unit_asked
+	assert unit_asked.contains('SYNC 0%\\n\\nPROPOSAL (IRREVERSIBLE)\\nrelease from'), unit_asked
+	for line in ['RECENT', 'rejected 2/3', 'armor refused'] {
+		assert !unit_asked.contains(line), line
+	}
+}
+
 struct NewestCase {
 	name   string
 	queued []i64 // t_ms of the snapshots waiting, oldest first
