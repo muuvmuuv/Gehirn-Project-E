@@ -24,6 +24,10 @@ test: zenoh
 zenoh:
     @scripts/zenoh.sh
 
+# Links the MuJoCo installed on this Mac into thirdparty/mujoco for Phase 3's simulator work.
+mujoco:
+    @scripts/mujoco.sh
+
 # Runs every tools/test_*.py self check and compiles the Python files.
 py *paths="tools/*.py sidecar/*.py":
     for t in tools/test_*.py; do python3 "$t" || exit 1; done
