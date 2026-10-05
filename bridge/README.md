@@ -4,7 +4,7 @@
 
 People who see the bridge ask whether it runs on a custom engine or a UI library. Neither. It is V's own `gg` module, which ships with the compiler, drawing on sokol: Metal on the Mac, OpenGL on Linux. Text goes through fontstash. Every pixel comes from filled rectangles, triangles, convex polygons, circles, lines and glyphs, plus one matrix transform from `sokol.sgl` that squeezes type. There are no shaders of its own, no images, no UI library, no layout engine and no animation library. The whole bridge is about 1700 lines of V in `bridge/`, `draw.v` 1160 of them, plus 400 lines of tests for its state and 30 lines of Objective-C that let its borderless window take the keyboard and move on macOS.
 
-This file is for anyone curious how the bridge is drawn or about to change its look. [README.md's "The bridge"](../README.md#the-bridge) says how to run it and what each panel shows, [website/index.html](../website/index.html) explains the panels to someone watching, and [ADR-0005](../docs/adr/0005-the-bridge.md) says why the bridge exists and why it only watches. Function names and numbers below are the ones in `main.v`, `state.v` and `draw.v`; where this file and the code disagree, the code is right and this file is stale.
+This file is for anyone curious how the bridge is drawn or about to change its look. [docs/bridge.md](../docs/bridge.md) says how to run it and what each panel shows, [website/index.html](../website/index.html) explains the panels to someone watching, and [ADR-0005](../docs/adr/0005-the-bridge.md) says why the bridge exists and why it only watches. Function names and numbers below are the ones in `main.v`, `state.v` and `draw.v`; where this file and the code disagree, the code is right and this file is stale.
 
 ## The stack
 
@@ -240,7 +240,7 @@ The 250 ms flicker comes from TomaszRewak/MAGI and the 330 ms blink at 80% from 
 
 ## Recording frames
 
-The bridge's look is checked from PNGs that `gg` saves, not by someone watching. CONTRIBUTING.md's V 0.5.2 rule 6 gives the build flags, the variables and what macOS does to a window it thinks nobody sees, and [README.md](../README.md) says what `just demo-record` makes of a whole demo. A recording by hand, with `WATCH_KEY` exported like any bridge:
+The bridge's look is checked from PNGs that `gg` saves, not by someone watching. CONTRIBUTING.md's V 0.5.2 rule 6 gives the build flags, the variables and what macOS does to a window it thinks nobody sees, and [docs/running.md](../docs/running.md#the-demo) says what `just demo-record` makes of a whole demo. A recording by hand, with `WATCH_KEY` exported like any bridge:
 
 ```sh
 export V_C_ERROR_BUG_REPORT_DISABLED=1

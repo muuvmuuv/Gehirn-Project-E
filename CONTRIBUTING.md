@@ -1,6 +1,6 @@
 # Contributing
 
-A commit here needs three things: the checks green, a subject in the Conventional Commits style, and a body that says why every invariant it touches still holds. This file is the contract for every contributor, human or agent. PLAN.md says where the project stands and what comes next, README.md how to run gehirn, and docs/adr why it is built this way.
+A commit here needs three things: the checks green, a subject in the Conventional Commits style, and a body that says why every invariant it touches still holds. This file is the contract for every contributor, human or agent. PLAN.md says where the project stands and what comes next, the topic docs that docs/README.md lists say how to run gehirn, and docs/adr why it is built this way.
 
 Rules are numbered per section, so a review can cite one: Errors 2, Tests 3. The hooks enforce some of them; review enforces the rest.
 
@@ -20,7 +20,7 @@ just check
 
 Run it on the working tree before asking for a commit. It runs `just fmt`, `just vet`, `just test`, `just py` and `just shell` and checks the justfile's own format with `just --fmt --check`, and `just --list` says what each checks. The `pre-commit` hook in `lefthook.yml` calls the same recipes on what is staged, so unstaged work in progress cannot fail a commit: `fmt`, `vet`, `py` and `shell` on the staged files, `just --fmt --check` when the justfile is staged, gitleaks on the staged diff, and `test` on a copy of the staged tree whenever a `.v` file is staged, which takes 4 to 8 seconds. Nothing scans the whole tree for keys. A command changes in the `justfile`, and both pick it up.
 
-Any change to a `.v` file outside tests, or to `tools/mock_endpoint.py`, also flies the mock missions, and the commit body reports the result. `just missions` builds gehirn, starts the mock on port 8081, the port of the llama.cpp preset, flies ten missions, puts the adversarial scenarios to the mock MAGI and stops the mock; `just missions 3` flies three, and `just missions 3 9081` flies them on a mock on port 9081, clear of a llama.cpp server or another session's missions. The build takes 30 to 75 seconds, ten missions about two and a half minutes, the scenario gate under a second. Run it in a shell without the hosted exports of the README: the recipe points `GEHIRN_URL` at the mock, but every mission inherits the other model variables, such as `CORE_URL`. A change to `scripts/stage.sh` also flies `just demo`, a change to a scene in `scripts/scenes` flies that scene, and the commit body reports the beats. A change to `scripts/record.sh` records the demo with `just demo-record`, and the commit body reports the MP4 and the GIF. Run by hand, a scene or `scripts/record.sh` flies the `./gehirn` that is there, and a scene the `./gehirn-bridge` too, so `just build bridge` comes first.
+Any change to a `.v` file outside tests, or to `tools/mock_endpoint.py`, also flies the mock missions, and the commit body reports the result. `just missions` builds gehirn, starts the mock on port 8081, the port of the llama.cpp preset, flies ten missions, puts the adversarial scenarios to the mock MAGI and stops the mock; `just missions 3` flies three, and `just missions 3 9081` flies them on a mock on port 9081, clear of a llama.cpp server or another session's missions. The build takes 30 to 75 seconds, ten missions about two and a half minutes, the scenario gate under a second. Run it in a shell without the hosted exports of docs/running.md: the recipe points `GEHIRN_URL` at the mock, but every mission inherits the other model variables, such as `CORE_URL`. A change to `scripts/stage.sh` also flies `just demo`, a change to a scene in `scripts/scenes` flies that scene, and the commit body reports the beats. A change to `scripts/record.sh` records the demo with `just demo-record`, and the commit body reports the MP4 and the GIF. Run by hand, a scene or `scripts/record.sh` flies the `./gehirn` that is there, and a scene the `./gehirn-bridge` too, so `just build bridge` comes first.
 
 A failing check is never unrelated. Fix it, or stop and report it.
 
@@ -84,7 +84,7 @@ A failing check is never unrelated. Fix it, or stop and report it.
 
 ### Configuration and secrets
 
-1. Every variable a binary reads has its default where that binary reads it, `load_config` for gehirn, and a row in the README's configuration table. A default that `gehirn-bridge` or `gehirn-gamepad` repeats names `load_config` as its counterpart (Comments 6). One commit changes all of them.
+1. Every variable a binary reads has its default where that binary reads it, `load_config` for gehirn, and a row in the table of docs/configuration.md. A default that `gehirn-bridge` or `gehirn-gamepad` repeats names `load_config` as its counterpart (Comments 6). One commit changes all of them.
 2. Unset means the default. Set but invalid means gehirn refuses to start and names the variable: a number that does not parse or is out of range, and a choice such as `CORE_BACKEND` or `BALTHASAR_BACKEND` outside its values. Parse a number with `whole` in `main.v`: it accepts an optional minus and ASCII digits only, parses them with `strconv.atoi(s)!` and checks the range, so every refusal reads either not a whole number or out of range. Never use `s.int()` or `s.i64()`: `'10s'.int()` is 10, `'abc'.int()` is 0 and `'99999999999'.int()` is 2147483647. Never use `strconv.parse_int(s, 10, 64)` either: V 0.5.2 returns the i64 limit without an error for any value from 2^63 to 2^64 - 1 and reads an empty string as 0. A decimal, such as each half of `START`, passes `is_decimal` before `strconv.atof64`, which also reads exponents. A refusal, and any status line, shows a value from the environment through `lcl.quoted`, so it stays one line of printable ASCII. Command line arguments follow the same rule, such as the repetitions of `magi-eval`.
 3. A value read from the environment is a `Config` field, never a `const`. A `const` is a fact fixed at compile time.
 4. A key goes to its own endpoint only, in the `Authorization` header only. `UMBILICAL_KEY`, `PILOT_KEY` and `WATCH_KEY` go nowhere: they sign and check messages inside each process. It never appears in a URL, a log line, the journal, an error message or a commit.
@@ -140,7 +140,7 @@ scope  optional: a module (lcl body armor plug core magi oai jev umbilical zenoh
 3. The body is prose wrapped at 72 columns: why, any external constraint, and what was verified (the checks, the mock missions, real models). A change across modules gives one bullet per module.
 4. A commit that touches an invariant says in its body why each one it touches still holds: `Invariant 3 holds: ...`.
 5. A commit that changes a safety number (an `armor.Limits` field, the quorum, a deadline, the umbilical's grace or budget) lists each old and new value in its body.
-6. Docs the change makes false are fixed in the same commit: the README's configuration table, PLAN's state, tasks and known issues, an ADR's consequences.
+6. Docs the change makes false are fixed in the same commit: the table of docs/configuration.md, the topic docs, PLAN's state, tasks and known issues, an ADR's consequences.
 7. No `Co-authored-by` and no `Signed-off-by` trailers.
 
 ## ADRs
@@ -153,5 +153,5 @@ scope  optional: a module (lcl body armor plug core magi oai jev umbilical zenoh
 ## Docs
 
 1. US English in code, comments and docs. Prose uses no dashes as punctuation.
-2. Each doc has one reader. README.md serves someone running gehirn, PLAN.md whoever works next, docs/adr anyone asking why, and this file anyone changing code. A fact lives in the doc that owns it, and the others point there.
+2. Each doc has one reader. README.md serves someone arriving at gehirn, docs/README.md someone looking for a doc, each topic doc it lists someone running or studying that part of gehirn, bridge/README.md someone changing how the bridge is drawn, PLAN.md whoever works next, docs/adr anyone asking why, docs/decisions.md anyone reopening a decision of the owner's, docs/research/ anyone asking what the series shows, and this file anyone changing code. A fact lives in the doc that owns it, and the others point there.
 3. Present tense. A date stands only beside a measurement or a status.

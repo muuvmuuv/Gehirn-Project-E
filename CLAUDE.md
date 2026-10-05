@@ -6,7 +6,7 @@ An Evangelion themed control stack in V 0.5.2: a core proposes goals, MAGI judge
 
 - `PLAN.md` in full, before any task: state, invariants, phases, known issues.
 - `CONTRIBUTING.md` in full, before the first commit of a session: the coding guide, the checks and the commit rules.
-- `README.md` before touching configuration, the tools or how gehirn runs.
+- The topic doc that `docs/README.md` lists before touching its part or a tool it documents: `docs/configuration.md` before configuration, `docs/running.md` before how gehirn runs and the tools that fly it, `docs/piloting.md` before the pilot and dummy plug tools, `docs/magi.md` before `magi-eval` and `tools/scenarios.json`.
 - The ADR that covers an area before touching it: ADR-0001 for where the tiers run, ADR-0002 for Jev as BALTHASAR-2.
 - `docs/decisions.md` before reopening something the owner decided, and `docs/research/` before researching the series again.
 

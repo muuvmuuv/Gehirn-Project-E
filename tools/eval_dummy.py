@@ -86,7 +86,7 @@ PLUG_UP = "field: plug for "  # main.v main()'s line once the plug listens and t
 LINGER = 1.0  # seconds a run goes on after the first release
 GRACE = 3.0  # seconds between terminate and kill
 POLL = 0.2
-ASTRAY = 30.0  # degrees off the pilot's own command that README's DAgger loop corrects
+ASTRAY = 30.0  # degrees off the pilot's own command that the DAgger loop of docs/piloting.md corrects
 NEAR_SOLID = 0.4  # m from a solid's rim, a little past where armor.Limits solid_keep slides a command along it
 KNN_LIMIT = 20000  # plug/dummy.v Dummy.limit, the most pilot ticks the nearest neighbor dummy plug keeps
 

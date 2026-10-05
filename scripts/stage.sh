@@ -38,7 +38,7 @@ fi
 mkdir -p "$run/hq" "$run/field"
 run=$(cd "$run" && pwd)
 
-# Every variable of README's configuration table but SSL_CERT_FILE, so nothing hosted or
+# Every variable of docs/configuration.md but SSL_CERT_FILE, so nothing hosted or
 # personal leaks in; above all CORE_JOURNAL, PLUG_RECORDER and DUMMY_WEIGHTS, the pilot's data.
 # Hosted models keep their variables, their endpoints and keys among them.
 unset MAGI_TIMEOUT_MS CORE_TIMEOUT_MS CORE_BACKEND CL1_SPIKES CL1_SIDECAR PILOT_ID PLUG_ADDR \
@@ -57,7 +57,7 @@ if [ "$lineup" = mock ]; then
     # jev-1.13.0.
     export CORE_MODEL=mock-core MELCHIOR_MODEL=mock-melchior CASPER_MODEL=mock-casper
 else
-    # README's lineup under "Hosted models", unless the environment names others.
+    # The lineup of docs/running.md, "Hosted models", unless the environment names others.
     export GEHIRN_URL=${GEHIRN_URL:-https://openrouter.ai/api/v1/chat/completions}
     export CORE_MODEL=${CORE_MODEL:-qwen/qwen3-8b} MELCHIOR_MODEL=${MELCHIOR_MODEL:-openai/gpt-oss-20b}
     export CASPER_MODEL=${CASPER_MODEL:-meta-llama/llama-3.1-8b-instruct}

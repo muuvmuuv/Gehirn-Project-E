@@ -314,7 +314,7 @@ fn key_warning(units []magi.Unit) string {
 	return ''
 }
 
-// load_config reads every variable in the README's configuration table, and fails on the first
+// load_config reads every variable in the table of docs/configuration.md, and fails on the first
 // number or backend set to a value it does not accept, on two MAGI units on one model, or on one
 // key set as two of UMBILICAL_KEY, PILOT_KEY and WATCH_KEY, so main refuses to start. The default
 // URL and chat model names are those of the llama.cpp preset tools/models.ini, which names this
