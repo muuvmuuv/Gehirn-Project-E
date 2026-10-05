@@ -15,7 +15,13 @@ like a strict System One server, needs an Authorization header, and answers each
 questions of magi/jev.v high when the state's facts show that hazard and low otherwise.
 --slow and --garbage for balthasar apply to both routes.
 
+A scene stages what three model families would not do alike: --vote forces a unit's ballot on
+the chat route from that unit's N-th request on, and --propose makes the core propose one verb
+on every request, whether or not the schema's verb enum lists it, as a server without schema
+support would. --garbage wins over both.
+
     python3 tools/mock_endpoint.py --slow balthasar=12000 --garbage casper
+    python3 tools/mock_endpoint.py --propose self_destruct --vote casper=reject --vote casper=approve@3
 """
 
 import argparse
@@ -44,6 +50,7 @@ ENTITY = re.compile(r"^(\w+) (\S+) at \((\S+), (\S+)\), radius (\S+), distance (
 PROPOSAL = re.compile(r"^PROPOSAL \(\w+\)\n([^\s(]+)(?:\((\S+), (\S+)\))? from ", re.M)
 
 STYLES = ("plain", "think", "fence", "chatter")
+VOTE = re.compile(rf"({'|'.join(UNITS.values())})=(approve|reject)(?:@([1-9][0-9]*))?")
 GARBAGE = "I would rather talk about the weather than answer in that format."
 VERBS = ("goto", "hold", "release")  # lcl.known_verbs
 # armor/armor.v Limits: bounds, and release_keep as center distance the way the prompts state it.
@@ -135,6 +142,27 @@ def judge(role: str, user: str, percept: tuple[bool, list[dict]] | None) -> dict
     if why:
         return {"vote": "reject", "why": why}
     return {"vote": "approve", "why": "Nothing to object to."}
+
+
+def forced(votes: dict[int, str], n: int) -> str | None:
+    """Return the vote --vote forces on a unit's n-th request, counted from 1, or None.
+
+    votes maps each N the unit was given to its vote, and the largest N up to n applies.
+    """
+    due = [at for at in votes if at <= n]
+    return votes[max(due)] if due else None
+
+
+def answer(role: str, user: str, n: int, staged: dict | None,
+           votes: dict[str, dict[int, str]]) -> dict:
+    """Script a role's answer to its n-th request: --propose and --vote first, else the script."""
+    percept = read_percept(user)
+    if role == "core":
+        return staged or propose(percept)
+    vote = forced(votes.get(role, {}), n)
+    if vote:
+        return {"vote": vote, "why": f"forced {vote} (--vote)"}
+    return judge(role, user, percept)
 
 
 def jev_nouls(state: dict) -> dict[str, float]:
@@ -231,6 +259,11 @@ class Handler(BaseHTTPRequestHandler):
 
     slow: dict[str, float] = {}
     garbage: set[str] = set()
+    staged: dict | None = None
+
+    # ponytail: --vote forces the chat route only, since no scene forces Jev; systemone would
+    # need the same counter and forced() once one does.
+    votes: dict[str, dict[int, str]] = {}
     quiet = False
 
     def do_POST(self) -> None:
@@ -250,16 +283,15 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         role = role_of(content(body["messages"], "system"))
-        user = content(body["messages"], "user")
-        percept = read_percept(user)
+        with counter_lock:
+            n = next(counters[role]) + 1
         if role in self.garbage:
             decision, style, text = "-", "garbage", GARBAGE
         else:
-            answer = propose(percept) if role == "core" else judge(role, user, percept)
-            decision = answer.get("verb") or answer.get("vote")
-            with counter_lock:
-                style = STYLES[next(counters[role]) % len(STYLES)]
-            text = wrap(answer, style)
+            reply = answer(role, content(body["messages"], "user"), n, self.staged, self.votes)
+            decision = reply.get("verb") or reply.get("vote")
+            style = STYLES[(n - 1) % len(STYLES)]
+            text = wrap(reply, style)
         time.sleep(self.slow.get(role, 0.0))
         line = f"{role} {decision} {style} {format_name(body)}"
         if self.hung_up():
@@ -377,6 +409,24 @@ def slow_arg(value: str) -> tuple[str, float]:
         raise argparse.ArgumentTypeError("expected ROLE=MS") from None
 
 
+def vote_arg(value: str) -> tuple[str, int, str]:
+    """Parse UNIT=approve|reject[@N] into (unit, N, vote); N counts that unit's requests from 1."""
+    m = VOTE.fullmatch(value)
+    if not m:
+        raise argparse.ArgumentTypeError(
+            f"expected UNIT=approve|reject[@N], UNIT one of {', '.join(UNITS.values())}, N from 1")
+    return m[1], int(m[3] or 1), m[2]
+
+
+def propose_arg(value: str) -> dict:
+    """Parse VERB[:WHY] into the core's staged answer. Never a goto, which needs a target that
+    this does not give, so core/llm.v read_proposal would count it a core fault."""
+    verb, _, why = value.partition(":")
+    if not re.fullmatch(r"\S+", verb) or verb.lower() == "goto":
+        raise argparse.ArgumentTypeError("expected VERB[:WHY], one word other than goto")
+    return {"verb": verb, "target": [], "why": why or "Staged by --propose."}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__ and __doc__.splitlines()[0])  # None under -OO
     # main.v load_config's default GEHIRN_URL, so gehirn finds the mock without variables.
@@ -385,11 +435,18 @@ def main() -> None:
                     help="delay that role's replies")
     ap.add_argument("--garbage", type=role_arg, action="append", default=[], metavar="ROLE",
                     help="make that role answer in prose without a JSON object")
+    ap.add_argument("--vote", type=vote_arg, action="append", default=[], metavar="UNIT=VOTE[@N]",
+                    help="force that unit's ballot, approve or reject, from its N-th request on")
+    ap.add_argument("--propose", type=propose_arg, metavar="VERB[:WHY]",
+                    help="make the core propose VERB, never goto, on every request")
     ap.add_argument("--quiet", action="store_true", help="no log line per request")
     args = ap.parse_args()
 
     Handler.slow = dict(args.slow)
     Handler.garbage = set(args.garbage)
+    Handler.staged = args.propose
+    for unit, n, vote in args.vote:
+        Handler.votes.setdefault(unit, {})[n] = vote
     Handler.quiet = args.quiet
     host, _, port = args.listen.rpartition(":")
     server = Server((host, int(port)), Handler)

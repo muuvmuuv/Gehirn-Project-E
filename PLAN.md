@@ -6,7 +6,7 @@ This file is the handoff to Claude Code: where the project stands, the rules tha
 
 ## State as of 2026-10-05
 
-Builds on V 0.5.2 from Homebrew (45ae01d), which ships JSON as `x.json2`, with warnings as errors (`v -W`). `v vet` is clean apart from two notices about const arrays in `lcl`. `just check` runs every check: table driven tests for `armor`, `umbilical`, `plug` (Sync, the datagram and its A10 reply, the pilot's end, the dummy plug), `oai`, `jev`, `magi`, `core`, `zenoh`, `wire`, the bridge's state, `main` and the scenario harness, and a self check per Python tool: `caption`, `eval_dummy`, `export_dummy`, `pilot`, `train_dummy`, `trials` and `withenv`. It also runs shellcheck and shfmt over the shell scripts and checks the justfile's format. `just missions` flies the mock missions.
+Builds on V 0.5.2 from Homebrew (45ae01d), which ships JSON as `x.json2`, with warnings as errors (`v -W`). `v vet` is clean apart from two notices about const arrays in `lcl`. `just check` runs every check: table driven tests for `armor`, `umbilical`, `plug` (Sync, the datagram and its A10 reply, the pilot's end, the dummy plug), `oai`, `jev`, `magi`, `core`, `zenoh`, `wire`, the bridge's state, `main` and the scenario harness, and a self check per Python tool: `caption`, `eval_dummy`, `export_dummy`, `mock_endpoint`, `pilot`, `train_dummy`, `trials` and `withenv`. It also runs shellcheck and shfmt over the shell scripts and checks the justfile's format. `just missions` flies the mock missions.
 
 Verified by independent runs against `tools/mock_endpoint.py`:
 
