@@ -27,13 +27,14 @@ fi
 mkdir -p "$out/frames"
 out=$(cd "$out" && pwd)
 
-# A failed or stopped take leaves thousands of Retina frames otherwise; run/ keeps its logs.
+# A failed or stopped take leaves thousands of frames otherwise; run/ keeps its logs.
 trap 'rm -rf "$out/frames" "$out/caption.ppm" "$out/gehirn-bridge"' EXIT
 
 # OpenGL, because sokol's screenshot readback fails on Metal (CONTRIBUTING.md, V 0.5.2
-# rule 6). gg saves frames 1 to 9000, 150 s at 60 fps, as gehirn-bridge_<n>.png. Keep the
-# window uncovered, since macOS slows a covered window's frames.
-v -prod -d gg_record -d darwin_sokol_glcore33 -o "$out/gehirn-bridge" bridge/
+# rule 6). gg saves frames 1 to 9000, 150 s at 60 fps, as gehirn-bridge_<n>.png, and bridge_1x
+# draws them at 1x, since at 2x a Retina Mac saves 7 a second (bridge/main.v). Keep the window
+# uncovered, since macOS slows a covered window's frames.
+v -prod -d gg_record -d bridge_1x -d darwin_sokol_glcore33 -o "$out/gehirn-bridge" bridge/
 VGG_SCREENSHOT_FOLDER="$out/frames" VGG_SCREENSHOT_FRAMES=$(seq -s, 1 9000) \
     "$root/scripts/scenes/$scene.sh" "$out/gehirn-bridge" \
     "$mock" "$umbilical" "$watch" "$plug" "$out/run" "$lineup"
@@ -61,8 +62,8 @@ EOF
 # The edit runs from MAGI deliberating on the goto, or from the field unit's start in a scene
 # without one, to 2 s after the scene's last beat, or to the GIF's end below if that is later.
 # The 40 s grace shows nothing new, so in a scene that kills HQ it plays at 8x under a caption
-# at the bottom, clear of the mission clock that shows the speed. gg saves a Retina window at
-# twice its size, and X takes at most 1920 by 1200.
+# at the bottom, clear of the mission clock that shows the speed. The bridge built with
+# bridge_1x draws at 1x, so its frames are 1280 by 800, within X's 1920 by 1200.
 at() { awk -v k="$1" 'index($0, k) { print $1; exit }' "$out/run/beats"; }
 
 # lead prints how many seconds before a verdict's beat a cut opens on MAGI deliberating: the
@@ -90,19 +91,19 @@ else
 fi
 s=$((s > 0 ? s : 0)) e=$(($(tail -n 1 "$out/run/beats" | cut -d ' ' -f 1) + 2))
 e=$((p + 3 > e ? p + 3 : e))
-mp4=$out/gehirn-$scene.mp4 fit="fps=30,scale=1280:-2:flags=lanczos"
+mp4=$out/gehirn-$scene.mp4
 a=$(at 'HQ killed') b=$(at 'the cable counts as cut')
 if [ -n "$a" ] && [ -n "$b" ]; then
     a=$((a + 3)) b=$((b - 2))
     c=$(awk -v s="$s" -v a="$a" -v b="$b" 'BEGIN { print a - s + (b - a) / 8 }')
     python3 tools/caption.py "40 S GRACE AT 8X" >"$out/caption.ppm"
     ffmpeg -hide_banner -loglevel error -y -f concat -i "$out/frames/frames.txt" -i "$out/caption.ppm" -filter_complex \
-        "[0:v]trim=$s:$a,setpts=PTS-STARTPTS[x];[0:v]trim=$a:$b,setpts=(PTS-STARTPTS)/8[y];[0:v]trim=$b:$e,setpts=PTS-STARTPTS[z];[x][y][z]concat=n=3,${fit}[v];[v][1:v]overlay=(W-w)/2:H-h-6:enable='between(t,$((a - s)),$c)',format=yuv420p[o]" \
+        "[0:v]trim=$s:$a,setpts=PTS-STARTPTS[x];[0:v]trim=$a:$b,setpts=(PTS-STARTPTS)/8[y];[0:v]trim=$b:$e,setpts=PTS-STARTPTS[z];[x][y][z]concat=n=3,fps=30[v];[v][1:v]overlay=(W-w)/2:H-h-6:enable='between(t,$((a - s)),$c)',format=yuv420p[o]" \
         -map '[o]' -c:v libx264 -crf 20 -movflags +faststart "$mp4"
 else
     a=$e b=$e
     ffmpeg -hide_banner -loglevel error -y -f concat -i "$out/frames/frames.txt" -vf \
-        "trim=$s:$e,setpts=PTS-STARTPTS,$fit,format=yuv420p" -c:v libx264 -crf 20 -movflags +faststart "$mp4"
+        "trim=$s:$e,setpts=PTS-STARTPTS,fps=30,format=yuv420p" -c:v libx264 -crf 20 -movflags +faststart "$mp4"
 fi
 
 # clip prints where the second $1 of the scene's clock falls in the MP4, whose grace from a to

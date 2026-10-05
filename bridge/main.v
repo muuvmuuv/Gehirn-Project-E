@@ -6,6 +6,7 @@ module main
 
 import gg
 import os
+import stbi
 import lcl
 import wire
 import zenoh
@@ -94,6 +95,17 @@ fn main() {
 		font_bytes_normal: cond_ttf.to_bytes()
 		font_bytes_bold:   black_ttf.to_bytes()
 	)
+
+	// scripts/record.sh has gg_record write every frame as a PNG inside the frame loop, which on a
+	// Retina screen took 120 ms at 2560 by 1600 against 28 ms at 1280 by 800, and 18 ms without
+	// stbi's search for the best filter of each row, so it passes bridge_1x to draw at 1x and
+	// filter no row (PLAN, Known issue 24). A build without it keeps the display's scale, so its
+	// frames show the 2x path, such as text's anchor. gg.new_context always asks sokol for high
+	// DPI.
+	$if bridge_1x ? {
+		app.gg.window.high_dpi = false
+		stbi.write_force_png_filter(0)
+	}
 	app.gg.run()
 }
 

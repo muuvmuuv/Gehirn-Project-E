@@ -49,7 +49,7 @@ The window's icon is gehirn's mark ([docs/brand.md](../docs/brand.md)), from two
 
 ## Layout
 
-The window is fixed at `screen_w` by `screen_h`, 1280 by 800 logical pixels; a Retina screen draws it at 2560 by 1600, and `gg` scales every coordinate. Two columns sit 16 px from the edges with a 16 px gutter, the left 736 px wide and the right 496, and the panels in each column are 10 px apart. Both columns end at y 774, above the footer line at 781.
+The window is fixed at `screen_w` by `screen_h`, 1280 by 800 logical pixels; a Retina screen draws it at 2560 by 1600, and `gg` scales every coordinate, except in a build with `-d bridge_1x` (Recording frames). Two columns sit 16 px from the edges with a 16 px gutter, the left 736 px wide and the right 496, and the panels in each column are 10 px apart. Both columns end at y 774, above the footer line at 781.
 
 | Panel | Function | x | y | w | h |
 | --- | --- | --- | --- | --- | --- |
@@ -259,12 +259,12 @@ VGG_SCREENSHOT_FOLDER=/tmp/rec/frames VGG_SCREENSHOT_FRAMES=$(seq -s, 30 30 3000
     VGG_STOP_AT_FRAME=3000 /tmp/rec/gehirn-bridge -NSAppSleepDisabled YES
 ```
 
-`gg` saves each frame as `gehirn-bridge_<n>.png` before `frame` draws the next, from the framebuffer last presented. Since every animation follows the wall clock, a slow capture shows the same motion in fewer frames.
+`gg` saves each frame as `gehirn-bridge_<n>.png` before `frame` draws the next, from the framebuffer last presented. Since every animation follows the wall clock, a slow capture shows the same motion in fewer frames. So under `-d bridge_1x`, which scripts/record.sh passes since it saves every frame, `main` opens the window at 1x and has stbi write every PNG row unfiltered: a 2560 by 1600 frame took 120 ms to write and saved 7 frames a second, a 1280 by 800 one without the filter search 18 ms and 38 a second (PLAN, Known issue 24). That window looks soft on a Retina screen, and its frames are 1280 by 800 everywhere. The recipe above saves one frame in 30 and leaves the define out, so its frames keep the display's scale, 2560 by 1600 on Retina, the only frames that show the 2x path, such as `text`'s anchor.
 
-The stills in this file are cut from frames around the boxes in the Layout table, 4 to 8 px wider on each side, and EMERGENCY as an 800 by 360 cut from the middle of the window. A Retina frame is 2560 by 1600, so scale it to 1280 by 800 before cutting:
+The stills in this file are cut from 1280 by 800 frames around the boxes in the Layout table, 4 to 8 px wider on each side, and EMERGENCY as an 800 by 360 cut from the middle of the window; a 2560 by 1600 frame takes `scale=1280:800,` before the crop:
 
 ```sh
-ffmpeg -i frame.png -vf scale=1280:800,crop=504:356:764:274 assets/media/bridge/scene.png
+ffmpeg -i frame.png -vf crop=504:356:764:274 assets/media/bridge/scene.png
 ```
 
 ## Credits and references
