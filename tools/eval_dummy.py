@@ -12,16 +12,20 @@ the dummy plug was benched, how far it steered off what the pilot would have ste
 same tick, its lowest sync, its ticks close to the pillar's rim and how close it came to the
 human. A DAgger round, whose --pilot-args hold --dagger, also counts the ticks the pilot
 corrected the dummy plug. Each dummy plug of --dummies flies every start: knn, the nearest
-neighbor one, and policy, the network. With both, the script exits 0 when the network
-arrives in more runs and gets benched in fewer, the done criterion of PLAN Phase 4, and
-counts the starts only one of them arrived from or was benched on. GEHIRN_URL and the rest
-come from the environment, as for tools/trials.py.
+neighbor one, and policy, the network. With both, the script counts the starts only one of
+them arrived from or was benched on, and exits 0 when the done criterion of PLAN Phase 4
+holds: the network steers closer to the pilot's own command than the nearest neighbor dummy
+plug, by its mean angle off it and by its share of ticks more than ASTRAY degrees off, each
+compared to the tenth it prints, so a tie is not met, while it arrives in as many runs and
+gets benched in no more. GEHIRN_URL and the rest come from the environment, as for
+tools/trials.py.
 
-The defaults and STARTS are the protocol PLAN Phase 4 is judged by, set on 2026-10-04
-before any test run. The pilot flies --avoid 1.2 --offset 20 and leaves after a second, so
-the dummy plug flies all but the first 1.5 s. STARTS are 0.5 m grid points at least 2.5 m
-from the beacon, 1.1 m from the pillar's rim and 1.6 m from the center of the human's loop,
-in sectors by their bearing from the beacon, counterclockwise from east. test and
+The defaults and the sets train, validation and test of STARTS are the protocol of PLAN
+Phase 4, set on 2026-10-04 before any test run. The pilot flies --avoid 1.2 --offset 20 and
+leaves after a second, so the dummy plug flies all but the first 1.5 s. Those sets hold
+0.5 m grid points at least 2.5 m from the beacon, 1.1 m from the pillar's rim and 1.6 m from
+the center of the human's loop, in sectors by their bearing from the beacon,
+counterclockwise from east. test and
 validation are the ones in the pillar's shadow, from which the straight line to the beacon
 would touch the pillar (about 201 to 234 degrees), and in the northwest whose line crosses
 the loop (155 to 178), within 4 m of the pillar's rim, split like a checkerboard: test where
@@ -37,6 +41,25 @@ one run per start and dummy plug, with the recorders the network was trained on:
     python3 tools/eval_dummy.py --starts test --recorders train/*/plug.jsonl --weights dummy.shinji.json
     python3 tools/eval_dummy.py --dummies policy --weights dummy.shinji.json --starts train \\
         --pilot-seconds 60 --pilot-args '--avoid 1.2 --offset 20 --dagger 30'   # a DAgger round
+
+The fresh test, set on 2026-10-05 before any of its runs, judges the criterion as worded that
+day, after test had been seen, with the same pilot, defaults and run. Its 61 starts, fresh,
+follow the rule of test and validation on the grid offset by 0.25 m in x and y, so no earlier
+run started from any of them: 48 in the shadow and 13 in the northwest, all flown as test.
+Its recorders are the training flights from fresh-train, the 35 train starts where 2x + 2y is
+even: the flights of 2026-10-04 from those starts, copied out of train/ as they are, not
+flown again. They hold 19874 pilot ticks, so the nearest neighbor dummy plug keeps every one
+of them and the up to 75 it learns from the pilot in a run's first 1.5 s, which the network
+does not. Flights flown again hold other ticks, and it keeps all of them only while they
+number KNN_LIMIT - 75 or fewer. The network is trained on their export with
+tools/train_dummy.py's defaults, which give the very weights that flew test when trained on
+all 71 train flights, and without a DAgger round, since the one from the train starts drew no
+correction. With those copies in fresh-train/<start>/plug.jsonl, fresh is flown once, one run
+per start and dummy plug:
+
+    python3 tools/export_dummy.py --out dummy.fresh.set fresh-train/*/plug.jsonl
+    python3 tools/train_dummy.py dummy.fresh.set --out dummy.fresh.json
+    python3 tools/eval_dummy.py --starts fresh --recorders fresh-train/*/plug.jsonl --weights dummy.fresh.json
 """
 
 import argparse
@@ -81,7 +104,16 @@ STARTS = {
     "test": "-4.5,-1.5;-4,-2;-4,-1;-3.5,-3.5;-3.5,-2.5;-3.5,-1.5;-3,-4;-3,-3;-3,-2;-3,-1;-2.5,-3.5;"
             "-2.5,-2.5;-2.5,-1.5;-2.5,-0.5;-2,-4;-2,-3;-2,-2;-2,-1;-2,0;-1.5,-3.5;-1.5,-2.5;-1.5,-1.5;"
             "-1,-3;-1,-2;-0.5,-2.5;-3.5,2.5;-3,3;-2.5,2.5;-2,3;-1.5,2.5;-0.5,2.5",
+    "fresh": "-4.25,-2.25;-4.25,-1.75;-4.25,-1.25;-3.75,-3.25;-3.75,-2.75;-3.75,-2.25;-3.75,-1.75;-3.75,-1.25;"
+             "-3.75,-0.75;-3.25,-3.75;-3.25,-3.25;-3.25,-2.75;-3.25,-2.25;-3.25,-1.75;-3.25,-1.25;-3.25,-0.75;"
+             "-2.75,-3.75;-2.75,-3.25;-2.75,-2.75;-2.75,-2.25;-2.75,-1.75;-2.75,-1.25;-2.75,-0.75;-2.75,-0.25;"
+             "-2.25,-4.25;-2.25,-3.75;-2.25,-3.25;-2.25,-2.75;-2.25,-2.25;-2.25,-1.75;-2.25,-1.25;-2.25,-0.75;"
+             "-2.25,-0.25;-1.75,-4.25;-1.75,-3.75;-1.75,-3.25;-1.75,-2.75;-1.75,-2.25;-1.75,-1.75;-1.75,-1.25;"
+             "-1.25,-3.75;-1.25,-3.25;-1.25,-2.75;-1.25,-2.25;-1.25,-1.75;-0.75,-2.75;-0.75,-2.25;-0.25,-2.25;"
+             "-3.75,2.25;-3.25,2.25;-3.25,2.75;-2.75,2.25;-2.75,2.75;-2.25,2.25;-2.25,2.75;-1.75,2.25;-1.75,2.75;"
+             "-1.25,2.25;-1.25,2.75;-0.75,2.25;-0.75,2.75",
 }
+STARTS["fresh-train"] = ";".join(s for s in STARTS["train"].split(";") if sum(map(float, s.split(","))) % 1 == 0)
 
 print_lock = threading.Lock()
 
@@ -217,6 +249,15 @@ def summary(runs: list[dict]) -> dict:
     }
 
 
+def met(knn: dict, policy: dict) -> bool:
+    """Report whether PLAN Phase 4's done criterion holds for two summaries: the policy is off
+    the pilot by fewer degrees on average and astray in a smaller share of its ticks, each to
+    the tenth main prints, and arrives in as many runs and gets benched in no more."""
+    return (round(policy["off_deg"], 1) < round(knn["off_deg"], 1)
+            and round(policy["astray_pct"], 1) < round(knn["astray_pct"], 1)
+            and policy["arrived"] >= knn["arrived"] and policy["benched"] <= knn["benched"])
+
+
 def pilot_ticks(recorders: list[str]) -> int:
     """Return how many ticks of recorders plug/dummy.v load_dummy learns from: the pilot's,
     toward a goal, the ticks inside the arrival radius that tools/export_dummy.py skips included."""
@@ -237,7 +278,8 @@ def pilot_ticks(recorders: list[str]) -> int:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__ and __doc__.splitlines()[0])  # None under -OO
     ap.add_argument("--starts", required=True,
-                    help="START values separated by semicolons, x,y;x,y, or train, validation or test")
+                    help="START values separated by semicolons, x,y;x,y, or a set of STARTS: train, "
+                         "validation, test, fresh-train or fresh")
     ap.add_argument("--runs", type=int, default=1, help="runs per start and dummy plug")
     ap.add_argument("--dummies", default="knn,policy", help="knn, policy or both, comma separated")
     ap.add_argument("--recorders", nargs="*", default=[], help="recorders every run's recorder starts with")
@@ -307,9 +349,9 @@ def main() -> None:
                sum(b["benched"] > 0 and a["benched"] == 0 for a, b in pairs)]
     print(f"paired: only knn arrived from {arrived[0]} starts and only the policy from {arrived[1]}; "
           f"only knn was benched from {benched[0]} and only the policy from {benched[1]}")
-    knn, policy = totals["knn"], totals["policy"]
-    done = policy["arrived"] > knn["arrived"] and policy["benched"] < knn["benched"]
-    print(f"phase 4: {'done' if done else 'not done'} (the policy must arrive more often and get benched less)")
+    done = met(totals["knn"], totals["policy"])
+    print(f"phase 4: {'done' if done else 'not done'} (the policy must steer closer to the pilot by both "
+          f"measures, arrive as often and get benched no more)")
     sys.exit(0 if done else 1)
 
 

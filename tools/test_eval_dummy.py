@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Self check for eval_dummy.outcome, pilot_ticks, plug_up and summary: python3 tools/test_eval_dummy.py"""
+"""Self check for eval_dummy.outcome, pilot_ticks, plug_up, summary, met and STARTS: python3 tools/test_eval_dummy.py"""
 
 import json
 import math
@@ -8,7 +8,7 @@ import re
 import tempfile
 from pathlib import Path
 
-from eval_dummy import KNN_LIMIT, outcome, pilot_ticks, plug_up, summary
+from eval_dummy import KNN_LIMIT, STARTS, met, outcome, pilot_ticks, plug_up, summary
 from pilot import parser
 
 STYLE = parser().parse_args(["--offset", "20"])
@@ -71,5 +71,16 @@ runs = [{"arrived_by": "dummy", "arrive_s": 9.0, "benched": 0, "release": "on ta
 assert summary(runs) == {"runs": 3, "arrived": 1, "benched": 2, "on_target": 2, "off_deg": 15.0,
                          "astray_pct": 20.0, "corrections": 42, "arrive_s": 9.0, "low_sync": 0.3,
                          "near_solid": 8, "human_gap": 0.4}, summary(runs)
+
+# Phase 4's criterion: both angle measures strictly better to the printed tenth, arrivals and benches no worse.
+knn = {"off_deg": 11.2, "astray_pct": 12.4, "arrived": 30, "benched": 1}
+assert met(knn, {"off_deg": 6.0, "astray_pct": 5.0, "arrived": 30, "benched": 1})
+for worse in ({"off_deg": 11.24}, {"astray_pct": 12.4}, {"arrived": 29}, {"benched": 2}):
+    assert not met(knn, {"off_deg": 6.0, "astray_pct": 5.0, "arrived": 30, "benched": 1, **worse}), worse
+
+# The fresh test's starts were never flown before, and its training flights are the even half of train's.
+sets = {k: set(v.split(";")) for k, v in STARTS.items()}
+assert len(sets["fresh"]) == 61 and not sets["fresh"] & (sets["train"] | sets["validation"] | sets["test"])
+assert len(sets["fresh-train"]) == 35 and sets["fresh-train"] < sets["train"]
 
 print("eval_dummy: ok")
