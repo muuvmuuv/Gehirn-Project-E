@@ -82,6 +82,7 @@ fn (a Rect) overlaps(b Rect) bool {
 fn draw(ctx &gg.Context, s State, unit string, at string, now i64) {
 	if now - s.born < boot_ms {
 		draw_boot(ctx, s, unit, at, now)
+		edge(ctx)
 		scanlines(ctx)
 		return
 	}
@@ -97,6 +98,7 @@ fn draw(ctx &gg.Context, s State, unit string, at string, now i64) {
 	if s.emergency(now) {
 		draw_emergency(ctx, s, now)
 	}
+	edge(ctx)
 	scanlines(ctx)
 }
 
@@ -206,6 +208,16 @@ fn hazard(ctx &gg.Context, x f32, y f32, w f32, h f32, c gg.Color, back gg.Color
 		i += 2 * h
 	}
 	ctx.scissor_rect(0, 0, screen_w, screen_h)
+}
+
+// edge outlines the window as the panels' frames are outlined, a dim line with bright corners, so
+// the borderless window ends at a monitor's edge rather than at the desktop.
+fn edge(ctx &gg.Context) {
+	ctx.draw_rect_filled(0, 0, screen_w, 1, ember)
+	ctx.draw_rect_filled(0, screen_h - 1, screen_w, 1, ember)
+	ctx.draw_rect_filled(0, 0, 1, screen_h, ember)
+	ctx.draw_rect_filled(screen_w - 1, 0, 1, screen_h, ember)
+	corners(ctx, 0, 0, screen_w, screen_h, 24, orange)
 }
 
 fn scanlines(ctx &gg.Context) {

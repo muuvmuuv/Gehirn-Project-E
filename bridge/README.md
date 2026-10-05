@@ -2,7 +2,7 @@
 
 ![The bridge's MAGI block during a refused release: BALTHASAR • 2 and MELCHIOR • 1 red with 否決, CASPER • 3 green with 可決, and 決議 showing 否決 with 1/3 · NEED 3](../docs/media/bridge/magi-refused.png)
 
-People who see the bridge ask whether it runs on a custom engine or a UI library. Neither. It is V's own `gg` module, which ships with the compiler, drawing on sokol: Metal on the Mac, OpenGL on Linux. Text goes through fontstash. Every pixel comes from filled rectangles, triangles, convex polygons, circles, lines and glyphs, plus one matrix transform from `sokol.sgl` that squeezes type. There are no shaders of its own, no images, no UI library, no layout engine and no animation library. The whole bridge is about 1650 lines of V in `bridge/`, `draw.v` 1150 of them, plus 400 lines of tests for its state.
+People who see the bridge ask whether it runs on a custom engine or a UI library. Neither. It is V's own `gg` module, which ships with the compiler, drawing on sokol: Metal on the Mac, OpenGL on Linux. Text goes through fontstash. Every pixel comes from filled rectangles, triangles, convex polygons, circles, lines and glyphs, plus one matrix transform from `sokol.sgl` that squeezes type. There are no shaders of its own, no images, no UI library, no layout engine and no animation library. The whole bridge is about 1700 lines of V in `bridge/`, `draw.v` 1160 of them, plus 400 lines of tests for its state and 30 lines of Objective-C that let its borderless window take the keyboard and move on macOS.
 
 This file is for anyone curious how the bridge is drawn or about to change its look. [README.md's "The bridge"](../README.md#the-bridge) says how to run it and what each panel shows, [website/index.html](../website/index.html) explains the panels to someone watching, and [ADR-0005](../docs/adr/0005-the-bridge.md) says why the bridge exists and why it only watches. Function names and numbers below are the ones in `main.v`, `state.v` and `draw.v`; where this file and the code disagree, the code is right and this file is stale.
 
@@ -14,12 +14,13 @@ This file is for anyone curious how the bridge is drawn or about to change its l
 | `sokol_app`, `sokol_gfx` | The window and the GPU: Metal on macOS, OpenGL on Linux | `thirdparty/sokol` in the V release |
 | `sokol_gl` | Collects every shape as vertices, with a matrix stack, and submits them once per frame | `sokol.sgl` |
 | fontstash, stb_truetype | Rasterize glyphs into one atlas texture, which text quads sample | `vlib/fontstash` |
+| `window_darwin.m` | Lets the borderless window take the keyboard and move when dragged on macOS | `bridge/`, included by `window.c.v` |
 
 ADR-0005 picks this stack for two reasons. `gg` is in vlib, so nothing needs installing, and the same V code draws natively on the Mac and on Linux, where the bridge image may run. And the bridge is its own executable on its own machine, so the field unit's static musl build (Invariant 9) links none of sokol. The alternative, a browser page served by a tier, puts an HTTP server into a tier as a new door and a browser into the kiosk image. The ADR names the price: immediate mode drawing, so every panel is laid out by hand. The rest of this file is what that looks like.
 
 ## From watch message to frame
 
-`main` opens a Zenoh session that listens on `BRIDGE_ENDPOINT`, subscribes to the unit's two watch streams through `wire.bridge_ports` (queues of 16 field views and 32 HQ events), builds a `wire.Opener` under `WATCH_KEY`, and hands `gg.new_context` a 1280 by 800 window with `ink` as its ground, the bundled fonts, `init` and `frame`.
+`main` opens a Zenoh session that listens on `BRIDGE_ENDPOINT`, subscribes to the unit's two watch streams through `wire.bridge_ports` (queues of 16 field views and 32 HQ events), builds a `wire.Opener` under `WATCH_KEY`, and hands `gg.new_context` a borderless 1280 by 800 window that does not resize, with `ink` as its ground, the bundled fonts, `init`, `frame` and `on_event`.
 
 `gg` calls `frame` 60 times a second, and each call does four things:
 
@@ -30,9 +31,19 @@ ADR-0005 picks this stack for two reasons. `gg` is in vlib, so nothing needs ins
 
 Every time `State` keeps is on the bridge's own clock, `lcl.now_ms()` at arrival. Between views, `left_ms` counts the internal power down and `silence` counts HQ's silence on, so the centiseconds tick every frame although views arrive ten times a second. `link` folds all of it into one word for the umbilical: never, stale, awaiting, live, lost, cut or depleted.
 
-That is what immediate mode means here. Nothing on screen is an object that persists between frames. `draw` keeps no state of its own; it reads `State` and `now` and repaints all of it, every frame, in painter's order: ground, panels, the EMERGENCY overlay, scanlines last. Every animation is a function of `now` and a time in `State`, such as the age of a ballot or a verdict, so a slow or skipped frame loses nothing. `state_test.v` tests the folding; the drawing is checked from saved frames (see Recording frames).
+That is what immediate mode means here. Nothing on screen is an object that persists between frames. `draw` keeps no state of its own; it reads `State` and `now` and repaints all of it, every frame, in painter's order: ground, panels, the EMERGENCY overlay, the window's edge, scanlines last. Every animation is a function of `now` and a time in `State`, such as the age of a ballot or a verdict, so a slow or skipped frame loses nothing. `state_test.v` tests the folding; the drawing is checked from saved frames (see Recording frames).
 
 `sokol_gl` merges consecutive shapes into one draw call as long as the primitive type, the pipeline, the texture and the matrices stay the same and the primitive is not a strip. A scissor, a matrix change or a switch to text, which samples the atlas, ends a merge. That is why `stroke` and `hexagon` build lines and hexagons from plain triangles instead of calling `gg`'s `draw_line_with_config`, which rotates the matrix for every line, or `draw_polygon_filled`, which draws a strip. It is also why `draw_emergency` draws every hexagon first and every label after. `gg`'s `draw_convex_poly` draws a strip too, so each MAGI outline, the body's diamond and every hazard stripe is a draw call of its own, about 80 for the header's band alone.
+
+## The window
+
+The bridge draws its own window frame instead of the operating system's. `main` asks `gg` for `borderless_window` and no `resizable`, so sokol opens an `NSWindowStyleMaskBorderless` window on macOS, with no title bar, no traffic lights and square corners, and on Linux an X11 window whose Motif hints ask the window manager for no decorations.
+
+AppKit lets a window without a title bar neither become key nor be moved, and gives it no shadow. So `init` calls `dress` in `window.c.v`, which on macOS hands sokol's window to `bridge_dress_window` in `window_darwin.m`, included the way vlib's `gg` includes `gg_darwin.m`. Through the Objective-C runtime it makes sokol's window class answer yes to `canBecomeKeyWindow` and `canBecomeMainWindow`, and sokol's view class yes to `mouseDownCanMoveWindow`, which an opaque view answers no; then it sets `movableByWindowBackground` and `hasShadow` and makes the window key. A drag anywhere on the bridge moves it, a click gives it the keyboard, and it keeps its Dock icon and its place in Mission Control, since its level and collection behavior stay the defaults. On Linux the window manager decides about focus and moving, which most offer as Alt and drag.
+
+Esc quits, and on macOS Cmd-Q, the Quit item V's sokol puts in the menu bar. `on_event` exits on Esc instead of calling `gg`'s `quit`, because sokol closes a macOS window with `performClose:`, as if its close button were clicked, and AppKit only beeps at a window that has none, once a frame. The bridge holds nothing to save, so both end the process at once.
+
+`edge` gives the window the frame the panels have, a 1 px `ember` line around it with 24 px `orange` brackets on its corners. It is drawn after the panels and the EMERGENCY overlay, under the scanlines, and on the boot screen too, so the window ends at a monitor's edge instead of fading into a dark desktop. Saved frames carry it, since `gg` saves what `draw` paints.
 
 ## Layout
 

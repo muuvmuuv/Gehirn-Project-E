@@ -81,8 +81,11 @@ fn main() {
 		height:            screen_h
 		window_title:      'gehirn bridge ${unit}'
 		bg_color:          ink
+		borderless_window: true
+		resizable:         false
 		init_fn:           init
 		frame_fn:          frame
+		event_fn:          on_event
 		user_data:         app
 		font_bytes_normal: cond_ttf.to_bytes()
 		font_bytes_bold:   black_ttf.to_bytes()
@@ -95,10 +98,11 @@ fn env(key string, fallback string) string {
 	return if val == '' { fallback } else { val }
 }
 
-// init names the bundled faces for TextCfg.family and chains the mincho, then font(), behind each,
-// so a glyph one face lacks comes from the next. It runs before the first frame, since fontstash
-// caches a missing glyph as missing.
+// init readies the borderless window (window.c.v), then names the bundled faces for
+// TextCfg.family and chains the mincho, then font(), behind each, so a glyph one face lacks comes
+// from the next. It runs before the first frame, since fontstash caches a missing glyph as missing.
 fn init(mut app App) {
+	dress()
 	mut ft := app.gg.ft
 	for name, data in {
 		black:  black_ttf
@@ -121,6 +125,16 @@ fn init(mut app App) {
 				ft.fons.add_fallback_font(base, fallback)
 			}
 		}
+	}
+}
+
+// on_event quits on Esc, as Cmd-Q does, since the borderless window has no close button. It exits
+// instead of calling gg's quit, which on macOS asks the window to close as its close button would,
+// and AppKit only beeps at a window without one. The bridge only watches, so quitting changes
+// nothing.
+fn on_event(e &gg.Event, _ voidptr) {
+	if e.typ == .key_down && e.key_code == .escape {
+		exit(0)
 	}
 }
 

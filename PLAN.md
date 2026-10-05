@@ -196,7 +196,7 @@ Done when pulling the network cable, killing the field process and pressing the 
 1. [ ] Run the field unit on Vinix in a VM, aarch64 on Apple Silicon or amd64 under KVM, with HQ on Linux.
 2. [ ] `/dev/eva0`: a kernel driver in V implementing `Resource`, with an in kernel copy of the planar simulator standing in for hardware. `read` returns percepts, `write` takes velocity commands, `ioctl` runs effectors and halt. Only the armor's process may open it.
 3. [ ] `body.Device`, a `Body` over `/dev/eva0`.
-4. [ ] Two images from one pipeline, a `just` recipe: the field image, headless, with Vinix, the field unit and `/dev/eva0`; and the bridge image, which boots straight into the Phase 9 bridge, on Vinix where its graphics hold on the target hardware and on a minimal Linux kiosk otherwise.
+4. [ ] Two images from one pipeline, a `just` recipe: the field image, headless, with Vinix, the field unit and `/dev/eva0`; and the bridge image, which boots straight into the Phase 9 bridge, on Vinix where its graphics hold on the target hardware and on a minimal Linux kiosk otherwise. The image needs the bridge to fill the screen, and the bridge has none of what that takes yet: `gg`'s `fullscreen` behind a switch the image sets; the 1280 by 800 layout and its edge scaled to the screen, or a 1280 by 800 display mode, since `draw` paints at fixed coordinates and would sit in the screen's top left corner; and Esc that does not quit there, since nothing follows the bridge on that screen.
 
 Done when the field unit on Vinix completes the mission through `/dev/eva0` while HQ runs on Linux, and the bridge image boots into the bridge and follows that mission.
 
@@ -227,6 +227,7 @@ Goal: a graphical bridge in the look of NERV's command center, the operator's vi
 5. [x] Show the vote as it happens and HQ's silence, additive inside ADR-0005's two streams and keys: HQ puts each proposal as it goes to MAGI (`stage` deliberating) and each ballot as it lands (`stage` ballot) before the verdict, and the field's view carries `benched`, `silent_ms`, how long ago HQ's last pulse arrived, `grace_ms`, and `awaiting` until HQ's first pulse. README's "The bridge" lists them.
 6. [x] Bundle the bridge's fonts under `bridge/fonts`, OFL licensed, and embed them, so no image needs the CJK font ADR-0005 expected a Linux image to add; `VUI_FONT` remains a fallback for glyphs outside them.
 7. [x] Redraw the bridge in Evangelion's on screen design language: MAGI in its canon geometry with 審議中, the 活動限界 display with a warning while HQ is silent, the シンクロ率 harmonics, the scene as a radar, a boot sequence and a fan project line. Apart from the boot sequence, every element shows the stack's state; README's "The bridge" describes each.
+8. [x] Drop the operating system's window frame: a borderless window of fixed size with an edge of the bridge's own, moved by a drag anywhere and quit with Esc, or Cmd-Q on the Mac (bridge/README.md, The window). Unverified: a drag and Esc with a real mouse and keyboard, since no run could take the foreground; on the Mac the window was checked from inside the process, and Esc delivered to its view and Cmd-Q to the process quit it.
 
 Done when the bridge follows a full mission live on the Mac, from goto to release, including a MAGI rejection and a cut cable, and closing the bridge changes nothing in the mission.
 
