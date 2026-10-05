@@ -25,6 +25,8 @@ Decisions the owner made that are not architecture, with the day, the reason and
 
 - **2026-10-05, a livelier world.** Every mission and scene plays on one built-in world with one human walking the same loop, so they all look alike. The owner wants worlds as files with several humans who react, then a differential drive, then a real simulator, in a later session, after CI and the launch; today's world stays the measured default (PLAN, Phase 3).
 
+- **2026-10-06, MuJoCo.** The owner installed MuJoCo 3.14.0 (Homebrew cask, recorded in the owner's Brewfile) so Phase 3's simulator work can start; the ADR on MuJoCo against Gazebo is still to be written (PLAN, Phase 3).
+
 ## Tooling
 
 - **2026-10-05, shell scripts.** The task runner's long bash recipes live in `scripts/`, checked with shellcheck and formatted with shfmt in `just check` and the pre-commit hook. The owner installed shfmt for it.
