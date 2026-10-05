@@ -64,3 +64,17 @@ On the bridge HQ SILENT counts up and UMBILICAL SIGNAL LOST shows through the gr
 | 0:58 | released on target |
 
 On the bridge the harmonics fall through the 30% line under the first pilot, CORE AUTHORITY reads 0.00, EX_MODE reads BENCHED while the seat is empty and the authority 1.00, and the second pilot's sync climbs back above the line. About 4 s after the second pilot sits down, the walking human, whom the simulator moves without regard to the body, walks into the body's side while the body creeps across the human's path at 0.2 m/s without closing on the human, so OUTCOMES shows CONTACT, and the simulator holds the body still while they touch.
+
+## ep06-yashima: Operation Yashima's vote
+
+- **Canon:** in Episode 6, "Rei II", Misato plans to snipe the Angel Ramiel with a positron rifle that draws on all of Japan's power. The MAGI answer two votes for and one conditional yes, the odds are 8.7%, and Gendo approves the operation ([EvaGeeks forum on the MAGI's votes](https://forum.evageeks.org/viewtopic.php?t=184), [an Episode 6 review](https://wrongeverytime.com/2019/01/25/neon-genesis-evangelion-episode-6/)). Whether the film 1.0 keeps the vote is unverified.
+- **Staged:** CASPER-3 votes no on every proposal (`tools/mock_endpoint.py --vote casper=reject`). Its forced no stands in for the canon's conditional yes, which gehirn has no ballot for. The demo's pilot and dummy plug bring the body to the beacon, unnarrated.
+- **Real:** `magi.quorum` asks a simple majority, 2 of 3, for a reversible goal such as the goto, and every unit for an irreversible one such as the release (Invariant 3). MELCHIOR-1, on the mock's chat route, and BALTHASAR-2, on its Jev route, vote by the mock's script, unforced: the first release, with the walking human within reach, goes 0/3 and is not narrated, and the next, with the human away, gets their two votes and fails.
+- **Differs from canon:** a gehirn ballot reads approve or reject, and anything else, a conditional yes among them, is a fault, which counts as no (`magi.read_reply`), so CASPER-3 says no here. In canon two votes and a conditional one carry the operation, and the commander's word decides; in gehirn the same two of three move the body but cannot release, and nothing turns a no into a yes.
+
+| Clock | Beat |
+| --- | --- |
+| 0:07 | goto approved 2/3, CASPER-3 against |
+| 0:39 | release refused 2/3, MELCHIOR-1 and BALTHASAR-2 for, CASPER-3 against |
+
+On the bridge the goto reads 可決 at 2/3 · NEED 2 with CASPER-3 in red, and the release 否決 at 2/3 · NEED 3 with the same unit in red, the unnarrated RELEASE 0/3 listed below it.
