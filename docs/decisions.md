@@ -21,5 +21,6 @@ Decisions the owner made that are not architecture, with the day, the reason and
 ## Tooling
 
 - **2026-10-05, shell scripts.** The Justfile's long bash recipes move to `scripts/`, checked with shellcheck and formatted with shfmt in `just check` and the pre-commit hook. The owner installed shfmt for it.
+- **2026-10-05, justfile.** The task runner's file is `justfile`, lowercase, as just's manual and `just --init` write it; just finds either spelling, so it is taste. The rename lands with the move to `scripts/`.
 - **2026-10-05, canon scenes.** Scenes from the series run as scripts on the mock: Episode 13 first, then Episodes 3, 19 and 6; Episode 18 waits on how a goto toward a walking person should be judged. Each scene says what is staged and what is real ([research](research/canon.md)).
 - **2026-10-05, website.** `website/` holds static pages for Vercel, starting with the guide to reading the bridge; a boot and a scene recording go there next.
