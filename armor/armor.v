@@ -14,8 +14,8 @@ import lcl
 // release_keep as the scene's rings, so change them together: bounds is
 // the -5 to 5 m fence, human_stop 0.7 m, human_slow 2 m, release_keep 2 m and, as center
 // distance, 2.5 m (plus a 0.3 m human radius and a 0.2 m margin, so MAGI's release line sits
-// outside the armor's; MAGI still votes on a snapshot as old as the core's latency, so the armor
-// can refuse a release MAGI approved), and verbs goto, hold, release.
+// outside the armor's; MAGI's percept is as old as the slowest ballot once their verdict lands,
+// so the armor can refuse a release MAGI approved), and verbs goto, hold, release.
 pub struct Limits {
 pub:
 	v_max        f64      = 1.0                    // m/s with a pilot or the dummy seated

@@ -197,6 +197,7 @@ struct BallotEntry {
 	vote       string
 	why        string
 	latency_ms i64
+	percept_ms i64 // t_ms of the percept the ballot judged, on the field unit's clock
 }
 
 // FaultEntry is one core fault as a journal line, written for every fault while HQ prints only a
@@ -400,8 +401,9 @@ fn new_backend(cfg Config) !core.Core {
 	}
 }
 
-// hq is NERV HQ: take the newest field snapshot, let the core propose, let MAGI judge.
-// MAGI is only consulted when a proposal would change something, and an irreversible
+// hq is NERV HQ: take the newest field snapshot, let the core propose, let MAGI judge. MAGI
+// judge on the newest snapshot that arrived while the core thought, so their percept is not as
+// old as the core's latency, and only when a proposal would change something; an irreversible
 // proposal that was just put to the vote waits out a cooldown before it may be put again.
 // backend is the core main built with new_backend; once spawned, only hq uses it.
 fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqMsg, outcomes chan lcl.Outcome, events chan lcl.HqEvent) {
@@ -457,9 +459,14 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqM
 			continue
 		}
 		last_fault = ''
+		judged := lcl.Context{
+			...pop_newest(inbox, snapshot)
+			mission: ctx.mission
+			memory:  ctx.memory
+		}
 		irreversible := lcl.is_irreversible(proposal.verb)
 		cooling := irreversible && lcl.now_ms() - last_irreversible < cfg.cooldown_ms
-		if cooling || same_goal(proposal, ctx.goal) {
+		if cooling || same_goal(proposal, judged.goal) {
 			outbox <- lcl.HqMsg{
 				alive: true
 			}
@@ -473,7 +480,7 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqM
 			proposal: proposal
 			needed:   needed
 		})
-		verdict := council.decide(ctx, proposal, fn [events, proposal, needed] (b magi.Ballot) {
+		verdict := council.decide(judged, proposal, fn [events, proposal, needed] (b magi.Ballot) {
 			_ = events.try_push(lcl.HqEvent{
 				t_ms:     lcl.now_ms()
 				stage:    'ballot'
@@ -492,6 +499,7 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqM
 				vote:       vote_of(b)
 				why:        b.why
 				latency_ms: b.latency_ms
+				percept_ms: judged.percept.t_ms
 			})
 		}
 		_ = events.try_push(lcl.HqEvent{
@@ -969,6 +977,17 @@ fn push_newest[T](ch chan T, v T) {
 		mut stale := T{}
 		_ = ch.try_pop(mut stale)
 	}
+}
+
+// pop_newest takes every value waiting in ch without blocking and returns the newest, or held when
+// none waits. hq takes the snapshot MAGI judge with it.
+fn pop_newest[T](ch chan T, held T) T {
+	mut newest := held
+	mut v := T{}
+	for ch.try_pop(mut v) == .success {
+		newest = v
+	}
+	return newest
 }
 
 // push_outcome never blocks the field loop. If HQ is too far behind, the outcome is lost. seen

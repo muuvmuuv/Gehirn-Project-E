@@ -214,13 +214,14 @@ _fly bridge_bin mock umbilical watch plug dir lineup:
     # mock the goto lands about 4 s in: 2 s for the core, 1.7 s for the slowest ballot. The pilot
     # sits down as it lands, and the body reaches the beacon about 13.5 s later, as the human comes
     # within reach. HQ deliberates every 3.5 s from the goto, the core's 2 s and the 1.5 s pause,
-    # so MAGI judge the first release on a percept from about 15.5 s after the goto, with the
-    # human 1.4 m from the beacon, and the next, after the 8 s cooldown, on one from 12 s later,
-    # with the human 4 m away. Both clocks run from the goto, so a slow host shifts them together.
+    # and MAGI judge the percept that is newest when the core's proposal comes back: for the first
+    # release one from about 17.5 s after the goto, with the human 0.7 m from the beacon, and for
+    # the next, after the 8 s cooldown, one from 12 s later, with the human 3.9 m away. Both clocks
+    # run from the goto, so a slow host shifts them together.
     pilot_s=11        # plug/dummy.v needs 500 pilot ticks under a goal, 10 s at 50 Hz
     pilot_speed=0.6
     pilot_offset=-45  # south of the pillar, clear of the human's loop
-    cooldown_s=8      # rather than 5 s, so the next release's percept has the human 4 m away, not 3.1
+    cooldown_s=8      # as PLAN's Known issue 23 times it; 5 s puts the next release to MAGI 3.5 s sooner
     reconnect_s=5
     lineup={{ quote(lineup) }}
     root=$PWD bin=$PWD/gehirn bridge_bin={{ quote(bridge_bin) }}

@@ -1,8 +1,10 @@
 module main
 
 import os
+import math
 import net
 import time
+import armor
 import core
 import jev
 import lcl
@@ -616,6 +618,147 @@ fn test_hq_notes_escape_model_text() {
 	}
 	assert notes == ['hq: core fault: forger: HTTP 500\\x0aarmor: release refused',
 		'hq: goto\\x1b[2J(1.00, 2.00) from "llm:forger\\x0a": b1\\x0aarmor: release refused']
+}
+
+// Slow is a core during whose latency the field sends newer, and which then proposes proposal.
+struct Slow {
+	inbox    chan lcl.Context
+	newer    lcl.Context
+	proposal lcl.Intent
+}
+
+fn (c Slow) name() string {
+	return 'slow'
+}
+
+fn (mut c Slow) propose(ctx lcl.Context) !lcl.Intent {
+	c.inbox <- c.newer
+	return c.proposal
+}
+
+fn (mut c Slow) feedback(o lcl.Outcome) {}
+
+struct JudgedCase {
+	name     string
+	held     lcl.Percept // the percept the core proposes from
+	newer    lcl.Context // the snapshot the field sends while the core thinks
+	proposal lcl.Intent
+	why      string // in the one ballot, empty when HQ only pulses
+}
+
+// MAGI judge the newest snapshot HQ holds when the vote starts, not the one the core proposed
+// from, the same goal check reads that snapshot's goal, and the journal records which percept
+// each ballot judged. BALTHASAR-2 on Jev without a key tells the two percepts apart: it faults
+// on a NaN pose for that, and on a finite one for the missing key.
+fn test_magi_judge_the_snapshot_that_arrived_during_the_core_latency() {
+	at_beacon := lcl.Percept{
+		t_ms: 1001
+		pose: [3.0, 2.0]
+	}
+	to_beacon := lcl.Intent{
+		verb:   'goto'
+		target: [3.0, 2.0]
+	}
+	cases := [
+		JudgedCase{
+			name:     'a release is judged on the newer percept'
+			held:     lcl.Percept{
+				t_ms: 1000
+				pose: [math.nan(), 2.0]
+			}
+			newer:    lcl.Context{
+				percept: at_beacon
+			}
+			proposal: lcl.Intent{
+				verb: 'release'
+			}
+			why:      'no API key'
+		},
+		JudgedCase{
+			name:     'a goto the newer snapshot already pursues only pulses'
+			held:     lcl.Percept{
+				t_ms: 1000
+				pose: [3.0, 2.0]
+			}
+			newer:    lcl.Context{
+				percept: at_beacon
+				goal:    to_beacon
+			}
+			proposal: to_beacon
+		},
+	]
+	for i, c in cases {
+		journal := os.join_path(os.vtmp_dir(), 'gehirn_slow_core_${os.getpid()}_${i}.jsonl')
+		inbox := chan lcl.Context{cap: 1}
+		outbox := chan lcl.HqMsg{cap: 8}
+		soul := core.Core(Slow{inbox, c.newer, c.proposal})
+		cfg := Config{
+			journal:   journal
+			period_ms: 100
+			units:     [
+				magi.Unit{
+					name:   'BALTHASAR-2'
+					ep:     jev.Endpoint{}
+					bounds: armor.Limits{}.bounds
+				},
+			]
+		}
+		spawn hq(cfg, soul, inbox, outbox, chan lcl.Outcome{cap: 1}, chan lcl.HqEvent{cap: 8})
+		inbox <- lcl.Context{
+			percept: c.held
+		}
+		mut m := lcl.HqMsg{}
+		select {
+			got := <-outbox {
+				m = got
+			}
+			3 * time.second {
+				assert false, '${c.name}: HQ sent nothing'
+			}
+		}
+		ballots := (os.read_lines(journal) or { []string{} }).filter(it.contains('"kind":"ballot"'))
+		os.rm(journal) or {}
+		assert m.alive && !m.approved, c.name
+		if c.why == '' {
+			assert ballots.len == 0, c.name
+			assert m.note == '', m.note
+			continue
+		}
+		assert ballots.len == 1, c.name
+		assert ballots[0].contains(c.why), ballots[0]
+		assert ballots[0].contains('"percept_ms":1001'), ballots[0]
+	}
+}
+
+struct NewestCase {
+	name   string
+	queued []i64 // t_ms of the snapshots waiting, oldest first
+	want   i64
+}
+
+fn test_pop_newest() {
+	cases := [
+		NewestCase{'none waiting keeps the held one', []i64{}, 1},
+		NewestCase{'one waiting replaces it', [i64(2)], 2},
+		NewestCase{'of two waiting the newer wins', [i64(2), 3], 3},
+	]
+	for c in cases {
+		ch := chan lcl.Context{cap: 2}
+		for t in c.queued {
+			ch <- lcl.Context{
+				percept: lcl.Percept{
+					t_ms: t
+				}
+			}
+		}
+		got := pop_newest(ch, lcl.Context{
+			percept: lcl.Percept{
+				t_ms: 1
+			}
+		})
+		assert got.percept.t_ms == c.want, c.name
+		assert ch.len == 0, c.name
+	}
 }
 
 struct PaceCase {
