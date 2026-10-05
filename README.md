@@ -9,13 +9,13 @@
 
 Evangelion's MAGI as a robot's safety gate: three model families vote on every goal, anything irreversible needs all three, and a restraint armor with no model in it holds the body.
 
-![MAGI on hosted models refuse a release while a person is within reach, then approve it once the person has walked on](assets/media/magi.gif)
+![MAGI on gpt-oss-20b, Jev and llama-3.1-8b refuse a release while a person is within reach, then approve it once the person has walked on](assets/media/magi.gif)
 
 - Reversible goals pass with 2 of 3 votes, irreversible ones need 3 of 3, and a unit that errs, times out or answers nonsense votes no.
 - MAGI approval is necessary, never sufficient: the armor caps speed, keeps a geofence, moves nothing toward a person inside 0.7 m and releases nothing with a person inside 2 m.
 - Cut the umbilical and the unit runs 5:00 on internal power, then stands still, whoever sits in the seat. Without HQ there is no quorum, so nothing irreversible happens.
 
-The loop above comes from a `just lineup=magi demo-record` run on 2026-10-04: MAGI on gpt-oss-20b, Jev and llama-3.1-8b-instruct, hosted on OpenRouter and TypeSafe, judging the mock's scripted core, which proposes the release whatever the human does. The body is simulated. gehirn is a fan project, not affiliated with khara or Gehirn Inc.
+The loop above comes from a `just lineup=magi demo-record` run on 2026-10-05: MAGI on gpt-oss-20b, Jev and llama-3.1-8b-instruct, hosted on OpenRouter and TypeSafe, judging the mock's scripted core, which proposes the release whatever the human does. The body is simulated. gehirn is a fan project, not affiliated with khara or Gehirn Inc.
 
 ## Try it
 
