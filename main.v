@@ -752,7 +752,8 @@ fn main() {
 			reached = false
 		}
 
-		// Umbilical. Once the internal budget is gone the unit holds.
+		// Umbilical. Once the internal budget is gone the goal falls back to hold, and powered
+		// stops the body whoever sits.
 		state := cable.state(now)
 		if state != link {
 			// The scenes in scripts/scenes wait on these lines, such as `connected to internal`.
@@ -813,7 +814,7 @@ fn main() {
 			}
 		}
 		ratio := if seat == 'dummy' { dummy_sync.ratio } else { pilot_sync.ratio }
-		u_cmd := lcl.blend(u_seat, u_core, authority)
+		u_cmd := powered(state, lcl.blend(u_seat, u_core, authority))
 		u_out := ar.drive(u_cmd, p, dt, seat != 'empty')
 
 		// The A10 back channel: what the pilot's gamepad turns into rumble (ADR-0006).
@@ -911,6 +912,17 @@ fn pace(last u64, now u64) (u64, u64) {
 		return now, 0
 	}
 	return next, 0
+}
+
+// powered is what the field loop hands the armor of the command u: all of it while the cable or
+// internal power runs the body, and nothing once the internal budget is spent, whoever sits in
+// the seat, as Unit-01 stops at zero in Episode 3 (Invariant 6). HQ's pulse reconnects the cable
+// and gives the seat the body back.
+fn powered(state umbilical.State, u []f64) []f64 {
+	return match state {
+		.connected, .internal { u }
+		.depleted { []f64{len: u.len} }
+	}
 }
 
 // share is the core's part of the controls. A core with nowhere to go takes none; otherwise

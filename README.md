@@ -6,7 +6,7 @@ Evangelion's MAGI as a robot's safety gate: three model families vote on every g
 
 - Reversible goals pass with 2 of 3 votes, irreversible ones need 3 of 3, and a unit that errs, times out or answers nonsense votes no.
 - MAGI approval is necessary, never sufficient: the armor caps speed, keeps a geofence, moves nothing toward a person inside 0.7 m and releases nothing with a person inside 2 m.
-- Cut the umbilical and the unit runs 5:00 on internal power, then holds. Without HQ there is no quorum, so nothing irreversible happens.
+- Cut the umbilical and the unit runs 5:00 on internal power, then stands still, whoever sits in the seat. Without HQ there is no quorum, so nothing irreversible happens.
 
 The loop above and the bridge below come from a `just lineup=magi demo-record` run on 2026-10-04: MAGI on gpt-oss-20b, Jev and llama-3.1-8b-instruct, hosted on OpenRouter and TypeSafe, judging the mock's scripted core, which proposes the release whatever the human does. `just demo` flies the whole story on scripted mock models, without keys. The body is simulated. gehirn is a fan project, not affiliated with khara or Gehirn Inc.
 
@@ -209,7 +209,7 @@ PILOT_KEY=<the field unit's key> ./gehirn-gamepad
 
 ## Sync ratio
 
-Sync is a moving average of how well the seat and the core agree, from the angle between their commands and how close their magnitudes are. It is the arbitration term of shared control, in the sense of Dragan and Srinivasa's policy blending. At or below 30% the core only advises. Above that its share grows with sync up to 80%, so a seated pilot always keeps a fifth of the controls. A core with nowhere to go takes no share.
+Sync is a moving average of how well the seat and the core agree, from the angle between their commands and how close their magnitudes are. It is the arbitration term of shared control, in the sense of Dragan and Srinivasa's policy blending. At or below 30% the core only advises. Above that its share grows with sync up to 80%, so a seated pilot keeps at least a fifth of the controls while the body has power. A core with nowhere to go takes no share.
 
 The dummy plug earns its own ratio. At 30% it is benched until the pilot is back, and the core drives alone under the unmanned speed limit. It imitates style, not intent: commands are stored relative to the approved goal, so without a goal it does nothing, and with one it has no memorized heading to run off with. In canon a sync ratio past 400% dissolves the pilot into LCL. The nearest thing here is a dummy plug good enough that nobody needs to sit down.
 
@@ -268,7 +268,7 @@ That is a soft layer on operating systems without real time guarantees. On hardw
 | `HQ_PERIOD_MS` | `1500` | Pause between deliberations, 100 to 3000 |
 | `MAGI_COOLDOWN_MS` | `10000` | Wait before an irreversible proposal may be put again, 5000 to 60000, so always longer than the pause |
 | `UMBILICAL_GRACE_MS` | `45000` | Silence from HQ before the cable counts as cut, 40000 to 60000, so always longer than both deadlines plus the pause |
-| `INTERNAL_BUDGET_MS` | `300000` | Internal power after the cut, 0 to 300000; then the unit holds. 0 holds as soon as the cable counts as cut |
+| `INTERNAL_BUDGET_MS` | `300000` | Internal power after the cut, 0 to 300000; then the body stands still, whoever sits in the seat, until HQ's pulse reconnects the cable. 0 stops it as soon as the cable counts as cut |
 | `UNIT_ID` | `eva01` | The unit's name in every key expression, `gehirn/<unit>/...`: 1 to 32 lowercase letters, digits and hyphens |
 | `UMBILICAL_KEY` | empty | The unit's link key, 64 hex digits, the same on HQ and the field unit. `hq` and `field` refuse to start without it; it signs messages and never leaves the process |
 | `WATCH_KEY` | empty | Key of the watch streams to the bridge, 64 hex digits, the same on HQ, the field unit and the bridge, and never the same as `UMBILICAL_KEY` or `PILOT_KEY`. It shows, it cannot approve or pulse; without it neither tier publishes them ([ADR 0005](docs/adr/0005-the-bridge.md)) |

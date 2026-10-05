@@ -89,7 +89,7 @@ pub:
 	contact bool
 	near    f64 // 0 with no human inside the armor's human_slow, 1 at its human_stop
 	sync    f64 // the seat's sync ratio, 0 to 1
-	strain  f64 // m/s the armor took off the seat and core's blended command
+	strain  f64 // m/s the armor took off the field loop's command, 0 once main.v powered zeroes it
 }
 
 // Context is everything HQ gets to see: one snapshot of the field plus the soul's recent memory.

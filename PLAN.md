@@ -109,7 +109,7 @@ These hold after every change. A commit that touches one of them explains in its
 3. Reversible goals need a simple majority of MAGI, irreversible ones every unit. A unit that errs, times out or answers unreadably votes no.
 4. The three MAGI units run on three different model families. Jev counts as a family of its own (ADR-0002); the default lineup is gpt-oss (OpenAI), Jev (TypeSafe) and llama (Meta). `load_config` refuses two units on chat models that name the same model at the same URL; it compares ids only, so two models of one family under different names are the lineup's to avoid.
 5. MAGI approval is necessary, never sufficient. The armor checks every approved goal again, and refusals flow back to the core as outcomes.
-6. Without HQ there is no quorum, so nothing irreversible happens while the umbilical is cut, and the unit holds once the internal budget is spent.
+6. Without HQ there is no quorum, so nothing irreversible happens while the umbilical is cut, and once the internal budget is spent the body stands still, whoever sits in the seat, until HQ's pulse reconnects the cable.
 7. The dummy plug keeps its own sync ratio, is benched at or below the threshold until a pilot sits down again, and only acts toward an approved goal.
 8. The core's share of control is zero while it has nowhere to go and never exceeds the ceiling while a seat is occupied.
 9. Field tier code uses V's standard modules, plus C libraries only if they build for aarch64 musl, and no Linux specific interfaces. Vinix runs Alpine binaries, so this keeps the Vinix path open.

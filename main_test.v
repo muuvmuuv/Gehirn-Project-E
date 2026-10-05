@@ -5,11 +5,13 @@ import math
 import net
 import time
 import armor
+import body
 import core
 import jev
 import lcl
 import magi
 import oai
+import umbilical
 
 struct KeyCase {
 	backend      string
@@ -758,6 +760,39 @@ fn test_pop_newest() {
 		})
 		assert got.percept.t_ms == c.want, c.name
 		assert ch.len == 0, c.name
+	}
+}
+
+struct PoweredCase {
+	name  string
+	at_ms i64  // the field unit's clock
+	pulse bool // HQ pulses at at_ms
+	state umbilical.State
+	moves bool
+}
+
+// Once the internal budget is spent a seated pilot's command moves nothing, and HQ's pulse
+// reconnects the cable and gives the pilot the body back (Invariant 6). One cable with a grace of
+// 1 s and a budget of 5 s runs through the cases, and the armor drives what powered lets through.
+fn test_powered() {
+	mut cable := umbilical.plug_in(10_000, 5000, 1000)
+	mut ar := armor.restrain(body.new_sim([-3.5, -2.5]), armor.Limits{})
+	pilot := [0.6, 0.0]
+	cases := [
+		PoweredCase{'connected, the pilot drives', 10_500, false, .connected, true},
+		PoweredCase{'on internal power the pilot drives', 11_001, false, .internal, true},
+		PoweredCase{'depleted, the pilot moves nothing', 16_001, false, .depleted, false},
+		PoweredCase{'still depleted, still nothing', 17_000, false, .depleted, false},
+		PoweredCase{'a pulse reconnects, and the pilot drives again', 17_500, true, .connected, true},
+	]
+	for c in cases {
+		if c.pulse {
+			cable.pulse(c.at_ms)
+		}
+		state := cable.state(c.at_ms)
+		assert state == c.state, c.name
+		out := ar.drive(powered(state, pilot), ar.sense(), 0.02, true)
+		assert (lcl.norm(out) > 0.0) == c.moves, c.name
 	}
 }
 
