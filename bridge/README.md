@@ -151,7 +151,7 @@ Three 9 px `stroke`s connect them under the panels, one level at y 430 and two d
 
 ### 審議中 and a landing ballot
 
-![The MAGI block while MAGI deliberate on a goto: BALTHASAR • 2 blue with 審議中, MELCHIOR • 1 white as its 可決 lands, CASPER • 3 green with 可決, and 決議 showing 審議中 with 2/3 · NEED 2](../assets/media/bridge/magi-deliberating.png)
+![The MAGI block while MAGI deliberate on a goto: BALTHASAR • 2 green with 可決, CASPER • 3 white as its 可決 lands, MELCHIOR • 1 blue with 審議中, and 決議 showing 審議中 with 2/3 · NEED 2](../assets/media/bridge/magi-deliberating.png)
 
 While a unit deliberates, `blink(now, 250, 0.5, thinking, thinking_dim)` switches its fill every 125 ms, a hard step with no fade. The same call colors 審議中 in the 決議 box and the header's MAGI light, so all three flicker in phase. When a ballot lands, `unit_panel` lays `paper` over the outline at 85% and fades it out linearly over 160 ms from the time in `State.landed`, so each unit flashes white once as it answers, in the order the ballots arrive.
 
@@ -173,7 +173,7 @@ Across the middle sits a band 164 px high, black at 90%, between two red hazard 
 
 ### Seven segment timer
 
-![The 活動限界 panel on internal power: 4:55 with 63 centiseconds in orange seven segment digits over unlit ghost segments, 内部 lit, and INTERNAL BATTERY with UMBILICAL CABLE CUT · NO QUORUM](../assets/media/bridge/limit-internal.png)
+![The 活動限界 panel on internal power: 4:53 with 87 centiseconds in orange seven segment digits over unlit ghost segments, 内部 lit, and INTERNAL BATTERY with UMBILICAL CABLE CUT · NO QUORUM](../assets/media/bridge/limit-internal.png)
 
 DSEG7 draws every digit at the same width, and its 8 lights every segment. `draw_limit` first draws 8:88 at size 88 in the ghost color 52, 26, 0 and :88 at size 40 beside it, then the real figure right aligned to the ghost's edge in `timer`, with a glow, and the centiseconds small to its right. So the unlit segments show behind the lit ones exactly where a real display has them. `clock` rounds up to the centisecond, so the full five minutes read 5:00 00 and the last moment of power 0:00 01. On internal power with under 30 s left, the figure turns `alert` and shows for 264 ms of every 330, and 内部 fills red; once the power is spent it stays red at 0:00 00. Before the first view, and once views stop, only the ghosts show. The header's mission clock does the same with 88:88 at 20.
 
@@ -189,7 +189,7 @@ While the cable counts as connected, 外部 is lit; on internal power, 内部. O
 
 ### Radar
 
-![The scene as a radar: the body EVA01 at beacon B1 inside orange target brackets, human H1 just beside it with its 0.7 m and 2 m rings, obstacle 01 as a gray disc, the trail curving around it, range rings a meter apart, and HUMAN 1.55 M in red](../assets/media/bridge/scene.png)
+![The scene as a radar: the body EVA01 at beacon B1 inside orange target brackets, human H1 just beside it with its 0.7 m and 2 m rings, obstacle 01 as a gray disc, the trail curving around it, range rings a meter apart, and HUMAN 1.04 M in red](../assets/media/bridge/scene.png)
 
 `draw_scene` fits a `Map` from meters to pixels to `State.span`, everything the scene has shown, plus a meter on every side, and centers it, so the view only ever zooms out. `Map.py` flips y, since the scene's y points up. A scissor keeps the radar inside its panel. Under it lies a 1 m grid in `umber`.
 
@@ -199,7 +199,7 @@ Around the body sit eight range rings a meter apart, every second one brighter, 
 
 ### Harmonics
 
-![The harmonics panel: 57.8% sync with the dummy plug in the seat, the sync trace in orange and the core's authority in blue against the dashed red 30% 絶対境界線](../assets/media/bridge/harmonics.png)
+![The harmonics panel: 57.9% sync with the dummy plug in the seat, the sync trace in orange and the core's authority in blue against the dashed red 30% 絶対境界線](../assets/media/bridge/harmonics.png)
 
 `draw_harmonics` sets the sync ratio at 46 with a glow, red at or under `threshold`, then the seat and the core's authority. Its graph keeps 300 samples, 30 s, newest at the right edge, over a grid of quarters and sixths, 5 s a column. The authority trace is a 1.5 px `cyan` stroke at 80%. The sync trace is drawn twice, a 6 px stroke at 22% as a halo and a 2 px one on top. The 30% 絶対境界線 is `gg`'s dashed `draw_line_with_config`, and its label sits over the traces on a black backing, so the sync trace never runs through it.
 
