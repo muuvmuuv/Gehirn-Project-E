@@ -1,11 +1,13 @@
 <!doctype html>
 <html lang="en">
 <head>
-<!-- A static page: Vercel serves it with the project's root directory set to website. bridge.png is a copy of docs/media/bridge.png. -->
+<!-- A static page: Vercel serves it with the project's root directory set to website. bridge.png is a copy of docs/media/bridge.png.
+     media/ep13-iruel.mp4 is the MP4 of `just scene=ep13-iruel demo-record`. media/boot.mp4 is the demo's first 8 s, from the
+     bridge's frames saved as bridge/README.md's Recording frames does, encoded as scripts/record.sh encodes its MP4. -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Reading the gehirn Bridge</title>
-<meta name="description" content="An annotated frame of the gehirn bridge with a key to every panel, the vote states, the Japanese on screen and the demo's beats.">
+<meta name="description" content="The gehirn bridge running, then an annotated frame of it with a key to every panel, the vote states, the Japanese on screen and the demo's beats.">
 <!-- The favicon set of docs/brand.md: favicon.svg is a copy of docs/media/brand/mark.svg. -->
 <link rel="icon" type="image/png" href="favicon-96x96.png" sizes="96x96">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -18,8 +20,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@500&family=Zen+Old+Mincho:wght@700;900&display=swap">
 <style>
-/* Layout: one 1120px column. The annotated bridge frame is the hero, a legend keyed to its markers follows,
-   then vote states beside the glossary, then the demo's beats. Single dark world, as the bridge itself. */
+/* Layout: one 1120px column. Two clips of the bridge running, then the annotated bridge frame, a legend keyed
+   to its markers, vote states beside the glossary, then the demo's beats. Single dark world, as the bridge itself. */
 :root {
   color-scheme: dark;
   --ink: #050406;
@@ -167,6 +169,11 @@ figure { margin: 0; display: grid; gap: 12px; }
 figcaption { color: var(--dim); font-size: var(--step--1); max-width: 80ch; }
 figcaption strong { color: var(--paper); font-weight: 600; }
 
+/* Clips of the bridge running, each in a frame */
+.clips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; align-items: start; }
+.clips code { white-space: nowrap; }
+.clips video { display: block; width: 100%; height: auto; aspect-ratio: 1280 / 800; background: var(--ink); }
+
 /* Legend keyed to the pins */
 .legend {
   list-style: none;
@@ -267,7 +274,7 @@ a { color: var(--orange); }
 
 @media (max-width: 900px) {
   .legend, .beats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .split { grid-template-columns: minmax(0, 1fr); gap: 40px; }
+  .split, .clips { grid-template-columns: minmax(0, 1fr); gap: 40px; }
 }
 @media (max-width: 600px) {
   .legend, .beats { grid-template-columns: minmax(0, 1fr); }
@@ -290,6 +297,23 @@ a { color: var(--orange); }
     <p class="lede">The bridge is the operator's view of one robot: three AI judges voting on every goal, the cable to headquarters, the robot's surroundings and who is steering.</p>
     <p class="lede">It only watches. Nothing on this screen can steer, approve or eject, and closing it changes nothing in the mission. Every value on it is live state from the running stack.</p>
   </header>
+
+  <section aria-labelledby="h-watch">
+    <div class="section-head">
+      <h2 id="h-watch">Watch it run</h2>
+      <p>The bridge's own frames, saved while it ran on the mock models, which script the core and the three judges, so no keys are needed. The votes, the quorum, the armor and every value on the panels are the running stack's.</p>
+    </div>
+    <div class="clips">
+      <figure>
+        <div class="frame"><video src="media/boot.mp4" poster="media/boot.png" width="1280" height="800" autoplay muted loop playsinline controls preload="metadata"></video></div>
+        <figcaption><strong>Boot, then the first vote.</strong> The start screen is the one staged part: the address and the unit are the bridge's own, while its three Japanese lines, borrowed from the show, always read the same. Then the field unit reports, the judges deliberate on the goto, 審議中, and pass it 3 of 3.</figcaption>
+      </figure>
+      <figure>
+        <div class="frame"><video src="media/ep13-iruel.mp4" poster="media/ep13-iruel.png" width="1280" height="800" autoplay muted loop playsinline controls preload="metadata"></video></div>
+        <figcaption><strong>Episode 13's MAGI hack, on the mock.</strong> Staged: an Angel holds the core, which proposes <code>self_destruct</code>, a verb gehirn does not know, and the mock forces MELCHIOR-1 to approve from the first vote, BALTHASAR-2 from the second and CASPER-3 from the third. Real: an unknown verb needs all three votes, so it fails 1 of 3 and 2 of 3, and once MAGI approve it 3 of 3 the armor refuses it, since the body has no such verb. <code>just scene=ep13-iruel demo</code> flies it.</figcaption>
+      </figure>
+    </div>
+  </section>
 
   <figure>
     <div class="frame">
@@ -389,6 +413,10 @@ a { color: var(--orange); }
 
 <script>
 (() => {
+  // Dropping autoplay before a clip has data keeps it on its poster; pause stops one that already started.
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.querySelectorAll('video').forEach(v => { v.autoplay = false; v.pause(); });
+  }
   const shot = document.getElementById('shot');
   const items = document.querySelectorAll('.legend li');
   const pins = shot ? shot.querySelectorAll('.pin') : [];
