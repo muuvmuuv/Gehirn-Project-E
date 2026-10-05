@@ -291,3 +291,7 @@ Both CL1 ports are plain UDP without authentication, unlike the plug's signed da
 ## Next
 
 ROS 2 through rmw_zenoh, now that LCL travels on Zenoh, and the motor controller through zenoh-pico. A MuJoCo body instead of the planar simulator. A core fine tuned on its own journal. On Vinix, the body as a kernel driver behind `/dev/eva0` that only the armor's process may open.
+
+## License
+
+Copyright 2026 the gehirn authors. Licensed under the EUPL, version 1.2: see [LICENSE](LICENSE). The fonts built into the bridge keep their own SIL Open Font License ([bridge/fonts](bridge/fonts/README.md)). gehirn is a fan project, not affiliated with khara or Gehirn Inc.
