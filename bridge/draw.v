@@ -12,7 +12,7 @@ const screen_h = 800
 
 // ink is the window's ground and opens the bridge's palette, after NERV's screens: orange frames
 // and labels on black, MAGI's blue, green and red, and one color per meaning elsewhere.
-const ink = gg.Color{4, 4, 6, 255} // tools/caption.py GROUND
+const ink = gg.Color{4, 4, 6, 255} // tools/caption.py GROUND, website/index.html --ink
 const pitch = gg.Color{0, 0, 0, 255} // text on a lit panel
 const ground = gg.Color{12, 9, 6, 255} // inside a panel
 const orange = gg.Color{255, 141, 0, 255} // tools/caption.py INK
