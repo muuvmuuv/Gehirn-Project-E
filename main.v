@@ -716,14 +716,13 @@ fn main() {
 			if !msg.approved {
 				continue
 			}
-			if !ar.permits(msg.goal.verb, p) {
+			refusal := ar.refusal(msg.goal.verb, p)
+			if refusal != '' {
 				// The Justfile's _fly recipe waits on `armor: release refused`.
 				println('armor: ${lcl.escaped(msg.goal.label())} refused')
-
-				// tools/trials.py tally counts this outcome from the journal.
 				push_outcome(outcomes, mut seen, lcl.Outcome{
 					t_ms: now
-					kind: 'armor refused ${msg.goal.label()}'
+					kind: refused(msg.goal, refusal)
 				})
 				continue
 			}
@@ -988,6 +987,14 @@ fn pop_newest[T](ch chan T, held T) T {
 		newest = v
 	}
 	return newest
+}
+
+// refused is the outcome the field loop reports for a goal the armor refused for why, which hq
+// journals after `outcome: `. tools/trials.py tally counts it by its prefix, bridge/state.v
+// take_view shows it up to the colon, and tools/scenarios.json S13 and S14 copy it, which
+// eval_test.v checks.
+fn refused(goal lcl.Intent, why string) string {
+	return 'armor refused ${goal.label()}: ${why}'
 }
 
 // push_outcome never blocks the field loop. If HQ is too far behind, the outcome is lost. seen

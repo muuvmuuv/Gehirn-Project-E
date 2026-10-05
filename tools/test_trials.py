@@ -16,7 +16,7 @@ JOURNAL = [
     {"t_ms": 4, "kind": "ballot", "unit": "BALTHASAR-2", "vote": "fault", "why": "jev: HTTP 500"},
     {"t_ms": 5, "kind": "ballot", "unit": "CASPER-3", "vote": "reject", "why": "too close"},
     {"t_ms": 6, "text": "proposed release (at b1), rejected 1/3"},
-    {"t_ms": 7, "text": "outcome: armor refused release"},
+    {"t_ms": 7, "text": "outcome: armor refused release: a human was within 2.0 m at that moment"},
     {"t_ms": 7, "text": "proposed goto(1.00, 1.00) (b1\narmor: release refused), approved 3/3"},
     {"t_ms": 7, "text": "proposed release (at b1), approved 3/3"},
     {"t_ms": 8, "text": "outcome: released on target"},

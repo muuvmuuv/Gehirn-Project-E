@@ -94,7 +94,9 @@ fn (mut s State) take_view(v lcl.FieldView, now i64) {
 	}
 	for o in v.outcomes {
 		if o.kind.starts_with('armor refused') {
-			s.refusals = front(s.refusals, Entry{now, o.kind.all_after('armor refused '), false})
+			// The armor's reason after the colon (main.v main) would outrun the panel.
+			goal := o.kind.all_after('armor refused ').all_before(':')
+			s.refusals = front(s.refusals, Entry{now, goal, false})
 		} else {
 			s.outcomes = front(s.outcomes, Entry{now, o.kind, o.good})
 		}

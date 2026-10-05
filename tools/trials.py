@@ -30,7 +30,8 @@ from withenv import load_env
 
 # The journal's text lines come from core/core.v Memory, its ballot lines from
 # main.v BallotEntry and its core fault lines from main.v FaultEntry. An armor refusal is the
-# outcome main.v main() reports as "armor refused <goal>" and hq journals as an outcome line.
+# outcome main.v refused words as "armor refused <goal>: <reason>" and hq journals as an
+# outcome line.
 # The log is gehirn's stdout, which shows model text too, so it is read only for WARNINGS.
 RELEASE_VOTE = re.compile(r"^proposed release\b.*, (approved|rejected) \d+/\d+$", re.S)
 # Fault texts of a ballot the unit's reply could not be read for: oai/oai.v ask (unreadable

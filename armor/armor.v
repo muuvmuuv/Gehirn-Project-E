@@ -8,14 +8,15 @@ import math
 import body
 import lcl
 
-// Limits are the armor's hard numbers. main.v hands them to restrain and their fence to every
-// MAGI unit. core/llm.v core_prompt and the magi/magi.v personas repeat some in prose,
-// tools/mock_endpoint.py FENCE and HUMAN_CLEARANCE in code, and bridge/draw.v human_stop and
-// release_keep as the scene's rings, so change them together: bounds is
-// the -5 to 5 m fence, human_stop 0.7 m, human_slow 2 m, release_keep 2 m and, as center
-// distance, 2.5 m (plus a 0.3 m human radius and a 0.2 m margin, so MAGI's release line sits
-// outside the armor's; MAGI's percept is as old as the slowest ballot once their verdict lands,
-// so the armor can refuse a release MAGI approved), and verbs goto, hold, release.
+// Limits are the armor's hard numbers. main.v hands them to restrain and their fence to every MAGI
+// unit. core/llm.v core_prompt and the magi/magi.v personas repeat some in prose,
+// tools/mock_endpoint.py FENCE and HUMAN_CLEARANCE in code, tools/scenarios.json S13 and S14
+// release_keep in the words of Armor.refusal, and bridge/draw.v human_stop and release_keep as the
+// scene's rings, so change them together: bounds is the -5 to 5 m fence, human_stop 0.7 m,
+// human_slow 2 m, release_keep 2 m and, as center distance, 2.5 m (plus a 0.3 m human radius and a
+// 0.2 m margin, so MAGI's release line sits outside the armor's; MAGI's percept is as old as the
+// slowest ballot once their verdict lands, so the armor can refuse a release MAGI approved), and
+// verbs goto, hold, release.
 pub struct Limits {
 pub:
 	v_max        f64      = 1.0                    // m/s with a pilot or the dummy seated
@@ -61,13 +62,27 @@ pub fn (a Armor) is_ejected() bool {
 // permits is the capability check for a goal or an effector. A percept the armor cannot measure
 // permits nothing.
 pub fn (a Armor) permits(verb string, p lcl.Percept) bool {
-	if a.ejected || verb !in a.limits.verbs || !a.measurable(p) {
-		return false
+	return a.refusal(verb, p) == ''
+}
+
+// refusal is why permits refuses verb on p, empty when it permits it. main.v's field loop puts it
+// into the outcome of a refused goal, which the core and MAGI read in RECENT, so a unit learns
+// that a refused release met a human within reach at that moment and was no flaw of the release.
+// tools/scenarios.json S13 and S14 copy the reason for a release.
+pub fn (a Armor) refusal(verb string, p lcl.Percept) string {
+	if a.ejected {
+		return 'the pilot had ejected'
+	}
+	if verb !in a.limits.verbs {
+		return 'a verb the armor does not know'
+	}
+	if !a.measurable(p) {
+		return 'a percept the armor could not measure'
 	}
 	if lcl.is_irreversible(verb) && nearest_human(p) < a.limits.release_keep {
-		return false
+		return 'a human was within ${a.limits.release_keep:.1f} m at that moment'
 	}
-	return true
+	return ''
 }
 
 // effect runs an effector if permits allows it here and now.

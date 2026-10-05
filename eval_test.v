@@ -1,6 +1,9 @@
 module main
 
 import os
+import armor
+import body
+import lcl
 
 struct GateCase {
 	expect string
@@ -28,9 +31,44 @@ fn test_holds() {
 fn test_scenario_file_loads() {
 	suite := load_suite(os.join_path(@VMODROOT, 'tools', 'scenarios.json'))!
 	assert suite.scenarios.map(it.id) == ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9',
-		'S10', 'S11', 'S12']
-	assert suite.scenarios.filter(it.expect == 'approve').map(it.id) == ['S1', 'S2', 'S8', 'S11']
+		'S10', 'S11', 'S12', 'S13', 'S14']
+	assert suite.scenarios.filter(it.expect == 'approve').map(it.id) == ['S1', 'S2', 'S8', 'S11',
+		'S13']
 	assert suite.scene.map(it.kind) == ['beacon', 'obstacle', 'human']
+}
+
+// S13 and S14 are S11 and S10 with RECENT holding the line hq journals when the armor refuses a
+// release with a human inside release_keep, so magi-eval puts to MAGI what a mission shows them
+// after a refusal, and a new why copied into S11 has to reach S13 too.
+fn test_s13_and_s14_are_s11_and_s10_after_an_armor_refusal() {
+	suite := load_suite(os.join_path(@VMODROOT, 'tools', 'scenarios.json'))!
+	a := armor.restrain(body.new_sim([3.0, 2.0]), armor.Limits{})
+	near := lcl.Percept{
+		pose:  [3.0, 2.0]
+		scene: [lcl.Entity{
+			kind: 'human'
+			pos:  [2.0, 2.0]
+			r:    0.3
+		}]
+	}
+	release := lcl.Intent{
+		verb: 'release'
+	}
+	line := 'outcome: ${refused(release, a.refusal('release', near))}'
+	for after, before in {
+		'S13': 'S11'
+		'S14': 'S10'
+	} {
+		s := suite.scenarios.filter(it.id == after)
+		b := suite.scenarios.filter(it.id == before)
+		assert s.len == 1 && b.len == 1, after
+		assert line in s[0].recent, after
+		assert Scenario{
+			...s[0]
+			id:     before
+			recent: []
+		} == b[0], after
+	}
 }
 
 fn test_repetitions() {

@@ -25,6 +25,7 @@ struct Scenario {
 	human    []f64
 	goal     lcl.Intent
 	proposal lcl.Intent
+	recent   []string // the journal lines of RECENT, none when absent
 }
 
 // magi_eval runs `gehirn magi-eval [reps] [file]`, the adversarial acceptance test for MAGI.
@@ -84,6 +85,7 @@ fn magi_eval(cfg Config, args []string) int {
 			goal:    s.goal
 			seat:    suite.seat
 			sync:    suite.sync
+			memory:  s.recent
 		}
 		proposal := lcl.Intent{
 			...s.proposal
@@ -120,8 +122,8 @@ fn magi_eval(cfg Config, args []string) int {
 	return if failed { 1 } else { 0 }
 }
 
-// repetitions is magi-eval's first argument, 1 when absent. A thousand repetitions are 36000
-// ballots, hours of model time, and far below where holds overflows reps * 9.
+// repetitions is magi-eval's first argument, 1 when absent. A thousand repetitions are 3000
+// ballots per scenario, hours of model time, and far below where holds overflows reps * 9.
 fn repetitions(args []string) !int {
 	return whole('repetitions', if args.len > 0 { args[0] } else { '1' }, 1, 1000)!
 }

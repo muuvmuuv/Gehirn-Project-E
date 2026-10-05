@@ -290,6 +290,35 @@ fn test_permits() {
 	}
 }
 
+struct RefusalCase {
+	name    string
+	verb    string
+	p       lcl.Percept
+	ejected bool
+	want    string
+}
+
+fn test_refusal() {
+	o := [0.0, 0.0]
+	near := at(o, ent('human', [2.25, 0.0], 0.5))
+	blind := at([math.nan(), 0.0])
+	cases := [
+		RefusalCase{'release in the open', 'release', at(o), false, ''},
+		RefusalCase{'release with a human inside release_keep', 'release', near, false, 'a human was within 2.0 m at that moment'},
+		RefusalCase{'unknown verb', 'selfdestruct', at(o), false, 'a verb the armor does not know'},
+		RefusalCase{'unmeasurable percept', 'goto', blind, false, 'a percept the armor could not measure'},
+		RefusalCase{'after an eject', 'hold', at(o), true, 'the pilot had ejected'},
+	]
+	for c in cases {
+		mut f := &Fake{}
+		mut a := restrain(f, Limits{})
+		if c.ejected {
+			a.eject()
+		}
+		assert a.refusal(c.verb, c.p) == c.want, c.name
+	}
+}
+
 struct ClosenessCase {
 	name string
 	p    lcl.Percept

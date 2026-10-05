@@ -22,7 +22,7 @@ fn test_take_view() {
 				kind: 'reached ${i}'
 				good: true
 			}, lcl.Outcome{
-				kind: 'armor refused release ${i}'
+				kind: 'armor refused release ${i}: a human was within 2.0 m at that moment'
 			}]
 		}, 1000 + i)
 	}
