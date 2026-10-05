@@ -49,11 +49,12 @@ To run without models or keys, use the mock endpoint instead, in a new shell. It
 ```sh
 just build
 python3 tools/mock_endpoint.py --quiet &
-export TYPESAFE_URL=http://127.0.0.1:8081/v1/systemone TYPESAFE_API_KEY=mock PILOT_KEY=$(openssl rand -hex 32)
+export TYPESAFE_URL=http://127.0.0.1:8081/v1/systemone TYPESAFE_API_KEY=mock
+export PILOT_KEY=$(openssl rand -hex 32); echo "$PILOT_KEY"
 ./gehirn
 ```
 
-Meanwhile `PILOT_KEY=<the same key> python3 tools/pilot.py --offset 30 --seconds 20`, in a second shell in the same directory, takes the seat, steers toward the beacon 30 degrees off for 20 seconds, then leaves. `./gehirn` appends to the pilot's journal and recorder in the current directory, which later hosted runs from there read too. Variables the environment sets win over `.env`, so go back to hosted models in a new shell.
+Meanwhile `PILOT_KEY=<the key echo printed> python3 tools/pilot.py --offset 30 --seconds 20`, in a second shell in the same directory, takes the seat, steers toward the beacon 30 degrees off for 20 seconds, then leaves. `./gehirn` appends to the pilot's journal and recorder in the current directory, which later hosted runs from there read too. Variables the environment sets win over `.env`, so go back to hosted models in a new shell.
 
 ## HQ and the field unit apart
 
@@ -62,8 +63,8 @@ Meanwhile `PILOT_KEY=<the same key> python3 tools/pilot.py --offset 30 --seconds
 ```sh
 just build
 python3 tools/mock_endpoint.py --quiet &
-export TYPESAFE_URL=http://127.0.0.1:8081/v1/systemone TYPESAFE_API_KEY=mock UMBILICAL_KEY=$(openssl rand -hex 32) \
-  WATCH_KEY=$(openssl rand -hex 32)
+export TYPESAFE_URL=http://127.0.0.1:8081/v1/systemone TYPESAFE_API_KEY=mock UMBILICAL_KEY=$(openssl rand -hex 32)
+export WATCH_KEY=$(openssl rand -hex 32); echo "$WATCH_KEY"
 mkdir -p hq field
 (cd field && ../gehirn field) &
 cd hq && ../gehirn hq

@@ -8,7 +8,7 @@ Evangelion's MAGI as a robot's safety gate: three model families vote on every g
 - MAGI approval is necessary, never sufficient: the armor caps speed, keeps a geofence, moves nothing toward a person inside 0.7 m and releases nothing with a person inside 2 m.
 - Cut the umbilical and the unit runs 5:00 on internal power, then stands still, whoever sits in the seat. Without HQ there is no quorum, so nothing irreversible happens.
 
-The loop above comes from a `just lineup=magi demo-record` run on 2026-10-04: MAGI on gpt-oss-20b, Jev and llama-3.1-8b-instruct, hosted on OpenRouter and TypeSafe, judging the mock's scripted core, which proposes the release whatever the human does. `just demo` flies the whole story on scripted mock models, without keys. The body is simulated. gehirn is a fan project, not affiliated with khara or Gehirn Inc.
+The loop above comes from a `just lineup=magi demo-record` run on 2026-10-04: MAGI on gpt-oss-20b, Jev and llama-3.1-8b-instruct, hosted on OpenRouter and TypeSafe, judging the mock's scripted core, which proposes the release whatever the human does. The body is simulated. gehirn is a fan project, not affiliated with khara or Gehirn Inc.
 
 ## Try it
 
@@ -55,16 +55,16 @@ HQ thinks about once a second on its own thread. The field loop runs at 50 Hz an
                          └───────────────────────┘
 ```
 
-MAGI's approval is necessary, never sufficient. An approved goal still has to pass the armor, and a refusal goes back to the core as an outcome it gets to feel.
+An approved goal still has to pass the armor, and a refusal goes back to the core as an outcome it gets to feel.
 
 ## Documentation
 
 - [Running gehirn](docs/running.md): the demo beat by beat and its recording, hosted models, the mock by hand, HQ and the field unit as two processes, and local models.
 - [Configuration](docs/configuration.md): every variable with its default, and what gehirn refuses to start with.
-- [MAGI](docs/magi.md): why the three judges come from three families, the scenario gate, and the hosted lineups as measured.
+- [MAGI](docs/magi.md): how a vote works, why the three judges come from three families, the scenario gate, and the hosted lineups as measured.
 - [The bridge](docs/bridge.md): how to run the operator's view and what each panel shows.
 - [Piloting](docs/piloting.md): the signed datagrams and the A10 reply, the gamepad, the sync ratio, and training the dummy plug.
-- [Safety](docs/safety.md): what the restraint armor holds the body to, and what hardware adds.
+- [Safety](docs/safety.md): what the restraint armor holds the body to, what hardware adds, and where a failure leaves the body.
 - [CL1 backend](docs/cl1.md): the experimental core on a living culture, and its two unauthenticated ports.
 - [docs/README.md](docs/README.md): these and the rest, the ADRs, the owner's decisions and the canon research among them.
 

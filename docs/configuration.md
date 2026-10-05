@@ -2,6 +2,8 @@
 
 Every variable gehirn, `gehirn-bridge` and `gehirn-gamepad` read, with its default, then what makes gehirn refuse to start and what the reasoning efforts do on each provider.
 
+Each binary reads its variables from the environment. Keys go into `.env`, which `python3 tools/withenv.py .env <command>` hands to the command without printing them ([Hosted models](running.md#hosted-models)), and a variable the shell sets wins over `.env`. Adding or changing a variable follows CONTRIBUTING's [Configuration and secrets](../CONTRIBUTING.md#configuration-and-secrets): gehirn keeps each default in `load_config` in `main.v`.
+
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `GEHIRN_URL` | `http://127.0.0.1:8081/v1/chat/completions` | Endpoint for every chat model unless overridden |
