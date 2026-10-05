@@ -1,0 +1,25 @@
+# Owner decisions
+
+Decisions the owner made that are not architecture, with the day, the reason and where each one lives, so nobody has to research them again. Architecture goes into an ADR under [docs/adr](adr), and measurements go into PLAN's State; this log points there.
+
+## Project
+
+- **2026-10-05, name.** The repository is `Gehirn-Project-E`: in canon, Project E (E計画, E-keikaku) is GEHIRN's program to build the Evangelion units, which Ritsuko Akagi led ([research](research/canon.md#project-e)). The binary and the V module stay `gehirn`. The owner means to build every part GEHIRN built, the Eva included, so the name covers the lab and its program rather than MAGI alone, and keeps the mark "Evangelion" out of the name. The GitHub description carries the Japanese, ゲヒルン E計画.
+- **2026-10-05, licence.** gehirn is licensed under the EUPL 1.2 ([LICENSE](../LICENSE)), a copyleft licence that also covers use over a network. The fonts in [bridge/fonts](../bridge/fonts/README.md) keep the SIL Open Font License.
+- **2026-10-04, visibility.** The repository stays private until the launch on X; the owner makes it public after posting.
+- **2026-10-03, fan project.** Every public surface says gehirn is a fan project, not affiliated with khara or Gehirn Inc., a real company behind the NERV防災 app. Nothing ships khara's assets, the NERV logo or audio and frames from the show; the bridge draws its own shapes in the show's style.
+
+## Stack
+
+- **2026-10-05, battery empty.** When internal power is spent, the body stands still whoever sits in the seat, as Unit-01 stops at zero in Episode 3. Until the fix lands, a seated pilot can still drive under the armor at zero (PLAN, Invariant 6).
+- **2026-10-05, MAGI judge the newest percept.** MAGI judge the newest percept HQ holds when the vote starts, not the core's older snapshot, and the units read an earlier armor refusal as a person within reach at that moment rather than a flaw in the plan (PLAN, Known issues 9 and 28).
+- **2026-10-05, lineup and cooldown.** Lineup A (gpt-oss-20b, Jev, llama-3.1-8b) stays the recommended hosted lineup, and `MAGI_COOLDOWN_MS` stays 10000. The owner leaned toward bigger models, but the measurement showed no lineup safer on every dangerous scenario and a 5 s cooldown putting the release to the vote again while the human walked back (PLAN State, 2026-10-05).
+- **2026-10-05, Phase 4's criterion.** The owner reworded Phase 4's done criterion to how closely the new dummy plug follows the pilot, since arrivals and benches could not separate the two dummy plugs; a fresh, unseen test met it (PLAN, Phase 4).
+- **2026-10-04, hero media.** The README's hero shows real MAGI (gpt-oss-20b, Jev, llama-3.1-8b) judging a core scripted to be reckless, `just lineup=magi demo-record`, because the hosted qwen core never proposes a release with a person near, so a fully hosted take shows no refusal. The caption says what is scripted.
+- **Stance, no berserk mode and no commander override.** In canon, Unit-01 goes berserk when power and pilot fail, and Misato or Gendo overrule the MAGI. gehirn takes the opposite side on purpose, and the scenes say so: losing control leads to the safe state (a fault is a no, no quorum without HQ, a hold at zero; Invariants 3, 6 and 10), and nothing turns a no into a yes, since a single key that can approve would replace three independent judges (Invariant 3, ADR-0005). Overrides toward safety stay welcome: the pilot's eject, the hardware e-stop of Phase 5, a pilot steering under the armor.
+
+## Tooling
+
+- **2026-10-05, shell scripts.** The Justfile's long bash recipes move to `scripts/`, checked with shellcheck and formatted with shfmt in `just check` and the pre-commit hook. The owner installed shfmt for it.
+- **2026-10-05, canon scenes.** Scenes from the series run as scripts on the mock: Episode 13 first, then Episodes 3, 19 and 6; Episode 18 waits on how a goto toward a walking person should be judged. Each scene says what is staged and what is real ([research](research/canon.md)).
+- **2026-10-05, website.** `website/` holds static pages for Vercel, starting with the guide to reading the bridge; a boot and a scene recording go there next.

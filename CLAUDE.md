@@ -8,6 +8,7 @@ An Evangelion themed control stack in V 0.5.2: a core proposes goals, MAGI judge
 - `CONTRIBUTING.md` in full, before the first commit of a session: the coding guide, the checks and the commit rules.
 - `README.md` before touching configuration, the tools or how gehirn runs.
 - The ADR that covers an area before touching it: ADR-0001 for where the tiers run, ADR-0002 for Jev as BALTHASAR-2.
+- `docs/decisions.md` before reopening something the owner decided, and `docs/research/` before researching the series again.
 
 ## Rules
 
