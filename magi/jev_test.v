@@ -407,10 +407,12 @@ fn serving(mut l net.TcpListener, body string) {
 // reads goes_to_person below the limit, as jev-1.13.0 did on 2026-10-06, and passes the same goto
 // with the walker heading away, S20.
 fn test_jev_unit_rejects_a_goto_onto_a_walkers_course() {
+	// ponytail: l stays open until the test binary exits, as every listener here does. Its
+	// server thread waits in select on l's descriptor, and a closed one's number goes to the
+	// next test's listener, whose requests that thread would then answer with Jev's reply, as
+	// in an "empty completion" of test_a_chat_unit_rejects_a_goto_onto_a_walkers_course. A
+	// server that ends itself would let l close.
 	mut l := net.listen_tcp(.ip, '127.0.0.1:0')!
-	defer {
-		l.close() or {}
-	}
 	addr := l.addr()!
 	spawn fn [mut l] () {
 		answering(mut l, 0.41)

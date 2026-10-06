@@ -124,6 +124,10 @@ fn test_ask_retries_a_429_once_inside_the_deadline() {
 		], 'busy: HTTP 429', 1},
 	]
 	for c in cases {
+		// ponytail: l stays open until the test binary exits. Its server thread waits in select
+		// on l's descriptor, and a closed one's number goes to the next case's listener, whose
+		// requests that thread would then answer with this case's replies. A server that ends
+		// itself would let l close.
 		mut l := net.listen_tcp(.ip, '127.0.0.1:0')!
 		addr := l.addr()!
 		asks := chan int{cap: 8}
@@ -147,7 +151,6 @@ fn test_ask_retries_a_429_once_inside_the_deadline() {
 		got := e.ask('system', 'user', 0.0, Schema{ name: 'ballot', schema: '{}' }) or { err.msg() }
 		assert got == c.want, c.name
 		assert asks.len == c.asks, c.name
-		l.close() or {}
 	}
 }
 
