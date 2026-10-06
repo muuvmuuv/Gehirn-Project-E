@@ -19,7 +19,7 @@ The plug answers every datagram it takes, to the address it came from, with what
 {"v":1,"feel":{"t_ms":1791033238530,"contact":false,"near":0,"sync":0.5,"strain":0.94}}
 ```
 
-`t_ms` is the field unit's clock, `contact` says the body touches something, `near` how close the nearest human is, 0 from 2 m out and 1 at 0.7 m, `sync` is the seat's sync ratio, and `strain` the meters per second the armor took off the command, by any of its limits: speed, acceleration, separation, the fence and the slide along anything solid. Nothing on the field unit waits for a reply or acts on one.
+`t_ms` is the field unit's clock, `contact` says the body touches something, `near` how close the nearest human is, 0 from 2 m out and 1 at 0.7 m, `sync` is the seat's sync ratio, and `strain` the meters per second the armor took off the command, by any of its limits: speed, acceleration, separation, the fence and the slide along anything solid. Under `DRIVE=differential` it also counts what the base does not execute while it turns toward the command ([Safety](safety.md#how-the-body-moves)). Nothing on the field unit waits for a reply or acts on one.
 
 ## The gamepad
 

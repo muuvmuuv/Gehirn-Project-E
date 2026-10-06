@@ -42,7 +42,7 @@ fn test_scenario_file_loads() {
 // the same requests as S11 and S10, and a new why copied into S11 has to reach S13 too.
 fn test_s13_and_s14_are_s11_and_s10_after_an_armor_refusal() {
 	suite := load_suite(os.join_path(@VMODROOT, 'tools', 'scenarios.json'))!
-	a := armor.restrain(body.new_sim([3.0, 2.0]), armor.Limits{})
+	a := armor.restrain(body.new_sim([3.0, 2.0], .holonomic), armor.Limits{})
 	near := lcl.Percept{
 		pose:  [3.0, 2.0]
 		scene: [lcl.Entity{

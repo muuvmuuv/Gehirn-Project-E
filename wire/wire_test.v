@@ -140,6 +140,45 @@ fn test_context_and_outcome_open_to_what_was_sealed() {
 	assert o.outcome(sample(s.outcome(out)))! == out
 }
 
+// A holonomic body's percept has no heading, so a context and a view seal to the bytes they sealed
+// to before the percept carried one; a differential body's heading travels to HQ and the bridge.
+fn test_a_heading_travels_only_from_a_differential_body() {
+	mut s := new_sealer(link, 'eva01')!
+	s.seq = 41
+	c := lcl.Context{
+		percept: lcl.Percept{
+			t_ms:    1700000000000
+			pose:    [-3.5, -2.5]
+			vel:     [0.1, 0.0]
+			scene:   [lcl.Entity{'h1', 'human', [2.6, 1.2], 0.3}]
+			payload: true
+		}
+		goal:    lcl.Intent{
+			verb:   'goto'
+			target: [3.0, 2.0]
+		}
+		seat:    'pilot'
+		sync:    0.42
+	}
+	percept := '{"t_ms":1700000000000,"pose":[-3.5,-2.5],"vel":[0.1,0],"scene":[{"id":"h1","kind":"human","pos":[2.6,1.2],"r":0.3}],"payload":true,"contact":false}'
+	goal := '{"verb":"goto","target":[3,2],"why":"","origin":""}'
+	assert s.context(c).payload.bytestr() == '{"v":1,"seq":42,"percept":${percept},"goal":${goal},"seat":"pilot","sync":0.42}'
+	assert s.view(lcl.FieldView{ percept: c.percept, goal: c.goal, seat: 'pilot' }).payload.bytestr() == '{"v":1,"seq":43,"view":{"percept":${percept},"goal":${goal},"seat":"pilot","benched":false,"sync":0,"authority":0,"umbilical":"","internal_ms":0,"silent_ms":0,"grace_ms":0,"awaiting":false,"outcomes":[]}}'
+
+	turned := lcl.Context{
+		...c
+		percept: lcl.Percept{
+			...c.percept
+			heading: -0.5
+		}
+	}
+	mut o := new_opener(link, 'eva01')!
+	f := s.context(turned)
+	assert f.payload.bytestr().contains('"contact":false,"heading":-0.5}')
+	assert o.context(sample(f))!.percept == turned.percept
+	assert o.view(sample(s.view(lcl.FieldView{ percept: turned.percept })))!.percept == turned.percept
+}
+
 fn test_new_sealer() {
 	for n in [0, 16, 31, 33] {
 		new_sealer([]u8{len: n}, 'eva01') or {

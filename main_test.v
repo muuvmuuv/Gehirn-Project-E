@@ -203,6 +203,7 @@ fn config_value(cfg Config, key string) string {
 		'BRIDGE_ENDPOINT' { cfg.bridge }
 		'UMBILICAL_ENDPOINT' { cfg.endpoint }
 		'START' { cfg.start.str() }
+		'DRIVE' { cfg.drive.str() }
 		'DUMMY_WEIGHTS' { cfg.weights }
 		else { 'no such variable' }
 	}
@@ -336,6 +337,13 @@ fn test_load_config() {
 		ConfigCase{'START', '--1,0', 'START is "--1,0", not a position; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'},
 		ConfigCase{'START', '1;2', 'START is "1;2", not a position; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'},
 		ConfigCase{'START', '1,2\nfield: forged', 'START is "1,2\\x0afield: forged", not a position; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'},
+		ConfigCase{'DRIVE', '', 'holonomic'},
+		ConfigCase{'DRIVE', 'holonomic', 'holonomic'},
+		ConfigCase{'DRIVE', 'differential', 'differential'},
+		ConfigCase{'DRIVE', 'Differential', 'DRIVE is "Differential", not a known value; accepted holonomic, differential'},
+		ConfigCase{'DRIVE', 'diff', 'DRIVE is "diff", not a known value; accepted holonomic, differential'},
+		ConfigCase{'DRIVE', ' differential', 'DRIVE is " differential", not a known value; accepted holonomic, differential'},
+		ConfigCase{'DRIVE', 'differential\nfield: forged', 'DRIVE is "differential\\x0afield: forged", not a known value; accepted holonomic, differential'},
 	]
 	for c in cases {
 		os.unsetenv(c.key)
@@ -844,10 +852,17 @@ struct PoweredCase {
 
 // Once the internal budget is spent a seated pilot's command moves nothing, and HQ's pulse
 // reconnects the cable and gives the pilot the body back (Invariant 6). One cable with a grace of
-// 1 s and a budget of 5 s runs through the cases, and the armor drives what powered lets through.
+// 1 s and a budget of 5 s runs through the cases on each drive, and the armor drives what powered
+// lets through; the pilot steers east, where a fresh differential body faces.
 fn test_powered() {
+	for drive in [body.Drive.holonomic, .differential] {
+		powers(drive)
+	}
+}
+
+fn powers(drive body.Drive) {
 	mut cable := umbilical.plug_in(10_000, 5000, 1000)
-	mut ar := armor.restrain(body.new_sim([-3.5, -2.5]), armor.Limits{})
+	mut ar := armor.restrain(body.new_sim([-3.5, -2.5], drive), armor.Limits{})
 	pilot := [0.6, 0.0]
 	cases := [
 		PoweredCase{'connected, the pilot drives', 10_500, false, .connected, true},
@@ -863,7 +878,7 @@ fn test_powered() {
 		state := cable.state(c.at_ms)
 		assert state == c.state, c.name
 		out := ar.drive(powered(state, pilot), ar.sense(), 0.02, true)
-		assert (lcl.norm(out) > 0.0) == c.moves, c.name
+		assert (lcl.norm(out) > 0.0) == c.moves, '${drive}: ${c.name}'
 	}
 }
 

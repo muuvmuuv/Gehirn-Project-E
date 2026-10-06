@@ -36,9 +36,14 @@ pub struct Armor {
 	limits Limits
 mut:
 	bd      body.Body
-	last    []f64
+	last    []f64 // m/s, the planar velocity the body moves with since the last drive
 	ejected bool
 }
+
+// still is the speed, in m/s, below which drive takes a part of a differential body's motion for
+// rounding: steered along the slide past a pillar, the cosine and sine of its heading leave about
+// 1e-16 m/s toward the pillar.
+const still = 1e-9
 
 // restrain takes the body. From here on nothing else holds it.
 pub fn restrain(bd body.Body, limits Limits) Armor {
@@ -99,9 +104,13 @@ pub fn (mut a Armor) eject() {
 	a.bd.halt()
 }
 
-// drive pushes one command through every restraint, actuates, and returns what was sent. On a
-// command or percept it cannot use, and when the body fails to actuate, it halts the body and
-// returns zeros, so the next command ramps up from rest.
+// drive pushes one planar command through every restraint, actuates, and returns the planar
+// velocity the body moves with: the command itself on a holonomic body. A differential body
+// gets the Course body.steer makes of the command, no faster than fastest allows, and its motion
+// along the body's heading can point where the restraints removed from the command, so drive
+// checks that motion against them again and sends a turn in place instead of any motion that
+// breaks one. On a command or percept it cannot use, and when the body fails to actuate, it halts
+// the body and returns zeros, so the next command ramps up from rest.
 pub fn (mut a Armor) drive(u []f64, p lcl.Percept, dt f64, manned bool) []f64 {
 	if a.ejected || u.len != a.last.len || !finite(u) || !a.measurable(p) {
 		a.bd.halt()
@@ -112,33 +121,120 @@ pub fn (mut a Armor) drive(u []f64, p lcl.Percept, dt f64, manned bool) []f64 {
 	mut v := lcl.clamp_norm(u, vmax * a.separation(p))
 
 	// Nothing pushes into anything solid, whoever is steering. What is left of the command
-	// slides along the surface, so a pilot leaning into a pillar gets walked around it.
-	for e in p.scene {
-		if e.kind == 'beacon' {
-			continue
+	// slides along the surface, so a pilot leaning into a pillar gets walked around it. A
+	// differential body starts to slide body.lead early, so it reaches the keep heading along the
+	// slide, and slides body.shy away from what it slides along.
+	mut lead := 0.0
+	mut tilt := 0.0
+	match a.bd.drive() {
+		.holonomic {}
+		.differential {
+			lead = body.lead(lcl.norm(v))
+			tilt = body.shy
 		}
-		keep := if e.kind == 'human' { a.limits.human_stop } else { a.limits.solid_keep }
-		if lcl.dist(p.pose, e.pos) - e.r < keep {
-			v = drop_toward(v, lcl.sub(e.pos, p.pose))
+	}
+
+	for dir in a.toward(p, lead) {
+		v = slide(v, dir, tilt)
+	}
+	mut sent := []f64{}
+	match a.bd.drive() {
+		.holonomic {
+			if lcl.norm(v) > lcl.norm(a.last) {
+				v = lcl.add(a.last, lcl.clamp_norm(lcl.sub(v, a.last), a.limits.a_max * dt))
+			}
+			v = a.fenced(v, p)
+			sent = v.clone()
+		}
+		.differential {
+			// The base reaches the command's direction by turning, so a_max bounds the motion
+			// along its heading, not the command.
+			mut c := body.steer(a.fenced(v, p), p.heading)
+			c = body.Course{
+				speed:   math.min(c.speed, a.fastest(p.heading, dt))
+				heading: c.heading
+			}
+			v = c.motion(p.heading)
+			if !a.allows(v, p, dt, vmax) {
+				// Turning in place moves the body's center nowhere, so it breaks no restraint.
+				c = body.Course{
+					heading: c.heading
+				}
+				v = [0.0, 0.0]
+			}
+			sent = [c.speed, c.heading]
 		}
 	}
-	if lcl.norm(v) > lcl.norm(a.last) {
-		v = lcl.add(a.last, lcl.clamp_norm(lcl.sub(v, a.last), a.limits.a_max * dt))
-	}
-	b := a.limits.bounds
-	if (p.pose[0] <= b[0] && v[0] < 0.0) || (p.pose[0] >= b[2] && v[0] > 0.0) {
-		v[0] = 0.0
-	}
-	if (p.pose[1] <= b[1] && v[1] < 0.0) || (p.pose[1] >= b[3] && v[1] > 0.0) {
-		v[1] = 0.0
-	}
-	a.bd.actuate(v) or {
+
+	a.bd.actuate(sent) or {
 		a.bd.halt()
 		a.last = []f64{len: a.last.len}
 		return a.last.clone()
 	}
 	a.last = v.clone()
 	return v
+}
+
+// fastest is the most speed a differential body at heading may move with after dt. a_max bounds
+// its motion as drive bounds a holonomic body's command: while the body speeds up, the motion
+// changes by at most a_max * dt from last, and at no more speed than last it may change freely.
+fn (a Armor) fastest(heading f64, dt f64) f64 {
+	ahead := lcl.dot(a.last, body.Course{
+		speed: 1.0
+	}.motion(heading))
+	reach := a.limits.a_max * dt
+
+	// The motion at speed s along heading lies reach from last at s = ahead ± sqrt(room).
+	room := ahead * ahead - lcl.dot(a.last, a.last) + reach * reach
+	if room < 0.0 {
+		return lcl.norm(a.last)
+	}
+	return math.max(lcl.norm(a.last), ahead + math.sqrt(room))
+}
+
+// allows reports whether m, the planar motion of a differential body at p, keeps every restraint
+// drive puts on a command: no faster than vmax scaled for the nearest human, no change from last
+// beyond a_max * dt while it speeds up, nothing toward a human inside human_stop or anything solid
+// inside solid_keep, and nothing further out of the fence.
+fn (a Armor) allows(m []f64, p lcl.Percept, dt f64, vmax f64) bool {
+	speed := lcl.norm(m)
+	if speed > vmax * a.separation(p) + still {
+		return false
+	}
+	if speed > lcl.norm(a.last) + still && lcl.dist(m, a.last) > a.limits.a_max * dt + still {
+		return false
+	}
+	return a.toward(p, 0.0).all(lcl.dist(drop_toward(m, it), m) <= still)
+		&& lcl.dist(a.fenced(m, p), m) <= still
+}
+
+// toward is the direction from p's pose to each entity drive moves the body no closer to: a human
+// inside human_stop and anything else solid inside solid_keep, each widened by lead meters.
+fn (a Armor) toward(p lcl.Percept, lead f64) [][]f64 {
+	mut dirs := [][]f64{}
+	for e in p.scene {
+		if e.kind == 'beacon' {
+			continue
+		}
+		keep := if e.kind == 'human' { a.limits.human_stop } else { a.limits.solid_keep }
+		if lcl.dist(p.pose, e.pos) - e.r < keep + lead {
+			dirs << lcl.sub(e.pos, p.pose)
+		}
+	}
+	return dirs
+}
+
+// fenced is v without the parts that would carry the body at p further out of the bounds.
+fn (a Armor) fenced(v []f64, p lcl.Percept) []f64 {
+	mut out := v.clone()
+	b := a.limits.bounds
+	if (p.pose[0] <= b[0] && v[0] < 0.0) || (p.pose[0] >= b[2] && v[0] > 0.0) {
+		out[0] = 0.0
+	}
+	if (p.pose[1] <= b[1] && v[1] < 0.0) || (p.pose[1] >= b[3] && v[1] > 0.0) {
+		out[1] = 0.0
+	}
+	return out
 }
 
 // closeness is how close the nearest human is in the armor's own terms, for the A10 back channel:
@@ -162,13 +258,14 @@ fn (a Armor) separation(p lcl.Percept) f64 {
 	return math.max(0.2, (d - a.limits.human_stop) / (a.limits.human_slow - a.limits.human_stop))
 }
 
-// measurable reports whether p has a finite pose with one coordinate per degree of freedom, and
-// every entity a finite position of the same length and a finite radius. A NaN fails every
-// comparison, so a human at a NaN position would pass the release_keep check. A position shorter
-// than the pose would panic lcl.dist, and a longer one the lcl.sub(e.pos, p.pose) in drive.
+// measurable reports whether p has a finite pose with one coordinate per degree of freedom and a
+// finite heading, and every entity a finite position of the same length and a finite radius. A
+// NaN fails every comparison, so a human at a NaN position would pass the release_keep check, and
+// a NaN heading every check of a differential body's motion. A position shorter than the pose
+// would panic lcl.dist, and a longer one the lcl.sub(e.pos, p.pose) in drive.
 fn (a Armor) measurable(p lcl.Percept) bool {
-	return p.pose.len == a.last.len && finite(p.pose) && p.scene.all(it.pos.len == p.pose.len
-		&& finite(it.pos) && math.is_finite(it.r))
+	return p.pose.len == a.last.len && finite(p.pose) && math.is_finite(p.heading)
+		&& p.scene.all(it.pos.len == p.pose.len && finite(it.pos) && math.is_finite(it.r))
 }
 
 fn finite(v []f64) bool {
@@ -183,6 +280,18 @@ fn nearest_human(p lcl.Percept) f64 {
 		}
 	}
 	return best
+}
+
+// slide is v without its part toward dir, as drop_toward leaves it, and turned tilt rad further
+// from dir at the same speed when that took anything away.
+fn slide(v []f64, dir []f64, tilt f64) []f64 {
+	slid := drop_toward(v, dir)
+	if tilt == 0.0 || lcl.dot(v, dir) <= 0.0 {
+		return slid
+	}
+	a := if slid[0] * dir[1] - slid[1] * dir[0] > 0.0 { -tilt } else { tilt }
+	return [math.cos(a) * slid[0] - math.sin(a) * slid[1], math.sin(a) * slid[0] +
+		math.cos(a) * slid[1]]
 }
 
 // drop_toward removes the part of v that points along dir.

@@ -10,6 +10,7 @@ import lcl
 // stop. Sim implements it, and armor.restrain takes the one main.v builds.
 pub interface Body {
 	dof() int
+	drive() Drive
 mut:
 	sense() lcl.Percept
 	actuate(u []f64) !
@@ -17,12 +18,15 @@ mut:
 	halt()
 }
 
-// Sim is a planar point body with a payload, the Body main.v builds with new_sim. It integrates
-// whenever it is sensed and, like any real motor controller, zeroes its velocity by itself when
-// commands go stale.
+// Sim is a planar point body with a payload, the Body main.v builds with new_sim, on either Drive.
+// It integrates whenever it is sensed and, like any real motor controller, zeroes its velocity by
+// itself when commands go stale.
 pub struct Sim {
+	drive Drive
 mut:
 	pose    []f64
+	heading f64 // rad, counterclockwise from +x
+	aim     f64 // rad, the heading a differential body turns toward
 	vel     []f64 = [0.0, 0.0]
 	payload bool  = true
 	contact bool
@@ -31,29 +35,42 @@ mut:
 	cmd_ms  i64
 }
 
-// new_sim puts a fresh body at start, x and y in meters, payload aboard. main.v reads start from
-// START, which defaults to the west end of the scene.
-pub fn new_sim(start []f64) &Sim {
+// new_sim puts a fresh body on drive at start, x and y in meters, payload aboard. main.v reads
+// start from START, which defaults to the west end of the scene, and drive from DRIVE. It faces
+// +x, east, the zero heading of a planar robot and the one a holonomic body keeps, which from
+// START's default lies 35 degrees off the beacon.
+pub fn new_sim(start []f64, drive Drive) &Sim {
 	now := lcl.now_ms()
 	return &Sim{
+		drive:   drive
 		pose:    start.clone()
 		t0_ms:   now
 		last_ms: now
 	}
 }
 
-// dof is the number of velocity channels the body takes.
+// dof is the number of velocity channels the body takes: x and y, or a Course's speed and heading.
 pub fn (s &Sim) dof() int {
 	return 2
 }
 
-// sense integrates the motion since the last call and reports where it left the body.
+// drive is how the body moves, the Drive it was built on.
+pub fn (s &Sim) drive() Drive {
+	return s.drive
+}
+
+// sense integrates the motion since the last call and reports where it left the body. A
+// differential body moves along the heading it had when commanded, as armor.Armor.drive checked,
+// then turns, which a round body may do wherever it stands, even in contact.
 pub fn (mut s Sim) sense() lcl.Percept {
 	now := lcl.now_ms()
-	dt := f64(now - s.last_ms) / 1000.0
+
+	// lcl.now_ms reads the wall clock, which can step back.
+	dt := math.max(0.0, f64(now - s.last_ms) / 1000.0)
 	s.last_ms = now
 	if now - s.cmd_ms > 200 {
 		s.vel = [0.0, 0.0]
+		s.aim = s.heading
 	}
 	next := [s.pose[0] + s.vel[0] * dt, s.pose[1] + s.vel[1] * dt]
 	scene := s.scene(now)
@@ -66,6 +83,13 @@ pub fn (mut s Sim) sense() lcl.Percept {
 	if !s.contact {
 		s.pose = next
 	}
+	match s.drive {
+		.holonomic {}
+		.differential {
+			s.heading = turned(s.heading, s.aim, dt)
+		}
+	}
+
 	return lcl.Percept{
 		t_ms:    now
 		pose:    s.pose.clone()
@@ -73,15 +97,26 @@ pub fn (mut s Sim) sense() lcl.Percept {
 		scene:   scene
 		payload: s.payload
 		contact: s.contact
+		heading: s.heading
 	}
 }
 
-// actuate sets the velocity command. It lapses after 200 ms unless refreshed.
+// actuate sets the velocity command: the planar velocity of a holonomic body, or the speed and
+// heading of a differential body's Course. It lapses after 200 ms unless refreshed.
 pub fn (mut s Sim) actuate(u []f64) ! {
 	if u.len != 2 {
 		return error('sim: expected 2 dof, got ${u.len}')
 	}
-	s.vel = u.clone()
+	match s.drive {
+		.holonomic {
+			s.vel = u.clone()
+		}
+		.differential {
+			s.vel = Course{u[0], u[1]}.motion(s.heading)
+			s.aim = u[1]
+		}
+	}
+
 	s.cmd_ms = lcl.now_ms()
 }
 
@@ -101,9 +136,10 @@ pub fn (mut s Sim) effect(verb string) ! {
 	}
 }
 
-// halt stops the body at once.
+// halt stops the body at once, turning included.
 pub fn (mut s Sim) halt() {
 	s.vel = [0.0, 0.0]
+	s.aim = s.heading
 }
 
 // scene is a beacon to deliver to, a pillar across the direct route and a human walking a loop

@@ -38,16 +38,19 @@ pub:
 	r    f64
 }
 
-// Percept is one reading of the body: pose, velocity, scene, payload and contact. armor.Armor
-// passes it from the body to main.v's field loop, which hands it to HQ inside a Context.
+// Percept is one reading of the body: pose, velocity, scene, payload, contact and heading.
+// armor.Armor passes it from the body to main.v's field loop, which hands it to HQ inside a
+// Context. The heading matters only to a differential body, which armor.Armor.drive steers by it;
+// describe leaves it out, so no model reads it.
 pub struct Percept {
 pub:
 	t_ms    i64
 	pose    []f64
-	vel     []f64
+	vel     []f64 // m/s, the planar velocity the body moves with
 	scene   []Entity
 	payload bool
 	contact bool
+	heading f64 @[omitempty] // rad, counterclockwise from +x; a holonomic body reports 0, which JSON leaves out
 }
 
 // Intent is a goal: a verb, a target for goto, the proposer's why and its origin. A Core

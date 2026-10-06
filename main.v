@@ -51,6 +51,7 @@ struct Config {
 	bridge      string
 	endpoint    string
 	start       []f64 // x, y in meters, where body.new_sim puts the body
+	drive       body.Drive
 }
 
 fn env(key string, fallback string) string {
@@ -315,10 +316,10 @@ fn key_warning(units []magi.Unit) string {
 }
 
 // load_config reads every variable in the table of docs/configuration.md, and fails on the first
-// number or backend set to a value it does not accept, on two MAGI units on one model, or on one
-// key set as two of UMBILICAL_KEY, PILOT_KEY and WATCH_KEY, so main refuses to start. The default
-// URL and chat model names are those of the llama.cpp preset tools/models.ini, which names this
-// function as its counterpart, and tools/mock_endpoint.py listens on the same address.
+// number, backend or drive set to a value it does not accept, on two MAGI units on one model, or
+// on one key set as two of UMBILICAL_KEY, PILOT_KEY and WATCH_KEY, so main refuses to start. The
+// default URL and chat model names are those of the llama.cpp preset tools/models.ini, which names
+// this function as its counterpart, and tools/mock_endpoint.py listens on the same address.
 // core/cl1.v new_cl1 names CL1_SPIKES and CL1_SIDECAR in its errors.
 fn load_config() !Config {
 	pilot := env('PILOT_ID', 'shinji') // gamepad/main.v main repeats the default
@@ -387,6 +388,11 @@ fn load_config() !Config {
 		bridge:      env('BRIDGE_ENDPOINT', 'tcp/127.0.0.1:7448') // bridge/main.v main repeats the default
 		endpoint:    env('UMBILICAL_ENDPOINT', 'tcp/127.0.0.1:7447')
 		start:       start_pose(fence)!
+		drive:       if env_choice('DRIVE', 'holonomic', ['holonomic', 'differential'])! == 'differential' {
+			body.Drive.differential
+		} else {
+			body.Drive.holonomic
+		}
 	}
 }
 
@@ -624,7 +630,7 @@ fn main() {
 
 	// The body is made once the dummy plug has loaded: the nearest neighbor one replays the whole
 	// recorder, seconds for a long one, and the walking human's clock starts with the simulated body.
-	mut ar := armor.restrain(body.new_sim(cfg.start), armor.Limits{})
+	mut ar := armor.restrain(body.new_sim(cfg.start, cfg.drive), armor.Limits{})
 	mut rec := plug.open_recorder(cfg.recorder) or { panic(err) }
 	mut cable := umbilical.plug_in(lcl.now_ms(), cfg.budget_ms, cfg.grace_ms)
 

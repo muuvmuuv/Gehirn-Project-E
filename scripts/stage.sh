@@ -38,9 +38,11 @@ fi
 mkdir -p "$run/hq" "$run/field"
 run=$(cd "$run" && pwd)
 
-# Every variable of docs/configuration.md but SSL_CERT_FILE, so nothing hosted or
+# Every variable of docs/configuration.md but SSL_CERT_FILE and DRIVE, so nothing hosted or
 # personal leaks in; above all CORE_JOURNAL, PLUG_RECORDER and DUMMY_WEIGHTS, the pilot's data.
-# Hosted models keep their variables, their endpoints and keys among them.
+# Hosted models keep their variables, their endpoints and keys among them. DRIVE only says how the
+# simulated body moves, so `DRIVE=differential just demo` flies the stage on a differential body;
+# the beats above are timed on the default.
 unset MAGI_TIMEOUT_MS CORE_TIMEOUT_MS CORE_BACKEND CL1_SPIKES CL1_SIDECAR PILOT_ID PLUG_ADDR \
     MISSION START CORE_JOURNAL PLUG_RECORDER DUMMY_WEIGHTS HQ_PERIOD_MS UNIT_ID
 if [ "$lineup" = mock ]; then
