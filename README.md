@@ -19,7 +19,7 @@ The loop above comes from a `just lineup=magi demo-record` run on 2026-10-05: MA
 
 ## Try it
 
-One command flies the whole story on scripted mock models, without keys. It needs [V 0.5.2](https://github.com/vlang/v/releases/tag/0.5.2), just, curl, unzip and Python 3.10 or newer, and ffmpeg only for recording; on Linux the bridge also needs the X11 and OpenGL development libraries, as [check.yml](.github/workflows/check.yml) installs them. It is verified on macOS on Apple Silicon, and on Linux in containers only, the demo on a virtual display. Intel Macs have no pinned zenoh-c.
+One command flies the whole story on scripted mock models, without keys. It needs [V 0.5.2](https://github.com/vlang/v/releases/tag/0.5.2), just, curl, unzip and Python 3.10 or newer, and ffmpeg only for recording; on Linux the bridge also needs the X11, OpenGL, EGL and Xrandr development libraries, as [check.yml](.github/workflows/check.yml) installs them. It is verified on macOS on Apple Silicon, and on Linux in containers only, the demo on a virtual display. Intel Macs have no pinned zenoh-c.
 
 ```sh
 just demo

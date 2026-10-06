@@ -1,6 +1,6 @@
 # Runs `just check` on every push to main and every pull request, on Ubuntu x86_64 always and on
-# macOS on Apple Silicon unless the change touches docs and assets only (CONTRIBUTING.md,
-# Continuous integration).
+# macOS on Apple Silicon unless the change touches docs and assets only, and the -d mujoco tests
+# and build on Ubuntu x86_64 always (CONTRIBUTING.md, Continuous integration).
 name: check
 
 on:
@@ -58,6 +58,41 @@ jobs:
       - run: just check
       - name: Build gehirn, the bridge and the gamepad
         run: just build bridge gamepad
+
+  # Builds MuJoCo from its pinned source, runs the tests with -d mujoco and builds gehirn with it,
+  # all of which `just check` never compiles (ADR-0008).
+  mujoco:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The bridge's tests compile gg, which on Linux includes EGL's and Xrandr's headers beside
+      # the bridge's X11 and OpenGL ones; the linux job gets those two through libsdl2-dev.
+      - name: Install CMake, Ninja, patch, a C and C++ compiler and the bridge's X11, OpenGL, EGL and Xrandr libraries
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends cmake ninja-build patch gcc g++ libgl-dev libegl-dev libx11-dev libxcursor-dev libxi-dev libxrandr-dev
+      - name: Install V, just, shellcheck and shfmt
+        run: scripts/toolchain.sh >>"$GITHUB_PATH"
+
+      # scripts/mujoco.sh holds the pin, the checksum, the patch and the configure line, so a change
+      # to it builds MuJoCo afresh, and it skips the build when the cache restored its VERSION. The
+      # cache saves right after the build, since actions/cache saves only once the whole job passes,
+      # and a failing test would then throw the build away.
+      - id: mujoco-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: thirdparty/mujoco
+          key: mujoco-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/mujoco.sh') }}
+      - run: just mujoco
+      - if: steps.mujoco-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: thirdparty/mujoco
+          key: ${{ steps.mujoco-cache.outputs.cache-primary-key }}
+      - run: just test-mujoco
+      - name: Build gehirn with MuJoCo
+        run: just body=mujoco build
 
   macos:
     needs: changes

@@ -2,9 +2,10 @@
 # Builds the pinned MuJoCo from its source tarball, checked against its sha256, as one static
 # library for this host, and installs its headers into thirdparty/mujoco/include/mujoco, its
 # archives into thirdparty/mujoco/lib, which a build with -d mujoco links, and the licenses of
-# MuJoCo and its dependencies, unless they are there already. ADR-0008, Distribution, decides the patch and the configure line. The justfile's mujoco
-# recipe runs it. The first build needs cmake, Ninja, a C++ compiler, git and the network, since
-# CMake fetches seven dependencies at the commits the tag names.
+# MuJoCo and its dependencies, unless they are there already. ADR-0008, Distribution, decides the
+# patch and the configure line. The justfile's mujoco recipe runs it. The first build needs curl,
+# patch, cmake, Ninja, a C and a C++ compiler, git and the network, since CMake fetches seven
+# dependencies at the commits the tag names.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 version=3.14.0
@@ -24,7 +25,7 @@ dir=thirdparty/mujoco
 if [ "$(cat "$dir/VERSION" 2>/dev/null)" = "$version static $target" ] && [ -d "$dir/licenses" ]; then
     exit 0
 fi
-for tool in cmake ninja git c++; do
+for tool in curl patch cmake ninja git cc c++; do
     if ! command -v "$tool" >/dev/null; then
         echo "mujoco: building MuJoCo $version needs $tool, which is not on PATH" >&2
         exit 1

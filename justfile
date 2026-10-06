@@ -33,7 +33,7 @@ test: zenoh
 zenoh:
     @scripts/zenoh.sh
 
-# Builds the pinned MuJoCo from source as one static library into thirdparty/mujoco (ADR-0008); needs cmake, Ninja, a C++ compiler and git.
+# Builds the pinned MuJoCo from source as one static library into thirdparty/mujoco (ADR-0008); needs curl, patch, cmake, Ninja, a C and a C++ compiler and git.
 mujoco:
     @scripts/mujoco.sh
 
