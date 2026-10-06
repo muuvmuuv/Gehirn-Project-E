@@ -14,7 +14,7 @@ Everything here is gehirn's own work under the [EUPL 1.2](../LICENSE), except th
 | [assets/brand/mark-mono.svg](brand/mark-mono.svg) | The mark in one `currentColor` path | Print, stamps and embossing (docs/brand.md) | Master, as mark.svg | EUPL 1.2 |
 | [assets/brand/lockup-dark.svg](brand/lockup-dark.svg) | The mark, GEHIRN, ゲヒルン E計画 and the cable on a dark ground | README.md's `<picture>` in a dark scheme, docs/brand.md, the source of social.png | Master, its type outlined with fontTools from Barlow Condensed Black and the full Zen Old Mincho Black by docs/brand.md's numbers, then svgo | EUPL 1.2 |
 | [assets/brand/lockup-light.svg](brand/lockup-light.svg) | The lockup on a light ground | README.md's `<picture>` in a light scheme, docs/brand.md | Master, as lockup-dark.svg | EUPL 1.2 |
-| [assets/brand/social.png](brand/social.png) | The 1280 by 640 link preview card: the fan project line, the lockup and the README's first sentence between hazard bands | GitHub's social preview, uploaded by hand under Settings, General | `just assets`, from lockup-dark.svg, the sentence under README.md's title and `fan_line` in bridge/draw.v | EUPL 1.2 |
+| [assets/brand/social.png](brand/social.png) | The 1280 by 640 link preview card: the fan project line, the lockup and the README's first sentence between hazard bands | GitHub's social preview, uploaded by hand under Settings, General; website/social.png is the same file | `just assets`, from lockup-dark.svg, the sentence under README.md's title and `fan_line` in bridge/draw.v | EUPL 1.2 |
 
 ## Screenshots and recordings
 
@@ -43,6 +43,7 @@ Each of these sits where `website/index.html` or the manifest names it.
 | [website/icon-512.png](../website/icon-512.png) | The mark on an ink tile, 512 px | site.webmanifest | `just assets` | EUPL 1.2 |
 | [website/icon-maskable-512.png](../website/icon-maskable-512.png) | The mark inside the central 80% circle on a square ink tile, 512 px | site.webmanifest, as the maskable icon Android crops | `just assets` | EUPL 1.2 |
 | [website/site.webmanifest](../website/site.webmanifest) | The web app manifest: the name, the three icons, the theme and background colors | index.html | Written by hand | EUPL 1.2 |
+| [website/social.png](../website/social.png) | The link preview card, as assets/brand/social.png | index.html's `og:image`, the card X and other sites show for a link to the website | `just assets`, which writes the card to both | EUPL 1.2 |
 | [website/bridge.png](../website/bridge.png) | The bridge refusing the release, as assets/media/bridge.png | index.html's annotated frame | A copy of assets/media/bridge.png: `cp assets/media/bridge.png website/bridge.png` | EUPL 1.2 |
 | [website/media/boot.mp4](../website/media/boot.mp4) | The demo's first 8 s, from the boot screen to MAGI passing the goto 3/3 | index.html, Watch it run | The frames of one `just demo-record` take on the mock on 2026-10-05, linked aside while it ran since scripts/record.sh removes them, from the first one the bridge drew, encoded as record.sh encodes its MP4: libx264 at crf 20, 1280 by 800, no audio | EUPL 1.2 |
 | [website/media/boot.png](../website/media/boot.png) | The boot screen with its five lines | boot.mp4's poster | A frame of the same take, 1280 by 800, cut to 256 colors | EUPL 1.2 |

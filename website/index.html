@@ -8,6 +8,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Reading the gehirn Bridge</title>
 <meta name="description" content="The gehirn bridge running, then an annotated frame of it with a key to every panel, the vote states, the Japanese on screen and the demo's beats.">
+<!-- Link previews: X falls back to the og: title, description and image. social.png is assets/brand/social.png, which
+     `just assets` writes to both. og:url and og:image need absolute URLs, so their two lines are the ones to change once
+     the Vercel domain is set (docs/launch.md). Both alt texts repeat what the card shows: `fan_line` in bridge/draw.v and
+     the sentence under README.md's title. -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Reading the gehirn Bridge">
+<meta property="og:description" content="How to read the bridge of gehirn, Evangelion's MAGI as a robot's safety gate: three model families vote on every goal, and a restraint armor with no model in it holds the body. A fan project, not affiliated with khara or Gehirn Inc.">
+<meta property="og:url" content="https://gehirn-project-e.vercel.app/">
+<meta property="og:image" content="https://gehirn-project-e.vercel.app/social.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="The line Fan project. Not affiliated with khara or Gehirn Inc., gehirn's mark, a ring with three contacts, beside GEHIRN and ゲヒルン E計画, and the sentence: Evangelion's MAGI as a robot's safety gate: three model families vote on every goal, anything irreversible needs all three, and a restraint armor with no model in it holds the body.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image:alt" content="The line Fan project. Not affiliated with khara or Gehirn Inc., gehirn's mark, a ring with three contacts, beside GEHIRN and ゲヒルン E計画, and the sentence: Evangelion's MAGI as a robot's safety gate: three model families vote on every goal, anything irreversible needs all three, and a restraint armor with no model in it holds the body.">
 <!-- The favicon set of docs/brand.md: favicon.svg is a copy of assets/brand/mark.svg. -->
 <link rel="icon" type="image/png" href="favicon-96x96.png" sizes="96x96">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -406,6 +420,7 @@ a { color: var(--orange); }
 
   <footer>
     <div class="run">Run it yourself, no API keys needed: <code>just demo</code></div>
+    <p>The code, the docs and the measured runs: <a href="https://github.com/muuvmuuv/Gehirn-Project-E">github.com/muuvmuuv/Gehirn-Project-E</a></p>
     <p>In this frame BALTHASAR-2 runs on Jev 1.13.0, MELCHIOR-1 on gpt-oss-20b and CASPER-3 on llama-3.1-8b-instruct, while the proposing core was scripted to be reckless. <code>just demo</code> scripts all four. The body is simulated.</p>
     <p>gehirn is a fan project, not affiliated with khara or Gehirn Inc.</p>
   </footer>

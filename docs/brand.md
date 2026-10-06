@@ -64,6 +64,7 @@ These are the brand's files. [assets/README.md](../assets/README.md) is the cata
 | [assets/brand/lockup-dark.svg](../assets/brand/lockup-dark.svg) | The lockup on a dark ground |
 | [assets/brand/lockup-light.svg](../assets/brand/lockup-light.svg) | The lockup on a light ground |
 | [assets/brand/social.png](../assets/brand/social.png) | The 1280 by 640 card for link previews: the fan project line, the lockup and the README's first sentence on ink |
+| [website/social.png](../website/social.png) | The website's link preview card, the same file as social.png |
 | [website/favicon.svg](../website/favicon.svg) | The website's favicon, a copy of mark.svg |
 | `website/favicon.ico`, `favicon-96x96.png` | The mark on an ink tile, for browsers without SVG favicons, PDFs and search results; the icon holds 16, 32 and 48 px |
 | `website/apple-touch-icon.png` | 180 px on opaque ink, since iOS fills transparency black |

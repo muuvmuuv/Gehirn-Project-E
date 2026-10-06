@@ -8,9 +8,10 @@
     uv run --script assets/build.py
 
 It writes the website's favicon set and manifest icons into website/, the bridge's window icons
-into bridge/icons and the social card into assets/brand/social.png, by the numbers of
-docs/brand.md, Rebuilding them, and needs rsvg-convert. It is a design time generator, not a
-tool: nothing in the checks, the missions or the runtime runs it (CONTRIBUTING.md, Python tools 2).
+into bridge/icons and the social card into assets/brand/social.png and website/social.png, by
+the numbers of docs/brand.md, Rebuilding them, and needs rsvg-convert. It is a design time
+generator, not a tool: nothing in the checks, the missions or the runtime runs it
+(CONTRIBUTING.md, Python tools 2).
 """
 
 import io
@@ -172,7 +173,9 @@ def main() -> None:
         sys.exit("favicon.ico does not read back as 16, 32 and 48 px")
     for name, size, square, rx, box, colors in ICONS:
         (ROOT / name).write_bytes(render(tile(size, square, rx, box), size, size, colors))
-    (ROOT / "assets/brand/social.png").write_bytes(render(social(), 1280, 640, 128))
+    card = render(social(), 1280, 640, 128)
+    for name in ("assets/brand/social.png", "website/social.png"):
+        (ROOT / name).write_bytes(card)
 
 
 if __name__ == "__main__":

@@ -57,7 +57,8 @@ const threshold = 0.3
 const boot_ms = 2800
 
 // fan_line says on the boot screen and in the footer whose this is not. `social` in
-// assets/build.py reads this line to set the same words on assets/brand/social.png.
+// assets/build.py reads this line to set the same words on assets/brand/social.png, and
+// website/index.html's og:image:alt and twitter:image:alt repeat them.
 const fan_line = 'FAN PROJECT. NOT AFFILIATED WITH KHARA OR GEHIRN INC.'
 
 // Txt is how draw sets one string: its size, color and face, how far it is stretched
