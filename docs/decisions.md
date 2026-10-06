@@ -33,6 +33,8 @@ Decisions the owner made that are not architecture, with the day, the reason and
 
 - **2026-10-07, holonomic by default.** `DRIVE` stays `holonomic`: the Evas walk on two legs and step aside without turning first, which a holonomic body models more closely than a wheeled base, and a smarter way to the goal is a planner's job, not the drive's. `DRIVE=differential` stays the option for a wheeled first body (PLAN, Open questions 1 and 7).
 
+- **2026-10-07, a planner that steers around people.** The owner wants the body's way to the goal planned, not only pulled toward the goal and pushed off what is near: around obstacles, around where a walking human is heading, and, when a human comes toward the body, aside in a direction that clears the human and still gains on the goal, rather than only braking. It stays code with no model in it, and the armor still restrains every command (PLAN, Phase 3 Task 6).
+
 ## Tooling
 
 - **2026-10-05, shell scripts.** The task runner's long bash recipes live in `scripts/`, checked with shellcheck and formatted with shfmt in `just check` and the pre-commit hook. The owner installed shfmt for it.
