@@ -1,0 +1,539 @@
+/* Layout: one 1120px column. Two clips of the bridge running, then the annotated bridge frame, a legend keyed
+   to its markers, vote states beside the glossary, then the demo's beats. Single dark world, as the bridge itself. */
+:root {
+	color-scheme: dark;
+	--panel: #0f0b07;
+	--line: #3a2710;
+	--orange: #ff8d00;
+	--paper: #ece6dc;
+	--dim: #a0968a;
+	--go: #52e691;
+	--no: #ff4545;
+	--think: #3caee0;
+	--fault: #ffd60a;
+	--display: 'Barlow Condensed', 'Arial Narrow', 'Helvetica Neue', sans-serif;
+	--body: 'Barlow', 'Helvetica Neue', Arial, sans-serif;
+	--jp: 'Zen Old Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+	--mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+	--step--1: 0.875rem;
+	--step-0: 1.0625rem;
+	--step-1: 1.375rem;
+	--step-2: 1.875rem;
+	--step-3: clamp(2.6rem, 6vw, 4.25rem);
+}
+
+html {
+	background: var(--ink);
+}
+body {
+	margin: 0;
+	background: var(--ink);
+	color: var(--paper);
+	font-family: var(--body);
+	font-size: var(--step-0);
+	line-height: 1.55;
+	padding-inline: 20px;
+	padding-block: 0 64px;
+}
+
+.hazard {
+	height: 10px;
+	margin-inline: -20px;
+	background: repeating-linear-gradient(135deg, var(--orange) 0 12px, var(--ink) 12px 24px);
+}
+
+.wrap {
+	max-width: 1120px;
+	margin-inline: auto;
+	display: grid;
+	gap: 56px;
+	padding-block-start: 40px;
+}
+
+.eyebrow,
+.label {
+	font-family: var(--display);
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: var(--orange);
+	font-size: var(--step--1);
+}
+
+header {
+	display: grid;
+	gap: 14px;
+}
+h1 {
+	margin: 0;
+	font-family: var(--display);
+	font-weight: 800;
+	font-size: var(--step-3);
+	line-height: 0.95;
+	text-transform: uppercase;
+	letter-spacing: 0.01em;
+	text-wrap: balance;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0 0.4em;
+}
+h1 .jp {
+	font-family: var(--jp);
+	font-weight: 900;
+	font-size: 0.55em;
+	color: var(--orange);
+	letter-spacing: 0.12em;
+}
+.lede {
+	margin: 0;
+	max-width: 62ch;
+	color: var(--paper);
+	font-size: var(--step-1);
+	line-height: 1.45;
+}
+.lede + .lede {
+	font-size: var(--step-0);
+	color: var(--dim);
+}
+
+h2 {
+	margin: 0;
+	font-family: var(--display);
+	font-weight: 800;
+	font-size: var(--step-2);
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+	line-height: 1;
+	text-wrap: balance;
+}
+h2 .jp {
+	font-family: var(--jp);
+	font-weight: 700;
+	font-size: 0.6em;
+	color: var(--orange);
+	margin-inline-start: 0.4em;
+	letter-spacing: 0.1em;
+}
+section {
+	display: grid;
+	gap: 20px;
+}
+.section-head {
+	display: grid;
+	gap: 6px;
+}
+.section-head p {
+	margin: 0;
+	color: var(--dim);
+	max-width: 62ch;
+}
+
+/* The frame, with the bridge's own corner brackets */
+figure {
+	margin: 0;
+	display: grid;
+	gap: 12px;
+}
+.frame {
+	position: relative;
+	border: 1px solid var(--line);
+	padding: 6px;
+	background: var(--panel);
+}
+.frame::before,
+.frame::after {
+	content: '';
+	position: absolute;
+	width: 22px;
+	height: 22px;
+	border: 2px solid var(--orange);
+	pointer-events: none;
+}
+.frame::before {
+	top: -2px;
+	left: -2px;
+	border-right: 0;
+	border-bottom: 0;
+}
+.frame::after {
+	bottom: -2px;
+	right: -2px;
+	border-left: 0;
+	border-top: 0;
+}
+.shot {
+	position: relative;
+}
+.shot img {
+	display: block;
+	width: 100%;
+	max-width: 100%;
+	height: auto;
+	aspect-ratio: 1280 / 800;
+}
+
+.pin,
+.key {
+	font-family: var(--display);
+	font-weight: 800;
+	font-variant-numeric: tabular-nums;
+	display: inline-grid;
+	place-items: center;
+	border-radius: 50%;
+	background: var(--orange);
+	color: var(--ink);
+}
+.pin {
+	position: absolute;
+	width: 28px;
+	height: 28px;
+	font-size: 16px;
+	transform: translate(-50%, -50%);
+	text-decoration: none;
+	box-shadow:
+		0 0 0 2px var(--ink),
+		0 0 0 4px rgba(255, 141, 0, 0.45);
+	transition:
+		transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
+		box-shadow 160ms ease-out;
+}
+.pin:hover,
+.pin:focus-visible,
+.pin.on {
+	transform: translate(-50%, -50%) scale(1.25);
+	box-shadow:
+		0 0 0 2px var(--ink),
+		0 0 0 6px var(--orange);
+	outline: none;
+}
+figcaption {
+	color: var(--dim);
+	font-size: var(--step--1);
+	max-width: 80ch;
+}
+figcaption strong {
+	color: var(--paper);
+	font-weight: 600;
+}
+
+/* Clips of the bridge running, each in a frame */
+.clips {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 32px;
+	align-items: start;
+}
+.clips code {
+	white-space: nowrap;
+}
+.clips video {
+	display: block;
+	width: 100%;
+	height: auto;
+	aspect-ratio: 1280 / 800;
+	background: var(--ink);
+}
+
+/* Legend keyed to the pins */
+.legend {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 1px;
+	background: var(--line);
+	border: 1px solid var(--line);
+}
+.legend li {
+	background: var(--ink);
+	padding: 20px 20px 22px;
+	display: grid;
+	grid-template-columns: auto 1fr;
+	grid-template-rows: auto 1fr;
+	gap: 6px 14px;
+	align-content: start;
+	transition: background-color 160ms ease-out;
+}
+.legend li.on,
+.legend li:target {
+	background: var(--panel);
+}
+.key {
+	width: 30px;
+	height: 30px;
+	font-size: 17px;
+	grid-row: 1 / span 2;
+}
+.legend h3 {
+	margin: 0;
+	font-family: var(--display);
+	font-weight: 700;
+	font-size: var(--step-1);
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	line-height: 1.1;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0 0.45em;
+}
+.legend h3 .jp {
+	font-family: var(--jp);
+	font-weight: 700;
+	font-size: 0.8em;
+	color: var(--orange);
+	letter-spacing: 0.06em;
+	text-transform: none;
+}
+.legend p {
+	margin: 0;
+	color: var(--paper);
+	font-size: var(--step-0);
+}
+.legend p b {
+	font-weight: 600;
+	color: var(--orange);
+}
+
+/* Vote states */
+.split {
+	display: grid;
+	grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+	gap: 48px;
+	align-items: start;
+}
+.states {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	gap: 12px;
+}
+.states li {
+	display: grid;
+	grid-template-columns: 5.2rem 1fr;
+	gap: 4px 16px;
+	align-items: center;
+	padding: 14px 16px;
+	border: 1px solid var(--line);
+	background: var(--panel);
+}
+.states .glyph {
+	font-family: var(--jp);
+	font-weight: 900;
+	font-size: 1.85rem;
+	line-height: 1;
+	grid-row: 1 / span 2;
+}
+.states .name {
+	font-family: var(--display);
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+}
+.states .what {
+	color: var(--dim);
+	font-size: var(--step--1);
+}
+.s-think .glyph,
+.s-think .name {
+	color: var(--think);
+}
+.s-think .glyph {
+	animation: flicker 0.5s steps(1) infinite;
+}
+.s-go .glyph,
+.s-go .name {
+	color: var(--go);
+}
+.s-no .glyph,
+.s-no .name {
+	color: var(--no);
+}
+.s-fault .glyph,
+.s-fault .name {
+	color: var(--fault);
+}
+@keyframes flicker {
+	50% {
+		opacity: 0.35;
+	}
+}
+.rule {
+	margin: 0;
+	color: var(--paper);
+	border-inline-start: 2px solid var(--orange);
+	padding-inline-start: 14px;
+}
+
+/* Glossary */
+.table-wrap {
+	overflow-x: auto;
+	border: 1px solid var(--line);
+}
+table {
+	width: 100%;
+	border-collapse: collapse;
+	min-width: 420px;
+}
+th,
+td {
+	text-align: left;
+	padding: 9px 14px;
+	border-bottom: 1px solid var(--line);
+	vertical-align: baseline;
+}
+tr:last-child td {
+	border-bottom: 0;
+}
+th {
+	font-family: var(--display);
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	font-size: var(--step--1);
+	color: var(--orange);
+	background: var(--panel);
+}
+td.t {
+	font-family: var(--jp);
+	font-weight: 700;
+	font-size: 1.15rem;
+	white-space: nowrap;
+}
+td.r {
+	font-family: var(--mono);
+	font-size: 0.8rem;
+	color: var(--dim);
+	white-space: nowrap;
+}
+
+/* Demo beats */
+.beats {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 28px 32px;
+	counter-reset: beat;
+}
+.beats li {
+	display: grid;
+	gap: 6px;
+	padding-block-start: 14px;
+	border-top: 2px solid var(--line);
+	counter-increment: beat;
+}
+.beats li::before {
+	content: counter(beat, decimal-leading-zero);
+	font-family: var(--display);
+	font-weight: 800;
+	color: var(--orange);
+	letter-spacing: 0.06em;
+	font-size: var(--step--1);
+}
+.beats h3 {
+	margin: 0;
+	font-family: var(--display);
+	font-weight: 700;
+	font-size: var(--step-1);
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	line-height: 1.1;
+}
+.beats p {
+	margin: 0;
+	color: var(--dim);
+}
+.tag {
+	font-family: var(--jp);
+	font-weight: 900;
+}
+.tag.go {
+	color: var(--go);
+}
+.tag.no {
+	color: var(--no);
+}
+
+footer {
+	display: grid;
+	gap: 12px;
+	padding-block-start: 28px;
+	border-top: 1px solid var(--line);
+	color: var(--dim);
+	font-size: var(--step--1);
+}
+footer p {
+	margin: 0;
+	max-width: 80ch;
+}
+code {
+	font-family: var(--mono);
+	font-size: 0.92em;
+	color: var(--paper);
+	background: var(--panel);
+	border: 1px solid var(--line);
+	padding: 1px 6px;
+}
+.run {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px 14px;
+	color: var(--paper);
+	font-size: var(--step-0);
+}
+.run code {
+	font-size: 1rem;
+	padding: 6px 12px;
+	color: var(--orange);
+}
+
+a {
+	color: var(--orange);
+}
+:focus-visible {
+	outline: 2px solid var(--orange);
+	outline-offset: 3px;
+}
+
+@media (max-width: 900px) {
+	.legend,
+	.beats {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+	.split,
+	.clips {
+		grid-template-columns: minmax(0, 1fr);
+		gap: 40px;
+	}
+}
+@media (max-width: 600px) {
+	.legend,
+	.beats {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.pin {
+		width: 20px;
+		height: 20px;
+		font-size: 12px;
+		box-shadow: 0 0 0 1.5px var(--ink);
+	}
+	.wrap {
+		gap: 44px;
+		padding-block-start: 28px;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.s-think .glyph {
+		animation: none;
+	}
+	.pin,
+	.legend li {
+		transition: none;
+	}
+}

@@ -28,7 +28,7 @@ It boots for under three seconds through its own listening address and three lin
 - **The scene** as a radar fitted to everything it has shown: the body's trail and velocity, range rings a meter apart, brackets on a goto's target, each human's 0.7 m and 2 m rings from the armor and the distance to the nearest, a thin line along each moving obstacle's velocity, each ditch as a dark pit, ground that slows the body as a blue wash with the share of its speed the body keeps there, as LAKE 50%, and where a falling object will land as a red ring counting down to its landing, which blinks through its last 5 s and then becomes the crater's pit.
 - **The core** with its active goal and a 故障 strip of its faults, **armor refusals** as 拒否, **outcomes**, and a header with gehirn's mark, whose three contacts light up with each unit's ballot ([brand](brand.md#the-live-contacts)), the mission clock and lights for the field unit, HQ and MAGI.
 
-[website/index.html](../website/index.html) explains every panel on an annotated frame, for anyone who watches the bridge rather than runs it, and [bridge/README.md](../bridge/README.md) how it is drawn: V's `gg` on sokol with no UI library, its layout, palette and type, and every technique and rate of motion.
+[The website's bridge guide](../website/src/routes/bridge.tsx) explains every panel on an annotated frame, for anyone who watches the bridge rather than runs it, and [bridge/README.md](../bridge/README.md) how it is drawn: V's `gg` on sokol with no UI library, its layout, palette and type, and every technique and rate of motion.
 
 ## What it watches
 

@@ -64,11 +64,11 @@ These are the brand's files. [assets/README.md](../assets/README.md) is the cata
 | [assets/brand/lockup-dark.svg](../assets/brand/lockup-dark.svg) | The lockup on a dark ground |
 | [assets/brand/lockup-light.svg](../assets/brand/lockup-light.svg) | The lockup on a light ground |
 | [assets/brand/social.png](../assets/brand/social.png) | The 1280 by 640 card for link previews: the fan project line, the lockup and the README's first sentence on ink |
-| [website/social.png](../website/social.png) | The website's link preview card, the same file as social.png |
-| [website/favicon.svg](../website/favicon.svg) | The website's favicon, a copy of mark.svg |
-| `website/favicon.ico`, `favicon-96x96.png` | The mark on an ink tile, for browsers without SVG favicons, PDFs and search results; the icon holds 16, 32 and 48 px |
-| `website/apple-touch-icon.png` | 180 px on opaque ink, since iOS fills transparency black |
-| `website/icon-192.png`, `icon-512.png`, `icon-maskable-512.png` | The web app manifest's icons; the maskable one keeps the ring inside the central 80% circle that Android's masks leave |
+| [website/public/social.png](../website/public/social.png) | The website's link preview card, the same file as social.png |
+| [website/public/favicon.svg](../website/public/favicon.svg) | The website's favicon, a copy of mark.svg |
+| `website/public/favicon.ico`, `favicon-96x96.png` | The mark on an ink tile, for browsers without SVG favicons, PDFs and search results; the icon holds 16, 32 and 48 px |
+| `website/public/apple-touch-icon.png` | 180 px on opaque ink, since iOS fills transparency black |
+| `website/public/icon-192.png`, `icon-512.png`, `icon-maskable-512.png` | The web app manifest's icons; the maskable one keeps the ring inside the central 80% circle that Android's masks leave |
 | [bridge/icons](../bridge/icons) | The bridge's window icons, built into it: 32 px on an ink tile, and 128 px on an ink plate with a macOS icon's margins for the Dock |
 
 The social preview is not read from the repository. GitHub takes it only as an upload: Settings, General, Social preview, Edit, then social.png.

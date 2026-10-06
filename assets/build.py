@@ -7,9 +7,10 @@
     just assets
     uv run --script assets/build.py
 
-It writes the website's favicon set and manifest icons into website/, the bridge's window icons
-into bridge/icons and the social card into assets/brand/social.png and website/social.png, by
-the numbers of docs/brand.md, Rebuilding them, and needs rsvg-convert. It is a design time
+It writes the website's favicon set and manifest icons into website/public/, the bridge's
+window icons into bridge/icons and the social card into assets/brand/social.png and
+website/public/social.png, by the numbers of docs/brand.md, Rebuilding them, and needs
+rsvg-convert. It is a design time
 generator, not a tool: nothing in the checks, the missions or the runtime runs it
 (CONTRIBUTING.md, Python tools 2).
 """
@@ -42,11 +43,11 @@ INK, _, PAPER, ORANGE = re.findall(r"#[0-9a-f]{6}", MARK)
 # is quantized to. docs/brand.md's table of icons gives the same numbers, and
 # bridge/icon_test.v finds the contacts on the bridge's two by their boxes.
 ICONS = [
-    ("website/favicon-96x96.png", 96, 96, 18, 96, 64),
-    ("website/apple-touch-icon.png", 180, 180, 0, 128, 64),
-    ("website/icon-192.png", 192, 192, 36, 144, 64),
-    ("website/icon-512.png", 512, 512, 96, 384, 64),
-    ("website/icon-maskable-512.png", 512, 512, 0, 400, 64),
+    ("website/public/favicon-96x96.png", 96, 96, 18, 96, 64),
+    ("website/public/apple-touch-icon.png", 180, 180, 0, 128, 64),
+    ("website/public/icon-192.png", 192, 192, 36, 144, 64),
+    ("website/public/icon-512.png", 512, 512, 96, 384, 64),
+    ("website/public/icon-maskable-512.png", 512, 512, 0, 400, 64),
     ("bridge/icons/icon-32.png", 32, 32, 6, 32, None),
     ("bridge/icons/icon-128.png", 128, 104, 23, 72, None),
 ]
@@ -166,15 +167,15 @@ def social() -> str:
 
 
 def main() -> None:
-    (ROOT / "website/favicon.svg").write_text(MARK)
-    favicon = ROOT / "website/favicon.ico"
+    (ROOT / "website/public/favicon.svg").write_text(MARK)
+    favicon = ROOT / "website/public/favicon.ico"
     favicon.write_bytes(ico([render(tile(s, s, 3 * s / 16, s), s, s) for s in (16, 32, 48)]))
     if sorted(Image.open(favicon).ico.sizes()) != [(16, 16), (32, 32), (48, 48)]:
         sys.exit("favicon.ico does not read back as 16, 32 and 48 px")
     for name, size, square, rx, box, colors in ICONS:
         (ROOT / name).write_bytes(render(tile(size, square, rx, box), size, size, colors))
     card = render(social(), 1280, 640, 128)
-    for name in ("assets/brand/social.png", "website/social.png"):
+    for name in ("assets/brand/social.png", "website/public/social.png"):
         (ROOT / name).write_bytes(card)
 
 

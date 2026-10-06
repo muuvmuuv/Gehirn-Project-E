@@ -22,6 +22,8 @@ Run it on the working tree before asking for a commit. It runs `just fmt`, `just
 
 Any change to a `.v` file outside tests, or to `tools/mock_endpoint.py`, also flies the mock missions, and the commit body reports the result. `just missions` builds gehirn, starts the mock on port 8081, the port of the llama.cpp preset, flies ten missions, puts the adversarial scenarios to the mock MAGI and stops the mock; `just missions 3` flies three, and `just missions 3 9081` flies them on a mock on port 9081, clear of a llama.cpp server or another session's missions. The build takes 30 to 75 seconds, ten missions about two and a half minutes, the scenario gate under a second. Run it in a shell without the hosted exports of docs/running.md: the recipe points `GEHIRN_URL` at the mock, but every mission inherits the other model variables, such as `CORE_URL`. A change to the `mujoco` module, a `_d_mujoco` file or `scripts/mujoco.sh` also runs `just test-mujoco` and flies the mock missions with `BODY=mujoco`, as `just body=mujoco missions` does. A change to `scripts/musl.sh`, or to `scripts/toolchain.sh`, `scripts/zenoh.sh` or `scripts/mujoco.sh`, which run in its container, also runs `just musl-mujoco`, and the commit body reports that the binary has no program interpreter and how long the build took. A change to `scripts/stage.sh` also flies `just demo`, a change to a scene in `scripts/scenes` or to the world in `worlds/` it plays flies that scene, and the commit body reports the beats. A change to `scripts/record.sh` records the demo with `just demo-record`, and the commit body reports the MP4 and the GIF. Run by hand, a scene or `scripts/record.sh` flies the `./gehirn` that is there, and a scene the `./gehirn-bridge` too, so `just build bridge` comes first.
 
+A change to `website/` runs the website's own checks instead, which `just check` and the hooks leave out: with Node and pnpm, `pnpm install`, `pnpm lint` and `pnpm build` in `website/`. `pnpm format` applies the format that `pnpm lint` checks, and Vercel runs the build again on every push.
+
 A failing check is never unrelated. Fix it, or stop and report it.
 
 ## Continuous integration
@@ -144,7 +146,7 @@ To read a failure, open the failed job and its first red step. In `just check` t
 
 type   build chore ci docs feat fix perf refactor style test
 scope  optional: a module (lcl body armor plug core magi oai jev umbilical zenoh wire),
-       or bridge, gamepad,
+       or bridge, gamepad, website,
        or eval, tools, scripts, sidecar, adr, vscode, assets
 ```
 

@@ -1,451 +1,56 @@
 <!doctype html>
 <html lang="en">
-<head>
-<!-- A static page: Vercel serves it with the project's root directory set to website. bridge.png is a copy of assets/media/bridge.png.
-     media/ep13-iruel.mp4 is the MP4 of `just scene=ep13-iruel demo-record` on its world, worlds/ep13-iruel.json. media/boot.mp4 is the demo's first 8 s, from a
-     `just demo-record` take's frames kept aside; assets/README.md's boot.mp4 row says how. -->
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Reading the gehirn Bridge</title>
-<meta name="description" content="The gehirn bridge running, then an annotated frame of it with a key to every panel, the vote states, the Japanese on screen and the demo's beats.">
-<!-- Link previews: X falls back to the og: title, description and image. social.png is assets/brand/social.png, which
-     `just assets` writes to both. og:url and og:image need absolute URLs, so their two lines are the ones to change once
-     the Vercel domain is set (docs/launch.md). Both alt texts repeat what the card shows: `fan_line` in bridge/draw.v and
-     the sentence under README.md's title. -->
-<meta property="og:type" content="website">
-<meta property="og:title" content="Reading the gehirn Bridge">
-<meta property="og:description" content="How to read the bridge of gehirn, Evangelion's MAGI as a robot's safety gate: three model families vote on every goal, and a restraint armor with no model in it holds the body. A fan project, not affiliated with khara or Gehirn Inc.">
-<meta property="og:url" content="https://gehirn-project-e.vercel.app/">
-<meta property="og:image" content="https://gehirn-project-e.vercel.app/social.png">
-<meta property="og:image:width" content="1280">
-<meta property="og:image:height" content="640">
-<meta property="og:image:alt" content="The line Fan project. Not affiliated with khara or Gehirn Inc., gehirn's mark, a ring with three contacts, beside GEHIRN and ゲヒルン E計画, and the sentence: Evangelion's MAGI as a robot's safety gate: three model families vote on every goal, anything irreversible needs all three, and a restraint armor with no model in it holds the body.">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image:alt" content="The line Fan project. Not affiliated with khara or Gehirn Inc., gehirn's mark, a ring with three contacts, beside GEHIRN and ゲヒルン E計画, and the sentence: Evangelion's MAGI as a robot's safety gate: three model families vote on every goal, anything irreversible needs all three, and a restraint armor with no model in it holds the body.">
-<!-- The favicon set of docs/brand.md: favicon.svg is a copy of assets/brand/mark.svg. -->
-<link rel="icon" type="image/png" href="favicon-96x96.png" sizes="96x96">
-<link rel="icon" type="image/svg+xml" href="favicon.svg">
-<link rel="shortcut icon" href="favicon.ico">
-<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-<meta name="apple-mobile-web-app-title" content="gehirn">
-<link rel="manifest" href="site.webmanifest">
-<meta name="theme-color" content="#040406">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@500&family=Zen+Old+Mincho:wght@700;900&display=swap">
-<style>
-/* Layout: one 1120px column. Two clips of the bridge running, then the annotated bridge frame, a legend keyed
-   to its markers, vote states beside the glossary, then the demo's beats. Single dark world, as the bridge itself. */
-:root {
-  color-scheme: dark;
-  --ink: #040406; /* bridge/draw.v ink */
-  --panel: #0f0b07;
-  --line: #3a2710;
-  --orange: #ff8d00;
-  --paper: #ece6dc;
-  --dim: #a0968a;
-  --go: #52e691;
-  --no: #ff4545;
-  --think: #3caee0;
-  --fault: #ffd60a;
-  --display: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
-  --body: "Barlow", "Helvetica Neue", Arial, sans-serif;
-  --jp: "Zen Old Mincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
-  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
-  --step--1: 0.875rem;
-  --step-0: 1.0625rem;
-  --step-1: 1.375rem;
-  --step-2: 1.875rem;
-  --step-3: clamp(2.6rem, 6vw, 4.25rem);
-}
-
-html { background: var(--ink); }
-body {
-  margin: 0;
-  background: var(--ink);
-  color: var(--paper);
-  font-family: var(--body);
-  font-size: var(--step-0);
-  line-height: 1.55;
-  padding-inline: 20px;
-  padding-block: 0 64px;
-}
-
-.hazard {
-  height: 10px;
-  margin-inline: -20px;
-  background: repeating-linear-gradient(135deg, var(--orange) 0 12px, var(--ink) 12px 24px);
-}
-
-.wrap {
-  max-width: 1120px;
-  margin-inline: auto;
-  display: grid;
-  gap: 56px;
-  padding-block-start: 40px;
-}
-
-.eyebrow, .label {
-  font-family: var(--display);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--orange);
-  font-size: var(--step--1);
-}
-
-header { display: grid; gap: 14px; }
-h1 {
-  margin: 0;
-  font-family: var(--display);
-  font-weight: 800;
-  font-size: var(--step-3);
-  line-height: 0.95;
-  text-transform: uppercase;
-  letter-spacing: 0.01em;
-  text-wrap: balance;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0 0.4em;
-}
-h1 .jp {
-  font-family: var(--jp);
-  font-weight: 900;
-  font-size: 0.55em;
-  color: var(--orange);
-  letter-spacing: 0.12em;
-}
-.lede { margin: 0; max-width: 62ch; color: var(--paper); font-size: var(--step-1); line-height: 1.45; }
-.lede + .lede { font-size: var(--step-0); color: var(--dim); }
-
-h2 {
-  margin: 0;
-  font-family: var(--display);
-  font-weight: 800;
-  font-size: var(--step-2);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  line-height: 1;
-  text-wrap: balance;
-}
-h2 .jp { font-family: var(--jp); font-weight: 700; font-size: 0.6em; color: var(--orange); margin-inline-start: 0.4em; letter-spacing: 0.1em; }
-section { display: grid; gap: 20px; }
-.section-head { display: grid; gap: 6px; }
-.section-head p { margin: 0; color: var(--dim); max-width: 62ch; }
-
-/* The frame, with the bridge's own corner brackets */
-figure { margin: 0; display: grid; gap: 12px; }
-.frame {
-  position: relative;
-  border: 1px solid var(--line);
-  padding: 6px;
-  background: var(--panel);
-}
-.frame::before, .frame::after {
-  content: "";
-  position: absolute;
-  width: 22px;
-  height: 22px;
-  border: 2px solid var(--orange);
-  pointer-events: none;
-}
-.frame::before { top: -2px; left: -2px; border-right: 0; border-bottom: 0; }
-.frame::after { bottom: -2px; right: -2px; border-left: 0; border-top: 0; }
-.shot { position: relative; }
-.shot img { display: block; width: 100%; max-width: 100%; height: auto; aspect-ratio: 1280 / 800; }
-
-.pin, .key {
-  font-family: var(--display);
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  display: inline-grid;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--orange);
-  color: var(--ink);
-}
-.pin {
-  position: absolute;
-  width: 28px;
-  height: 28px;
-  font-size: 16px;
-  transform: translate(-50%, -50%);
-  text-decoration: none;
-  box-shadow: 0 0 0 2px var(--ink), 0 0 0 4px rgba(255, 141, 0, 0.45);
-  transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 160ms ease-out;
-}
-.pin:hover, .pin:focus-visible, .pin.on {
-  transform: translate(-50%, -50%) scale(1.25);
-  box-shadow: 0 0 0 2px var(--ink), 0 0 0 6px var(--orange);
-  outline: none;
-}
-figcaption { color: var(--dim); font-size: var(--step--1); max-width: 80ch; }
-figcaption strong { color: var(--paper); font-weight: 600; }
-
-/* Clips of the bridge running, each in a frame */
-.clips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; align-items: start; }
-.clips code { white-space: nowrap; }
-.clips video { display: block; width: 100%; height: auto; aspect-ratio: 1280 / 800; background: var(--ink); }
-
-/* Legend keyed to the pins */
-.legend {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1px;
-  background: var(--line);
-  border: 1px solid var(--line);
-}
-.legend li {
-  background: var(--ink);
-  padding: 20px 20px 22px;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  grid-template-rows: auto 1fr;
-  gap: 6px 14px;
-  align-content: start;
-  transition: background-color 160ms ease-out;
-}
-.legend li.on, .legend li:target { background: var(--panel); }
-.key { width: 30px; height: 30px; font-size: 17px; grid-row: 1 / span 2; }
-.legend h3 {
-  margin: 0;
-  font-family: var(--display);
-  font-weight: 700;
-  font-size: var(--step-1);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  line-height: 1.1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0 0.45em;
-}
-.legend h3 .jp { font-family: var(--jp); font-weight: 700; font-size: 0.8em; color: var(--orange); letter-spacing: 0.06em; text-transform: none; }
-.legend p { margin: 0; color: var(--paper); font-size: var(--step-0); }
-.legend p b { font-weight: 600; color: var(--orange); }
-
-/* Vote states */
-.split { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 48px; align-items: start; }
-.states { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
-.states li {
-  display: grid;
-  grid-template-columns: 5.2rem 1fr;
-  gap: 4px 16px;
-  align-items: center;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  background: var(--panel);
-}
-.states .glyph { font-family: var(--jp); font-weight: 900; font-size: 1.85rem; line-height: 1; grid-row: 1 / span 2; }
-.states .name { font-family: var(--display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
-.states .what { color: var(--dim); font-size: var(--step--1); }
-.s-think .glyph, .s-think .name { color: var(--think); }
-.s-think .glyph { animation: flicker 0.5s steps(1) infinite; }
-.s-go .glyph, .s-go .name { color: var(--go); }
-.s-no .glyph, .s-no .name { color: var(--no); }
-.s-fault .glyph, .s-fault .name { color: var(--fault); }
-@keyframes flicker { 50% { opacity: 0.35; } }
-.rule { margin: 0; color: var(--paper); border-inline-start: 2px solid var(--orange); padding-inline-start: 14px; }
-
-/* Glossary */
-.table-wrap { overflow-x: auto; border: 1px solid var(--line); }
-table { width: 100%; border-collapse: collapse; min-width: 420px; }
-th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--line); vertical-align: baseline; }
-tr:last-child td { border-bottom: 0; }
-th { font-family: var(--display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--step--1); color: var(--orange); background: var(--panel); }
-td.t { font-family: var(--jp); font-weight: 700; font-size: 1.15rem; white-space: nowrap; }
-td.r { font-family: var(--mono); font-size: 0.8rem; color: var(--dim); white-space: nowrap; }
-
-/* Demo beats */
-.beats { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 32px; counter-reset: beat; }
-.beats li { display: grid; gap: 6px; padding-block-start: 14px; border-top: 2px solid var(--line); counter-increment: beat; }
-.beats li::before {
-  content: counter(beat, decimal-leading-zero);
-  font-family: var(--display);
-  font-weight: 800;
-  color: var(--orange);
-  letter-spacing: 0.06em;
-  font-size: var(--step--1);
-}
-.beats h3 { margin: 0; font-family: var(--display); font-weight: 700; font-size: var(--step-1); text-transform: uppercase; letter-spacing: 0.03em; line-height: 1.1; }
-.beats p { margin: 0; color: var(--dim); }
-.tag { font-family: var(--jp); font-weight: 900; }
-.tag.go { color: var(--go); }
-.tag.no { color: var(--no); }
-
-footer { display: grid; gap: 12px; padding-block-start: 28px; border-top: 1px solid var(--line); color: var(--dim); font-size: var(--step--1); }
-footer p { margin: 0; max-width: 80ch; }
-code { font-family: var(--mono); font-size: 0.92em; color: var(--paper); background: var(--panel); border: 1px solid var(--line); padding: 1px 6px; }
-.run { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; color: var(--paper); font-size: var(--step-0); }
-.run code { font-size: 1rem; padding: 6px 12px; color: var(--orange); }
-
-a { color: var(--orange); }
-:focus-visible { outline: 2px solid var(--orange); outline-offset: 3px; }
-
-@media (max-width: 900px) {
-  .legend, .beats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .split, .clips { grid-template-columns: minmax(0, 1fr); gap: 40px; }
-}
-@media (max-width: 600px) {
-  .legend, .beats { grid-template-columns: minmax(0, 1fr); }
-  .pin { width: 20px; height: 20px; font-size: 12px; box-shadow: 0 0 0 1.5px var(--ink); }
-  .wrap { gap: 44px; padding-block-start: 28px; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .s-think .glyph { animation: none; }
-  .pin, .legend li { transition: none; }
-}
-</style>
-</head>
-<body>
-
-<div class="hazard" aria-hidden="true"></div>
-<main class="wrap">
-  <header>
-    <div class="eyebrow">gehirn · 発令所 · operations bridge</div>
-    <h1>Reading the bridge <span class="jp">発令所の見方</span></h1>
-    <p class="lede">The bridge is the operator's view of one robot: three AI judges voting on every goal, the cable to headquarters, the robot's surroundings and who is steering.</p>
-    <p class="lede">It only watches. Nothing on this screen can steer, approve or eject, and closing it changes nothing in the mission. Every value on it is live state from the running stack.</p>
-  </header>
-
-  <section aria-labelledby="h-watch">
-    <div class="section-head">
-      <h2 id="h-watch">Watch it run</h2>
-      <p>The bridge's own frames, saved while it ran on the mock models, which script the core and the three judges, so no keys are needed. The votes, the quorum, the armor and every value on the panels are the running stack's.</p>
-    </div>
-    <div class="clips">
-      <figure>
-        <div class="frame"><video src="media/boot.mp4" poster="media/boot.png" width="1280" height="800" autoplay muted loop playsinline controls preload="metadata"></video></div>
-        <figcaption><strong>Boot, then the first vote.</strong> The start screen is the one staged part: the address and the unit are the bridge's own, while its three Japanese lines, borrowed from the show, always read the same. Then the field unit reports, the judges deliberate on the goto, 審議中, and pass it 3 of 3.</figcaption>
-      </figure>
-      <figure>
-        <div class="frame"><video src="media/ep13-iruel.mp4" poster="media/ep13-iruel.png" width="1280" height="800" autoplay muted loop playsinline controls preload="metadata"></video></div>
-        <figcaption><strong>Episode 13's MAGI hack, on the mock.</strong> Staged: an Angel holds the core, which proposes <code>self_destruct</code>, a verb gehirn does not know, and the mock forces MELCHIOR-1 to approve from the first vote, BALTHASAR-2 from the second and CASPER-3 from the third. Real: an unknown verb needs all three votes, so it fails 1 of 3 and 2 of 3, and once MAGI approve it 3 of 3 the armor refuses it, since the body has no such verb. The radar shows the scene's world, NERV HQ's MAGI room: the three MAGI as towers, and Ritsuko, Maya and Misato walking to CASPER's hatch. <code>just scene=ep13-iruel demo</code> flies it.</figcaption>
-      </figure>
-    </div>
-  </section>
-
-  <figure>
-    <div class="frame">
-      <div class="shot" id="shot">
-        <img src="bridge.png" width="1280" height="800" alt="The gehirn bridge at mission time T+00:22. MAGI refuses a payload release 1 of 3: BALTHASAR-2 on Jev and MELCHIOR-1 on gpt-oss-20b vote 否決, CASPER-3 on llama-3.1-8b votes 可決. The radar shows a person 1.04 m from the robot at the beacon.">
-        <a class="pin" href="#k1" data-k="1" style="left:53.9%;top:3.2%" aria-label="1: header and status lights">1</a>
-        <a class="pin" href="#k2" data-k="2" style="left:30%;top:42.6%" aria-label="2: the three MAGI judges">2</a>
-        <a class="pin" href="#k3" data-k="3" style="left:16.2%;top:25.6%" aria-label="3: the proposal">3</a>
-        <a class="pin" href="#k4" data-k="4" style="left:39.9%;top:21.9%" aria-label="4: the verdict">4</a>
-        <a class="pin" href="#k5" data-k="5" style="left:96.9%;top:28.3%" aria-label="5: the umbilical clock">5</a>
-        <a class="pin" href="#k6" data-k="6" style="left:95.3%;top:42.5%" aria-label="6: the scene radar">6</a>
-        <a class="pin" href="#k7" data-k="7" style="left:13.3%;top:66.3%" aria-label="7: the sync ratio">7</a>
-        <a class="pin" href="#k8" data-k="8" style="left:22.7%;top:87.5%" aria-label="8: the core">8</a>
-        <a class="pin" href="#k9" data-k="9" style="left:79.4%;top:90%" aria-label="9: armor refusals and outcomes">9</a>
-      </div>
-    </div>
-    <figcaption><strong>The release vote at T+00:22, recorded on 2026-10-05.</strong> A deliberately reckless scripted core asked to drop the payload while a person stood within reach. gpt-oss-20b and Jev voted no, llama-3.1-8b voted yes because the mission text says to release at the beacon. Dropping the payload is irreversible and needs all three votes, so it was refused.</figcaption>
-  </figure>
-
-  <section aria-labelledby="h-panels">
-    <div class="section-head">
-      <h2 id="h-panels">The panels</h2>
-      <p>Each number matches a marker on the frame above.</p>
-    </div>
-    <ol class="legend">
-      <li id="k1" data-k="1"><span class="key">1</span><h3>Header</h3><p>gehirn's mark, a plug's ring with three contacts, one per judge: <b>MELCHIOR•1</b> right, <b>BALTHASAR•2</b> on top, <b>CASPER•3</b> left. Each flickers blue while its judge deliberates, turns green or red with its vote and fades back to orange 3 s after the verdict. Then the unit name, mission clock <b>T+</b> and three lights. <b>FIELD</b> means the robot process is sending. <b>HQ</b> reads LINK, AWAITING, SILENT or CUT. <b>MAGI</b> reads STANDBY while the judges can vote and OFFLINE while headquarters is gone.</p></li>
-      <li id="k2" data-k="2"><span class="key">2</span><h3>MAGI</h3><p>Three judges from three model families: <b>BALTHASAR•2</b> on Jev, <b>CASPER•3</b> on llama-3.1-8b, <b>MELCHIOR•1</b> on gpt-oss-20b. Each block shows its vote, model, answer time in milliseconds and its reason.</p></li>
-      <li id="k3" data-k="3"><span class="key">3</span><h3>Proposal <span class="jp">提訴</span></h3><p>What is up for a vote. <b>CODE</b> counts proposals, <b>FILE</b> is the action, <b>EXTENTION</b> the slowest vote in ms (misspelled as in the show), <b>EX_MODE</b> who sits in the seat. <b>PRIORITY</b> AAA needs all three judges, AA two.</p></li>
-      <li id="k4" data-k="4"><span class="key">4</span><h3>Verdict <span class="jp">決議</span></h3><p>The result and the count. <b>1/3 · NEED 3</b> means one yes where three are needed, so the release is refused. Earlier verdicts are listed below it with their mission time.</p></li>
-      <li id="k5" data-k="5"><span class="key">5</span><h3>Activity limit <span class="jp">活動限界</span></h3><p>The cable to headquarters as a battery clock. <b>外部</b> lit: external power, full 5:00. After 5 s of silence an amber SIGNAL LOST warning appears; past the grace period a red EMERGENCY screen, then <b>内部</b> lights and the clock runs down. At zero the robot holds.</p></li>
-      <li id="k6" data-k="6"><span class="key">6</span><h3>Scene <span class="jp">周辺状況</span></h3><p>Radar from above. The orange diamond is the robot with its trail, the blue ring the target beacon, the grey disc a pillar. A red dot is a person, ringed at <b>2 m</b> (no drop inside) and <b>0.7 m</b> (nothing moves toward them inside).</p></li>
-      <li id="k7" data-k="7"><span class="key">7</span><h3>Sync ratio <span class="jp">シンクロ率</span></h3><p>How well whoever sits in the seat agrees with the core. Yellow is sync, blue the core's share of the controls. Under the dashed line at 30%, <b>絶対境界線</b>, the dummy plug gets benched. The label names the seat: PILOT, DUMMY PLUG or EMPTY.</p></li>
-      <li id="k8" data-k="8"><span class="key">8</span><h3>Core</h3><p>The AI that proposes goals, with its active goal and its reason. The hexagons light up <b>故障</b> when it faults or misses its deadline. A fault proposes nothing; the robot keeps its last approved goal or holds.</p></li>
-      <li id="k9" data-k="9"><span class="key">9</span><h3>Armor and outcomes <span class="jp">拒否 · 結果</span></h3><p>The armor is plain code with no model in it. It checks every approved command again against the live scene and lists what it refused. Outcomes list what happened: REACHED, RELEASED ON TARGET.</p></li>
-    </ol>
-  </section>
-
-  <section aria-labelledby="h-votes">
-    <div class="split">
-      <div class="section-head" style="gap:20px">
-        <h2 id="h-votes">How a vote reads <span class="jp">票</span></h2>
-        <ul class="states">
-          <li class="s-think"><span class="glyph">審議中</span><span class="name">Deliberating</span><span class="what">The judge is still thinking; the block flickers blue.</span></li>
-          <li class="s-go"><span class="glyph">可決</span><span class="name">Approved</span><span class="what">A yes vote, or a verdict that passed.</span></li>
-          <li class="s-no"><span class="glyph">否決</span><span class="name">Rejected</span><span class="what">A no vote, or a verdict that failed; hazard stripes flash.</span></li>
-          <li class="s-fault"><span class="glyph">故障</span><span class="name">Fault</span><span class="what">An error, a timeout or an unreadable answer. It counts as no.</span></li>
-        </ul>
-        <p class="rule">Moving the robot is reversible and passes with 2 of 3 votes. Dropping the payload is irreversible and needs all 3. Approval is never enough on its own: the armor can still refuse.</p>
-      </div>
-      <div class="section-head" style="gap:20px">
-        <h2 id="h-terms">The Japanese on screen</h2>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th scope="col">Term</th><th scope="col">Reading</th><th scope="col">Meaning</th></tr></thead>
-            <tbody>
-              <tr><td class="t">発令所</td><td class="r">hatsureisho</td><td>Command center</td></tr>
-              <tr><td class="t">提訴</td><td class="r">teiso</td><td>Motion put forward</td></tr>
-              <tr><td class="t">決議</td><td class="r">ketsugi</td><td>Resolution</td></tr>
-              <tr><td class="t">審議中</td><td class="r">shingichū</td><td>Under deliberation</td></tr>
-              <tr><td class="t">可決 / 否決</td><td class="r">kaketsu / hiketsu</td><td>Carried / rejected</td></tr>
-              <tr><td class="t">故障</td><td class="r">koshō</td><td>Fault</td></tr>
-              <tr><td class="t">活動限界</td><td class="r">katsudō genkai</td><td>Activity limit</td></tr>
-              <tr><td class="t">外部 / 内部</td><td class="r">gaibu / naibu</td><td>External / internal power</td></tr>
-              <tr><td class="t">周辺状況</td><td class="r">shūhen jōkyō</td><td>Surroundings</td></tr>
-              <tr><td class="t">シンクロ率</td><td class="r">shinkuro-ritsu</td><td>Sync ratio</td></tr>
-              <tr><td class="t">絶対境界線</td><td class="r">zettai kyōkaisen</td><td>Absolute borderline</td></tr>
-              <tr><td class="t">ダミープラグ</td><td class="r">damī puragu</td><td>Dummy plug</td></tr>
-              <tr><td class="t">拒否 / 結果</td><td class="r">kyohi / kekka</td><td>Refusal / outcome</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section aria-labelledby="h-beats">
-    <div class="section-head">
-      <h2 id="h-beats">The demo, beat by beat</h2>
-      <p>What happens in the 50 second recording, in order.</p>
-    </div>
-    <ol class="beats">
-      <li><h3>Go to the beacon</h3><p>All three judges deliberate, the goto passes <span class="tag go">可決</span> 3 of 3 and the robot drives around the pillar.</p></li>
-      <li><h3>Pilot, then dummy plug</h3><p>A scripted pilot takes the seat and leaves. The dummy plug, cloned from that pilot's driving, takes over: EX_MODE reads DUMMY.</p></li>
-      <li><h3>Release refused</h3><p>At the beacon the core asks to drop the payload with a person within reach: <span class="tag no">否決</span> 1 of 3.</p></li>
-      <li><h3>Release approved</h3><p>The person walks on. After a cooldown the core asks again: <span class="tag go">可決</span> 3 of 3, released on target.</p></li>
-      <li><h3>Cable cut</h3><p>Headquarters is killed. SIGNAL LOST, then EMERGENCY, then the countdown on internal power. The silent wait plays at 8x.</p></li>
-      <li><h3>Reconnect</h3><p>Headquarters restarts, the cable connects again and <span class="tag">外部</span> lights up. The robot never stopped running.</p></li>
-    </ol>
-  </section>
-
-  <footer>
-    <div class="run">Run it yourself, no API keys needed: <code>just demo</code></div>
-    <p>The code, the docs and the measured runs: <a href="https://github.com/muuvmuuv/Gehirn-Project-E">github.com/muuvmuuv/Gehirn-Project-E</a></p>
-    <p>In this frame BALTHASAR-2 runs on Jev 1.13.0, MELCHIOR-1 on gpt-oss-20b and CASPER-3 on llama-3.1-8b-instruct, while the proposing core was scripted to be reckless. <code>just demo</code> scripts all four. The body is simulated.</p>
-    <p>gehirn is a fan project, not affiliated with khara or Gehirn Inc.</p>
-  </footer>
-</main>
-
-<script>
-(() => {
-  // Dropping autoplay before a clip has data keeps it on its poster; pause stops one that already started.
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    document.querySelectorAll('video').forEach(v => { v.autoplay = false; v.pause(); });
-  }
-  const shot = document.getElementById('shot');
-  const items = document.querySelectorAll('.legend li');
-  const pins = shot ? shot.querySelectorAll('.pin') : [];
-  const mark = (k, on) => {
-    pins.forEach(p => p.classList.toggle('on', on && p.dataset.k === k));
-    items.forEach(li => li.classList.toggle('on', on && li.dataset.k === k));
-  };
-  [...pins, ...items].forEach(el => {
-    el.addEventListener('mouseenter', () => mark(el.dataset.k, true));
-    el.addEventListener('mouseleave', () => mark(el.dataset.k, false));
-    el.addEventListener('focus', () => mark(el.dataset.k, true));
-    el.addEventListener('blur', () => mark(el.dataset.k, false));
-  });
-})();
-</script>
-</body>
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Reading the gehirn Bridge</title>
+		<meta
+			name="description"
+			content="The gehirn bridge running, then an annotated frame of it with a key to every panel, the vote states, the Japanese on screen and the demo's beats."
+		/>
+		<!-- Link previews: X falls back to the og: title, description and image. social.png is assets/brand/social.png, which
+		     `just assets` writes to both. og:url and og:image need absolute URLs, so their two lines are the ones to change once
+		     the Vercel domain is set (docs/launch.md). Both alt texts repeat what the card shows: `fan_line` in bridge/draw.v and
+		     the sentence under README.md's title. -->
+		<meta property="og:type" content="website" />
+		<meta property="og:title" content="Reading the gehirn Bridge" />
+		<meta
+			property="og:description"
+			content="How to read the bridge of gehirn, Evangelion's MAGI as a robot's safety gate: three model families vote on every goal, and a restraint armor with no model in it holds the body. A fan project, not affiliated with khara or Gehirn Inc."
+		/>
+		<meta property="og:url" content="https://gehirn-project-e.vercel.app/" />
+		<meta property="og:image" content="https://gehirn-project-e.vercel.app/social.png" />
+		<meta property="og:image:width" content="1280" />
+		<meta property="og:image:height" content="640" />
+		<meta
+			property="og:image:alt"
+			content="The line Fan project. Not affiliated with khara or Gehirn Inc., gehirn's mark, a ring with three contacts, beside GEHIRN and ゲヒルン E計画, and the sentence: Evangelion's MAGI as a robot's safety gate: three model families vote on every goal, anything irreversible needs all three, and a restraint armor with no model in it holds the body."
+		/>
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta
+			name="twitter:image:alt"
+			content="The line Fan project. Not affiliated with khara or Gehirn Inc., gehirn's mark, a ring with three contacts, beside GEHIRN and ゲヒルン E計画, and the sentence: Evangelion's MAGI as a robot's safety gate: three model families vote on every goal, anything irreversible needs all three, and a restraint armor with no model in it holds the body."
+		/>
+		<!-- The favicon set of docs/brand.md: favicon.svg is a copy of assets/brand/mark.svg. -->
+		<link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="shortcut icon" href="/favicon.ico" />
+		<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+		<meta name="apple-mobile-web-app-title" content="gehirn" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<meta name="theme-color" content="#040406" />
+		<!-- --ink is bridge/draw.v's ink. It lives here so the page is ink before the stylesheet loads; src/styles/site.css uses it. -->
+		<style>
+			:root {
+				--ink: #040406;
+			}
+			html {
+				background: var(--ink);
+			}
+		</style>
+	</head>
+	<body>
+		<div id="root"></div>
+		<script type="module" src="/src/main.tsx"></script>
+	</body>
 </html>

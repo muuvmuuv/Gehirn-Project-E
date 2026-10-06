@@ -1,0 +1,21 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"plugins": ["typescript", "unicorn", "oxc", "react", "import", "jsx-a11y"],
+	"categories": {
+		"correctness": "error",
+		"suspicious": "warn",
+		"perf": "warn"
+	},
+	"rules": {
+		// Vite uses the automatic JSX runtime
+		"react/react-in-jsx-scope": "off",
+		// Stylesheets are imported for their side effects
+		"import/no-unassigned-import": ["warn", { "allow": ["**/*.css"] }],
+		"react-hooks/rules-of-hooks": "error",
+		"react-hooks/exhaustive-deps": "warn"
+	},
+	"env": {
+		"browser": true
+	},
+	"ignorePatterns": ["dist", "src/routeTree.gen.ts"]
+}

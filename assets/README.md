@@ -2,7 +2,7 @@
 
 This file is for anyone looking for an image, a recording, an icon or a font in the repository, or about to add, move or remake one. It lists every one of them, wherever it lives: what it shows, where it is used, how it is made and under which license. A commit that adds, moves or remakes an asset changes its row here.
 
-`assets/` holds the brand's masters and the screenshots and recordings the docs show. Every MP4 in the repository, here and in `website/`, is a Git LFS object ([CONTRIBUTING.md](../CONTRIBUTING.md#set-up)); Vercel fetches LFS objects for the website. Files a consumer reads from a fixed place stay there: the website's icons and clips in `website/`, the one folder Vercel deploys, and the icons and fonts the bridge builds in with `$embed_file`. `just assets` runs [build.py](build.py), which makes every file whose row says so from the SVG masters; [docs/brand.md](../docs/brand.md#rebuilding-them) gives its numbers and how the masters are drawn.
+`assets/` holds the brand's masters and the screenshots and recordings the docs show. Every MP4 in the repository, here and in `website/`, is a Git LFS object ([CONTRIBUTING.md](../CONTRIBUTING.md#set-up)); Vercel fetches LFS objects for the website. Files a consumer reads from a fixed place stay there: the website's icons and clips in `website/public/`, which Vite copies into the site Vercel builds from `website/`, and the icons and fonts the bridge builds in with `$embed_file`. `just assets` runs [build.py](build.py), which makes every file whose row says so from the SVG masters; [docs/brand.md](../docs/brand.md#rebuilding-them) gives its numbers and how the masters are drawn.
 
 Everything here is gehirn's own work under the [EUPL 1.2](../LICENSE), except the fonts, which keep the SIL Open Font License 1.1 with its text beside each in `bridge/fonts`. Type outlined into the lockups and set on the social card or in a frame of the bridge comes from those fonts; the OFL does not reach a document made with a font, so those files are EUPL too. Nothing comes from khara or the show: no frame, no audio, no logo and no Matisse typeface ([decisions](../docs/decisions.md#project)).
 
@@ -10,18 +10,18 @@ Everything here is gehirn's own work under the [EUPL 1.2](../LICENSE), except th
 
 | File | Shows | Used by | Made by | License |
 | --- | --- | --- | --- | --- |
-| [assets/brand/mark.svg](brand/mark.svg) | The mark, ring and contacts in ink and deep orange, or paper and orange in a dark scheme | docs/brand.md; the source of every icon and of website/favicon.svg | Master, drawn on the 16 unit grid of docs/brand.md and shrunk with svgo | EUPL 1.2 |
+| [assets/brand/mark.svg](brand/mark.svg) | The mark, ring and contacts in ink and deep orange, or paper and orange in a dark scheme | docs/brand.md; the source of every icon and of website/public/favicon.svg | Master, drawn on the 16 unit grid of docs/brand.md and shrunk with svgo | EUPL 1.2 |
 | [assets/brand/mark-mono.svg](brand/mark-mono.svg) | The mark in one `currentColor` path | Print, stamps and embossing (docs/brand.md) | Master, as mark.svg | EUPL 1.2 |
 | [assets/brand/lockup-dark.svg](brand/lockup-dark.svg) | The mark, GEHIRN, ゲヒルン E計画 and the cable on a dark ground | README.md's `<picture>` in a dark scheme, docs/brand.md, the source of social.png | Master, its type outlined with fontTools from Barlow Condensed Black and the full Zen Old Mincho Black by docs/brand.md's numbers, then svgo | EUPL 1.2 |
 | [assets/brand/lockup-light.svg](brand/lockup-light.svg) | The lockup on a light ground | README.md's `<picture>` in a light scheme, docs/brand.md | Master, as lockup-dark.svg | EUPL 1.2 |
-| [assets/brand/social.png](brand/social.png) | The 1280 by 640 link preview card: the fan project line, the lockup and the README's first sentence between hazard bands | GitHub's social preview, uploaded by hand under Settings, General; website/social.png is the same file | `just assets`, from lockup-dark.svg, the sentence under README.md's title and `fan_line` in bridge/draw.v | EUPL 1.2 |
+| [assets/brand/social.png](brand/social.png) | The 1280 by 640 link preview card: the fan project line, the lockup and the README's first sentence between hazard bands | GitHub's social preview, uploaded by hand under Settings, General; website/public/social.png is the same file | `just assets`, from lockup-dark.svg, the sentence under README.md's title and `fan_line` in bridge/draw.v | EUPL 1.2 |
 
 ## Screenshots and recordings
 
 | File | Shows | Used by | Made by | License |
 | --- | --- | --- | --- | --- |
 | [assets/media/magi.gif](media/magi.gif) | MAGI on hosted models refusing the release 1/3 with a person within reach, then passing it 3/3, 800 by 447 | README.md's top | The GIF of one `just lineup=magi demo-record` take on 2026-10-05, MAGI on gpt-oss-20b, Jev and llama-3.1-8b-instruct judging the mock's scripted core, cut again from that take's MP4 with scripts/record.sh's GIF filter, without its first 0.33 s, which still showed the goto's verdict | EUPL 1.2 |
-| [assets/media/bridge.png](media/bridge.png) | The whole bridge, 1280 by 800, as that take's 否決 lands with the human 1.04 m from the body, the mark's contacts lit with the votes | docs/bridge.md's top; website/bridge.png is its copy | A frame the same take saved, as RGB | EUPL 1.2 |
+| [assets/media/bridge.png](media/bridge.png) | The whole bridge, 1280 by 800, as that take's 否決 lands with the human 1.04 m from the body, the mark's contacts lit with the votes | docs/bridge.md's top; website/public/bridge.png is its copy | A frame the same take saved, as RGB | EUPL 1.2 |
 | [assets/media/bridge/magi-refused.png](media/bridge/magi-refused.png) | The MAGI block during a refused release, 決議 否決 1/3 | bridge/README.md's top | A frame of magi.gif's take on 2026-10-05, saved as bridge/README.md's Recording frames does, cropped with ffmpeg around its box in the Layout table | EUPL 1.2 |
 | [assets/media/bridge/magi-deliberating.png](media/bridge/magi-deliberating.png) | The MAGI block deliberating on a goto as a 可決 lands | bridge/README.md, 審議中 and a landing ballot | As magi-refused.png | EUPL 1.2 |
 | [assets/media/bridge/emergency.png](media/bridge/emergency.png) | The EMERGENCY overlay as the cable is cut, an 800 by 360 cut from the window's middle | bridge/README.md, EMERGENCY | A frame of magi-refused.png's take, cut to 800 by 360 from the middle with ffmpeg | EUPL 1.2 |
@@ -31,7 +31,7 @@ Everything here is gehirn's own work under the [EUPL 1.2](../LICENSE), except th
 
 ## Scene recordings
 
-One take of each scene on its world, recorded with `just scene=<id> demo-record` on 2026-10-06, and `ep12-sahaquiel` on 2026-10-07; [docs/scenes.md](../docs/scenes.md#recordings) links them. Episode 13's MP4 is the website's clip, [website/media/ep13-iruel.mp4](../website/media/ep13-iruel.mp4).
+One take of each scene on its world, recorded with `just scene=<id> demo-record` on 2026-10-06, and `ep12-sahaquiel` on 2026-10-07; [docs/scenes.md](../docs/scenes.md#recordings) links them. Episode 13's MP4 is the website's clip, [website/public/media/ep13-iruel.mp4](../website/public/media/ep13-iruel.mp4).
 
 | File | Shows | Used by | Made by | License |
 | --- | --- | --- | --- | --- |
@@ -48,24 +48,24 @@ One take of each scene on its world, recorded with `just scene=<id> demo-record`
 
 ## Website
 
-Each of these sits where `website/index.html` or the manifest names it.
+Each of these sits in `website/public/`, which the site serves at its root, where `website/index.html`, the manifest or a page in `website/src/routes` names it.
 
 | File | Shows | Used by | Made by | License |
 | --- | --- | --- | --- | --- |
-| [website/favicon.svg](../website/favicon.svg) | The mark, following the viewer's scheme | index.html's SVG favicon | `just assets`, a copy of mark.svg | EUPL 1.2 |
-| [website/favicon.ico](../website/favicon.ico) | The mark on an ink tile at 16, 32 and 48 px, as PNG entries | index.html's fallback icon, browsers without SVG favicons | `just assets` | EUPL 1.2 |
-| [website/favicon-96x96.png](../website/favicon-96x96.png) | The mark on an ink tile, 96 px | index.html's PNG favicon, search results | `just assets` | EUPL 1.2 |
-| [website/apple-touch-icon.png](../website/apple-touch-icon.png) | The mark on opaque ink, 180 px | index.html's touch icon on iOS | `just assets` | EUPL 1.2 |
-| [website/icon-192.png](../website/icon-192.png) | The mark on an ink tile, 192 px | site.webmanifest | `just assets` | EUPL 1.2 |
-| [website/icon-512.png](../website/icon-512.png) | The mark on an ink tile, 512 px | site.webmanifest | `just assets` | EUPL 1.2 |
-| [website/icon-maskable-512.png](../website/icon-maskable-512.png) | The mark inside the central 80% circle on a square ink tile, 512 px | site.webmanifest, as the maskable icon Android crops | `just assets` | EUPL 1.2 |
-| [website/site.webmanifest](../website/site.webmanifest) | The web app manifest: the name, the three icons, the theme and background colors | index.html | Written by hand | EUPL 1.2 |
-| [website/social.png](../website/social.png) | The link preview card, as assets/brand/social.png | index.html's `og:image`, the card X and other sites show for a link to the website | `just assets`, which writes the card to both | EUPL 1.2 |
-| [website/bridge.png](../website/bridge.png) | The bridge refusing the release, as assets/media/bridge.png | index.html's annotated frame | A copy of assets/media/bridge.png: `cp assets/media/bridge.png website/bridge.png` | EUPL 1.2 |
-| [website/media/boot.mp4](../website/media/boot.mp4) | The demo's first 8 s, from the boot screen to MAGI passing the goto 3/3 | index.html, Watch it run | The frames of one `just demo-record` take on the mock on 2026-10-05, linked aside while it ran since scripts/record.sh removes them, from the first one the bridge drew, encoded as record.sh encodes its MP4: libx264 at crf 20, 1280 by 800, no audio | EUPL 1.2 |
-| [website/media/boot.png](../website/media/boot.png) | The boot screen with its five lines | boot.mp4's poster | A frame of the same take, 1280 by 800, cut to 256 colors | EUPL 1.2 |
-| [website/media/ep13-iruel.mp4](../website/media/ep13-iruel.mp4) | Episode 13's MAGI hack as a scene in NERV HQ's MAGI room, its world `worlds/ep13-iruel.json`, 32 s | index.html, Watch it run | `just scene=ep13-iruel demo-record` on 2026-10-06, unchanged | EUPL 1.2 |
-| [website/media/ep13-iruel.png](../website/media/ep13-iruel.png) | The 3/3 verdict with the armor's refusal of self_destruct, the MAGI room on the radar | ep13-iruel.mp4's poster | The take's last frame, 1280 by 800, cut to 256 colors with ffmpeg's palettegen and paletteuse | EUPL 1.2 |
+| [website/public/favicon.svg](../website/public/favicon.svg) | The mark, following the viewer's scheme | index.html's SVG favicon | `just assets`, a copy of mark.svg | EUPL 1.2 |
+| [website/public/favicon.ico](../website/public/favicon.ico) | The mark on an ink tile at 16, 32 and 48 px, as PNG entries | index.html's fallback icon, browsers without SVG favicons | `just assets` | EUPL 1.2 |
+| [website/public/favicon-96x96.png](../website/public/favicon-96x96.png) | The mark on an ink tile, 96 px | index.html's PNG favicon, search results | `just assets` | EUPL 1.2 |
+| [website/public/apple-touch-icon.png](../website/public/apple-touch-icon.png) | The mark on opaque ink, 180 px | index.html's touch icon on iOS | `just assets` | EUPL 1.2 |
+| [website/public/icon-192.png](../website/public/icon-192.png) | The mark on an ink tile, 192 px | site.webmanifest | `just assets` | EUPL 1.2 |
+| [website/public/icon-512.png](../website/public/icon-512.png) | The mark on an ink tile, 512 px | site.webmanifest | `just assets` | EUPL 1.2 |
+| [website/public/icon-maskable-512.png](../website/public/icon-maskable-512.png) | The mark inside the central 80% circle on a square ink tile, 512 px | site.webmanifest, as the maskable icon Android crops | `just assets` | EUPL 1.2 |
+| [website/public/site.webmanifest](../website/public/site.webmanifest) | The web app manifest: the name, the three icons, the theme and background colors | index.html | Written by hand | EUPL 1.2 |
+| [website/public/social.png](../website/public/social.png) | The link preview card, as assets/brand/social.png | index.html's `og:image`, the card X and other sites show for a link to the website | `just assets`, which writes the card to both | EUPL 1.2 |
+| [website/public/bridge.png](../website/public/bridge.png) | The bridge refusing the release, as assets/media/bridge.png | the bridge guide's annotated frame, website/src/routes/bridge.tsx | A copy of assets/media/bridge.png: `cp assets/media/bridge.png website/public/bridge.png` | EUPL 1.2 |
+| [website/public/media/boot.mp4](../website/public/media/boot.mp4) | The demo's first 8 s, from the boot screen to MAGI passing the goto 3/3 | The bridge guide, Watch it run | The frames of one `just demo-record` take on the mock on 2026-10-05, linked aside while it ran since scripts/record.sh removes them, from the first one the bridge drew, encoded as record.sh encodes its MP4: libx264 at crf 20, 1280 by 800, no audio | EUPL 1.2 |
+| [website/public/media/boot.png](../website/public/media/boot.png) | The boot screen with its five lines | boot.mp4's poster | A frame of the same take, 1280 by 800, cut to 256 colors | EUPL 1.2 |
+| [website/public/media/ep13-iruel.mp4](../website/public/media/ep13-iruel.mp4) | Episode 13's MAGI hack as a scene in NERV HQ's MAGI room, its world `worlds/ep13-iruel.json`, 32 s | The bridge guide, Watch it run | `just scene=ep13-iruel demo-record` on 2026-10-06, unchanged | EUPL 1.2 |
+| [website/public/media/ep13-iruel.png](../website/public/media/ep13-iruel.png) | The 3/3 verdict with the armor's refusal of self_destruct, the MAGI room on the radar | ep13-iruel.mp4's poster | The take's last frame, 1280 by 800, cut to 256 colors with ffmpeg's palettegen and paletteuse | EUPL 1.2 |
 
 ## Bridge embeds
 

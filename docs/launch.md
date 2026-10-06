@@ -6,7 +6,7 @@ This page is for the owner, taking gehirn public: the steps in order, what the s
 
 1. Read [Scan results](#scan-results), and run the scan again on the commit you make public, since commits land after it: `gitleaks git --redact --verbose` in the main checkout.
 2. Push main, the commit you scanned, to GitHub. Vercel deploys what GitHub holds, and the public repository shows it.
-3. Deploy the website on Vercel: Add New, Project, import `muuvmuuv/Gehirn-Project-E`, set the root directory to `website`, the framework preset to Other, and leave the build command empty, since the folder is the site. Vercel serves only that folder ([decisions](decisions.md#tooling)).
+3. Deploy the website on Vercel: Add New, Project, import `muuvmuuv/Gehirn-Project-E`, set the root directory to `website` and the framework preset to Vite, which installs with pnpm and builds with `pnpm build` into `dist`; keep those defaults. Turn on Git LFS under Settings, Git, so the clips deploy as videos rather than pointers. `website/vercel.json` hands every path without a file of its own, such as `/bridge`, to the page ([decisions](decisions.md#tooling)).
 4. Set the domain. Vercel names the production domain after the project, so a project called `gehirn-project-e` most likely gets `https://gehirn-project-e.vercel.app`, the domain `website/index.html` assumes. If the domain differs, or you add your own, change the `og:url` and `og:image` lines in `website/index.html`, which the comment above them names, and the website link in post 8 below, then push, and Vercel deploys again. Open the domain and `/social.png` in a private window: both should load without a Vercel login.
 5. GitHub, Settings, General:
    - Description: `Evangelion's MAGI as a robot's safety gate: three model families vote on every goal, and a restraint armor holds the body. ゲヒルン E計画. Fan project, not affiliated with khara or Gehirn Inc.`
@@ -53,7 +53,7 @@ In Episode 13 the Angel Iruel takes MELCHIOR, then BALTHASAR: the three MAGI sha
 Three personas on one LLM share every blind spot too. So each judge here is a different family: gpt-oss-20b, Jev and llama-3.1-8b.
 ```
 
-- Media: [website/media/ep13-iruel.mp4](../website/media/ep13-iruel.mp4).
+- Media: [website/public/media/ep13-iruel.mp4](../website/public/media/ep13-iruel.mp4).
 - Alt: Episode 13's hack restaged on gehirn's bridge with scripted models. A hacked core proposes self_destruct, a verb the stack does not know, so it needs all three votes. The vote fails 1 of 3, then 2 of 3, then passes 3 of 3 once the third judge is forced to approve, and the restraint armor still refuses it, because the body has no such verb. The body never moves.
 - Counts 265.
 
@@ -128,7 +128,7 @@ The code: in the reply below.
 A fan project, not affiliated with khara or Gehirn Inc.
 ```
 
-- Media: [website/media/boot.mp4](../website/media/boot.mp4).
+- Media: [website/public/media/boot.mp4](../website/public/media/boot.mp4).
 - Alt: The bridge booting: GEHIRN, operations bridge, the listening address, unit EVA01 and three status lines in Japanese, then the line fan project, not affiliated with khara or Gehirn Inc. Then the panels appear and the three judges pass the first goto 3 of 3.
 - Counts 275, with the link.
 
