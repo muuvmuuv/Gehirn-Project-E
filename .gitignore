@@ -1,4 +1,6 @@
 .env
+.env.*
+!.env.example
 *.jsonl
 __pycache__/
 /gehirn
