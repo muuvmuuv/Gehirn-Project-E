@@ -66,7 +66,7 @@ To read a failure, open the failed job and its first red step. In `just check` t
 ### Errors
 
 1. `!T` marks an operation that can fail, `?T` a value that may be absent.
-2. A fault is a no. On every path to a vote, a goal or an actuation, an error is caught with `or {}` and becomes the safe outcome: a fault ballot, a halt, a missed pulse. `panic` is for startup only, in `main()` before any `spawn`. Following ADR-0008, Proposed, MuJoCo's error and a step that leaves the model unstable end the field unit through `mujoco`'s log handler instead (Logging 1), since MuJoCo's error path must not return and no halt repairs an unstable model.
+2. A fault is a no. On every path to a vote, a goal or an actuation, an error is caught with `or {}` and becomes the safe outcome: a fault ballot, a halt, a missed pulse. `panic` is for startup only, in `main()` before any `spawn`. Following ADR-0008, MuJoCo's error and a step that leaves the model unstable end the field unit through `mujoco`'s log handler instead (Logging 1), since MuJoCo's error path must not return and no halt repairs an unstable model.
 3. An error message is lowercase and starts with what failed, a unit, a model or a module: `armor: release not permitted here`, `${e.model}: HTTP 429`. It names the operation and its input. It never carries a key or a reply body. A json2 decode error starts with a newline and carries color codes, so replace it with a fixed text, as `magi.read_reply` and `core.read_proposal` do. `err.msg().all_before('\n')` suits `net.http` errors, as in `oai.post` and `jev.post`.
 4. Code that branches on the kind of an error matches a type, never the text. The error is a struct that embeds `Error` and overrides `msg()`, and the caller tests `err is T`. Tests may assert on text.
 
@@ -74,7 +74,7 @@ To read a failure, open the failed job and its first red step. In `just check` t
 
 1. The module table in PLAN.md is the dependency rule, and an import outside it needs an ADR. V rejects import cycles but not a forbidden edge, so review compares every new `import` line with the table.
 2. What one bounded context hands another while running (percepts, goals, outcomes, pilot input, context) is an `lcl` type. A module's own API (config structs, clients, results such as `magi.Verdict`) is used by `main.v`, `eval.v` and the modules the table lets import it. A model reply, a Jev answer, a datagram or a message from the other tier is decoded into a typed struct inside the module that received it, by that module's one parser (`oai.extract_json`, `magi.read_reply`, `plug.listen`, `wire.Opener`). A `json2.Any` never leaves the function that decoded it.
-3. Each boundary has one door. Only `oai` and `jev` import `net.http`. Outside tests, only `plug` and `core/cl1.v` import `net`. Only `zenoh` links zenoh-c, only `mujoco` links MuJoCo, following ADR-0008, Proposed, and only `gamepad/pad.c.v` links SDL. Only `armor` holds a `Body` (Invariant 1). A new door is a new row in the module table.
+3. Each boundary has one door. Only `oai` and `jev` import `net.http`. Outside tests, only `plug` and `core/cl1.v` import `net`. Only `zenoh` links zenoh-c, only `mujoco` links MuJoCo (ADR-0008), and only `gamepad/pad.c.v` links SDL. Only `armor` holds a `Body` (Invariant 1). A new door is a new row in the module table.
 4. C interop (`C.` declarations, `#flag`, `#include`) lives only in `.c.v` files, and field tier code follows Invariant 9.
 
 ### Concurrency
@@ -105,7 +105,7 @@ To read a failure, open the failed job and its first red step. In `just check` t
 
 ### Logging
 
-1. Only `main.v`, `eval.v`, `bridge/main.v` and `gamepad/main.v` print, and the bridge draws. Modules return values and errors, and the caller that decides logs once. A thread with nothing to return to, such as `plug.listen`, logs its own failure once and ends. So does MuJoCo's log handler in `mujoco`, following ADR-0008, Proposed: it prints MuJoCo's error as one line that starts with `field: mujoco:` and ends the process.
+1. Only `main.v`, `eval.v`, `bridge/main.v` and `gamepad/main.v` print, and the bridge draws. Modules return values and errors, and the caller that decides logs once. A thread with nothing to return to, such as `plug.listen`, logs its own failure once and ends. So does MuJoCo's log handler in `mujoco` (ADR-0008): it prints MuJoCo's error as one line that starts with `field: mujoco:` and ends the process.
 2. A status line starts with its source and a colon: `hq:`, `field:`, `armor:`, `magi:`. A line that `tools/trials.py` or a script in `scripts/` parses or waits on names its reader in a comment, the reader names the line, and one commit changes both.
 3. The journal and the recorder are data, not logs. Only `core.Memory` writes the journal and only `plug.Recorder` writes the recorder, both by appending (Invariant 11). No tool and no person edits a `.jsonl` file.
 4. Text from a model or a server, such as a proposal, a ballot's why or a fault, reaches a status line through `lcl.escaped`, so a model can neither break the line nor forge another. `lcl.quoted` does the same for a value from the environment and cuts it after 64 bytes.

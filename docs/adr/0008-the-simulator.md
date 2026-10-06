@@ -1,6 +1,6 @@
 # ADR-0008: The simulator
 
-**Status:** Proposed
+**Status:** Accepted on 2026-10-06
 **Date:** 2026-10-06
 **Deciders:** repository owner
 
@@ -140,7 +140,7 @@ Revisit when the first real base is known (Open question 1), which may ask for w
 
 ## Action Items
 
-1. [ ] Phase 3 Task 4: `mujoco/` with its binding in `_d_mujoco.c.v` files, the log handler and the check of the warning counters; a differential `Body` in `body` that writes its MJCF from `WORLD`'s world, without threads or plugins, moves its humans by Task 1's rules, sets its controls along the heading the armor checked and drops the time it cannot catch up; `BODY` in `load_config` and docs/configuration.md. Its tests sit in `$if mujoco ? {}` blocks, first the cases the probes ran from V, then a stall that pauses the model rather than speeding it up, an unstable step that ends the run before a percept, and Task 2's refused violation on this body: a command whose part toward a human inside `human_stop`, a solid inside `solid_keep` or out of the fence the armor removed moves the base nowhere along it.
+1. [x] Phase 3 Task 4: `mujoco/` with its binding in `_d_mujoco.c.v` files, the log handler and the check of the warning counters; a differential `Body` in `body` that writes its MJCF from `WORLD`'s world, without threads or plugins, moves its humans by Task 1's rules, sets its controls along the heading the armor checked and drops the time it cannot catch up; `BODY` in `load_config` and docs/configuration.md. Its tests sit in `$if mujoco ? {}` blocks, first the cases the probes ran from V, then a stall that pauses the model rather than speeding it up, an unstable step that ends the run before a percept, and Task 2's refused violation on this body: a command whose part toward a human inside `human_stop`, a solid inside `solid_keep` or out of the fence the armor removed moves the base nowhere along it.
 2. [ ] `just mujoco` on every platform, the Mac included: the 3.14.0 tarball checked by sha256, the patch and the configure line above, and a static build into `thirdparty/mujoco` in place of the cask's link, with CONTRIBUTING's Set up to match. A recipe that builds and tests with `-d mujoco`, on the Mac and as a static aarch64 musl binary, and a CI job beside the `linux` job of `.github/workflows/check.yml` that builds MuJoCo from the pinned source and runs it.
-3. [ ] Fly the mock missions with `BODY=mujoco` on the Mac and with a static aarch64 musl field unit.
-4. [ ] Once accepted: the row in PLAN's module table, the door in CONTRIBUTING's Modules 3, the log handler in its Logging 1 and MuJoCo's exit in its Errors 2, and Task 3 ticked.
+3. [x] Fly the mock missions with `BODY=mujoco` on the Mac and with a static aarch64 musl field unit.
+4. [x] Once accepted: the row in PLAN's module table, the door in CONTRIBUTING's Modules 3, the log handler in its Logging 1 and MuJoCo's exit in its Errors 2, and Task 3 ticked.
