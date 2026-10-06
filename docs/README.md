@@ -16,6 +16,7 @@ Beside them:
 
 - [adr](adr): the architecture decisions, why gehirn is built this way.
 - [decisions.md](decisions.md): the owner's decisions that are not architecture.
+- [launch.md](launch.md): for the owner taking gehirn public, the steps, the scan before it and the thread for X.
 - [research/canon.md](research/canon.md): what the series shows about each part.
 - [assets/README.md](../assets/README.md): every image, recording, icon and font in the repository with where it is used, how it is made and its license, for someone looking for one or adding one.
 - [bridge/README.md](../bridge/README.md): how the bridge is drawn, for someone changing its look, and [website/index.html](../website/index.html) how to read it, for someone watching.
