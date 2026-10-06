@@ -81,7 +81,7 @@ An approved goal still has to pass the armor, and a refusal goes back to the cor
 
 ## Next
 
-ROS 2 through rmw_zenoh, now that LCL travels on Zenoh, and the motor controller through zenoh-pico. A MuJoCo body instead of the planar simulator. A core fine tuned on its own journal. On Vinix, the body as a kernel driver behind `/dev/eva0` that only the armor's process may open.
+ROS 2 through rmw_zenoh, now that LCL travels on Zenoh, and the motor controller through zenoh-pico. Obstacles the body senses with a range sensor instead of knowing them. A core fine tuned on its own journal. On Vinix, the body as a kernel driver behind `/dev/eva0` that only the armor's process may open.
 
 ## License
 
