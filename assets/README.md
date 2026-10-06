@@ -2,7 +2,7 @@
 
 This file is for anyone looking for an image, a recording, an icon or a font in the repository, or about to add, move or remake one. It lists every one of them, wherever it lives: what it shows, where it is used, how it is made and under which license. A commit that adds, moves or remakes an asset changes its row here.
 
-`assets/` holds the brand's masters and the screenshots and recordings the docs show. Files a consumer reads from a fixed place stay there: the website's icons and clips in `website/`, the one folder Vercel deploys, and the icons and fonts the bridge builds in with `$embed_file`. `just assets` runs [build.py](build.py), which makes every file whose row says so from the SVG masters; [docs/brand.md](../docs/brand.md#rebuilding-them) gives its numbers and how the masters are drawn.
+`assets/` holds the brand's masters and the screenshots and recordings the docs show. Every MP4 in the repository, here and in `website/`, is a Git LFS object ([CONTRIBUTING.md](../CONTRIBUTING.md#set-up)); Vercel fetches LFS objects for the website. Files a consumer reads from a fixed place stay there: the website's icons and clips in `website/`, the one folder Vercel deploys, and the icons and fonts the bridge builds in with `$embed_file`. `just assets` runs [build.py](build.py), which makes every file whose row says so from the SVG masters; [docs/brand.md](../docs/brand.md#rebuilding-them) gives its numbers and how the masters are drawn.
 
 Everything here is gehirn's own work under the [EUPL 1.2](../LICENSE), except the fonts, which keep the SIL Open Font License 1.1 with its text beside each in `bridge/fonts`. Type outlined into the lockups and set on the social card or in a frame of the bridge comes from those fonts; the OFL does not reach a document made with a font, so those files are EUPL too. Nothing comes from khara or the show: no frame, no audio, no logo and no Matisse typeface ([decisions](../docs/decisions.md#project)).
 
@@ -28,6 +28,21 @@ Everything here is gehirn's own work under the [EUPL 1.2](../LICENSE), except th
 | [assets/media/bridge/limit-internal.png](media/bridge/limit-internal.png) | The 活動限界 panel on internal power at 4:53 | bridge/README.md, Seven segment timer | As magi-refused.png | EUPL 1.2 |
 | [assets/media/bridge/scene.png](media/bridge/scene.png) | The radar: the body at beacon B1, a human within 2 m, an obstacle and the trail | bridge/README.md, Radar | As magi-refused.png, with the ffmpeg line in Recording frames | EUPL 1.2 |
 | [assets/media/bridge/harmonics.png](media/bridge/harmonics.png) | The harmonics panel at 57.9% sync with the dummy plug in the seat | bridge/README.md, Harmonics | As magi-refused.png | EUPL 1.2 |
+
+## Scene recordings
+
+One take of each scene on its world, recorded with `just scene=<id> demo-record` on 2026-10-06; [docs/scenes.md](../docs/scenes.md#recordings) links them. Episode 13's MP4 is the website's clip, [website/media/ep13-iruel.mp4](../website/media/ep13-iruel.mp4).
+
+| File | Shows | Used by | Made by | License |
+| --- | --- | --- | --- | --- |
+| [assets/media/scenes/ep03-cable.mp4](media/scenes/ep03-cable.mp4) | Episode 3's cut cable in Tokyo-3, 69 s with the grace at 8x | docs/scenes.md, Recordings | `just scene=ep03-cable demo-record` on 2026-10-06, unchanged, a Git LFS object | EUPL 1.2 |
+| [assets/media/scenes/ep06-yashima.mp4](media/scenes/ep06-yashima.mp4) | Operation Yashima on Mt. Futago, 38 s | docs/scenes.md, Recordings | `just scene=ep06-yashima demo-record` on 2026-10-06, unchanged, a Git LFS object | EUPL 1.2 |
+| [assets/media/scenes/ep18-bardiel.mp4](media/scenes/ep18-bardiel.mp4) | Episode 18: Toji on a collision course, the dummy plug's goto toward him refused 0/3 by the course rule, 26 s | docs/scenes.md, Recordings | `just scene=ep18-bardiel demo-record` on 2026-10-06, unchanged, a Git LFS object | EUPL 1.2 |
+| [assets/media/scenes/ep19-bench.mp4](media/scenes/ep19-bench.mp4) | Episode 19's benched dummy plug in the Geofront, 40 s | docs/scenes.md, Recordings | `just scene=ep19-bench demo-record` on 2026-10-06, unchanged, a Git LFS object | EUPL 1.2 |
+| [assets/media/scenes/ep13-iruel-magi.gif](media/scenes/ep13-iruel-magi.gif) | The MAGI block of Episode 13 from the first vote on self_destruct to the last | docs/scenes.md, Recordings | The `gehirn-magi.gif` of the same take, unchanged | EUPL 1.2 |
+| [assets/media/scenes/ep03-cable-magi.gif](media/scenes/ep03-cable-magi.gif) | The MAGI block of Episode 3's release after the reconnect | docs/scenes.md, Recordings | The `gehirn-magi.gif` of the same take, unchanged | EUPL 1.2 |
+| [assets/media/scenes/ep06-yashima-magi.gif](media/scenes/ep06-yashima-magi.gif) | The MAGI block of Operation Yashima from the first release vote to the last | docs/scenes.md, Recordings | The `gehirn-magi.gif` of the same take, unchanged | EUPL 1.2 |
+| [assets/media/scenes/ep19-bench-magi.gif](media/scenes/ep19-bench-magi.gif) | The MAGI block of Episode 19's release vote, which passes at the first try | docs/scenes.md, Recordings | The `gehirn-magi.gif` of the same take, unchanged | EUPL 1.2 |
 
 ## Website
 

@@ -70,3 +70,11 @@ commit-msg:
           echo "Drop the Co-authored-by and Signed-off-by trailers; commits here carry none."
           exit 1
         fi
+
+# The recordings are Git LFS objects (.gitattributes). Lefthook runs git lfs itself in these four
+# hooks once they are installed, which uploads the recordings on a push and fetches them on a
+# checkout, so each hook is declared with no job of its own.
+pre-push: {}
+post-checkout: {}
+post-merge: {}
+post-commit: {}

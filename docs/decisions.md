@@ -44,6 +44,7 @@ Decisions the owner made that are not architecture, with the day, the reason and
 - **2026-10-05, canon scenes.** Scenes from the series run as scripts on the mock, `just scene=<id> demo`: Episodes 13, 3, 19 and 6 ([docs/scenes.md](scenes.md)), and since 2026-10-06 Episode 18, on the course rule of ADR-0009 (Stack). Each scene says what is staged and what is real ([research](research/canon.md)).
 - **2026-10-05, website.** `website/` holds static pages for Vercel: the guide to reading the bridge, with the boot and Episode 13 running at its top, and the favicon set. Vercel serves only that folder, so the files it needs live there.
 - **2026-10-05, assets.** Design and recorded files live in `assets/` with a catalog of every asset in the repository ([assets/README.md](../assets/README.md)): what it shows, where it is used, how it is made and its license. `just assets` rebuilds the raster files from the SVG masters through `assets/build.py`, a design-time generator that may pin third-party packages for uv, the one exception to the standard-library rule for Python.
+- **2026-10-07, recordings in the repository.** Every scene's recording lives in the repository rather than in a download folder, and every MP4 is a Git LFS object; the owner turned on Vercel's LFS setting so the website's clips still deploy ([assets/README.md](../assets/README.md#scene-recordings)).
 
 ## Provisional, decided by the session of 2026-10-06
 

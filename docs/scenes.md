@@ -15,6 +15,17 @@ just scene=ep13-iruel demo-record
 
 In canon, an Eva without power or pilot can go berserk, and the commanders overrule the MAGI. gehirn takes the other side on purpose ([decisions.md](decisions.md#stack), the stance): losing control ends in the safe state, and nothing turns MAGI's no into a yes. Where a scene departs from canon, it says so.
 
+## Recordings
+
+Each scene was recorded once on its world on 2026-10-06, and every take flew every beat in order ([assets/README.md](../assets/README.md#scene-recordings)). The MP4s are Git LFS objects.
+
+| Scene | MP4 | MAGI GIF |
+| --- | --- | --- |
+| `ep13-iruel` | [ep13-iruel.mp4](../website/media/ep13-iruel.mp4), the website's clip | [ep13-iruel-magi.gif](../assets/media/scenes/ep13-iruel-magi.gif) |
+| `ep03-cable` | [ep03-cable.mp4](../assets/media/scenes/ep03-cable.mp4) | [ep03-cable-magi.gif](../assets/media/scenes/ep03-cable-magi.gif) |
+| `ep19-bench` | [ep19-bench.mp4](../assets/media/scenes/ep19-bench.mp4) | [ep19-bench-magi.gif](../assets/media/scenes/ep19-bench-magi.gif) |
+| `ep06-yashima` | [ep06-yashima.mp4](../assets/media/scenes/ep06-yashima.mp4) | [ep06-yashima-magi.gif](../assets/media/scenes/ep06-yashima-magi.gif) |
+| `ep18-bardiel` | [ep18-bardiel.mp4](../assets/media/scenes/ep18-bardiel.mp4) | none, since it puts no irreversible proposal to MAGI |
 
 ## ep13-iruel: Episode 13's MAGI hack
 
