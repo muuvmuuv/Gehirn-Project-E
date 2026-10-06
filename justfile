@@ -4,6 +4,14 @@
 # V 0.5.2 uploads the failing C line and the V source around it to bugs.vlang.io when a C build fails.
 export V_C_ERROR_BUG_REPORT_DISABLED := "1"
 
+# Which body `just build` builds and the missions, the demo and the scenes fly: sim, the planar
+# simulator, or mujoco, the base on MuJoCo of ADR-0008, which `just mujoco` builds and gehirn
+# carries only when built with -d mujoco. It defaults to BODY, so `BODY=mujoco just missions` and
+# `just body=mujoco missions` both fly it, and every recipe passes it on as BODY. `just check`
+# never builds MuJoCo; `just test-mujoco` runs the tests with it.
+body := env("BODY", "sim")
+export BODY := body
+
 # Runs every check on the working tree, and verifies that this file is formatted; `just --fmt` fixes it.
 check: fmt vet test py shell
     @{{ just_executable() }} --justfile {{ quote(justfile()) }} --fmt --check
@@ -29,6 +37,10 @@ zenoh:
 mujoco:
     @scripts/mujoco.sh
 
+# Runs every _test.v with -d mujoco, so the tests of the mujoco module and the MuJoCo body run too.
+test-mujoco: zenoh mujoco
+    v -d mujoco -W -N test .
+
 # Runs every tools/test_*.py self check and compiles the Python files.
 py *paths="tools/*.py sidecar/*.py":
     for t in tools/test_*.py; do python3 "$t" || exit 1; done
@@ -39,9 +51,14 @@ shell *paths="scripts/*.sh scripts/scenes/*.sh .claude/hooks/*.sh":
     shellcheck -x {{ paths }}
     shfmt -i 4 -ci -d {{ paths }}
 
-# Builds the release binary ./gehirn.
-build: zenoh
-    v -prod -o gehirn .
+# Builds the release binary ./gehirn, with -d mujoco when body is mujoco.
+build: zenoh _body
+    v -prod {{ if body == "mujoco" { "-d mujoco" } else { "" } }} -o gehirn .
+
+# Builds MuJoCo when body is mujoco.
+[private]
+_body:
+    @{{ if body == "mujoco" { "scripts/mujoco.sh" } else { "true" } }}
 
 # Builds the bridge, ./gehirn-bridge, which runs on its own machine (ADR-0005).
 bridge: zenoh

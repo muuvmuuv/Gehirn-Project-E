@@ -128,16 +128,24 @@ pub fn (mut s Sim) actuate(u []f64) ! {
 
 // effect runs the effector behind a verb.
 pub fn (mut s Sim) effect(verb string) ! {
+	s.payload = effector('sim', verb, s.payload)!
+}
+
+// effector runs the effector behind verb on a body that holds payload, for Sim and the MuJoCo
+// body, and returns whether the body still holds it. who names the body in an error.
+fn effector(who string, verb string, payload bool) !bool {
 	match verb {
 		'release' {
-			if !s.payload {
-				return error('sim: nothing left to release')
+			if !payload {
+				return error('${who}: nothing left to release')
 			}
-			s.payload = false
+			return false
 		}
-		'goto', 'hold' {}
+		'goto', 'hold' {
+			return payload
+		}
 		else {
-			return error('sim: no effector for ${verb}')
+			return error('${who}: no effector for ${verb}')
 		}
 	}
 }
@@ -148,9 +156,8 @@ pub fn (mut s Sim) halt() {
 	s.aim = s.heading
 }
 
-// scene is the world at now: its beacons, obstacles and humans in that order, each kind in the
-// world's order, with every human walked on to now. On default_world it is beacon b1, pillar o1
-// and human h1 on its loop at every time.
+// scene is the world at now, with every human walked on to now. On default_world it is beacon
+// b1, pillar o1 and human h1 on its loop at every time.
 fn (mut s Sim) scene(now i64) []lcl.Entity {
 	// lcl.now_ms reads the wall clock, which can step back.
 	dt_ms := math.max(i64(0), now - s.walked_ms)
@@ -158,8 +165,14 @@ fn (mut s Sim) scene(now i64) []lcl.Entity {
 		s.walkers[i].step(h, now - s.t0_ms, dt_ms, s.pose)
 	}
 	s.walked_ms = now
-	mut scene := []lcl.Entity{cap: s.world.beacons.len + s.world.obstacles.len + s.walkers.len}
-	for b in s.world.beacons {
+	return s.world.scene(s.walkers)
+}
+
+// scene is w as a percept's scene, with its humans where walkers, one per human, have them: its
+// beacons, obstacles and humans in that order, each kind in the world's order.
+fn (w World) scene(walkers []Walker) []lcl.Entity {
+	mut scene := []lcl.Entity{cap: w.beacons.len + w.obstacles.len + walkers.len}
+	for b in w.beacons {
 		scene << lcl.Entity{
 			id:   b.id
 			kind: 'beacon'
@@ -167,7 +180,7 @@ fn (mut s Sim) scene(now i64) []lcl.Entity {
 			r:    b.r
 		}
 	}
-	for o in s.world.obstacles {
+	for o in w.obstacles {
 		scene << lcl.Entity{
 			id:   o.id
 			kind: 'obstacle'
@@ -175,11 +188,11 @@ fn (mut s Sim) scene(now i64) []lcl.Entity {
 			r:    o.r
 		}
 	}
-	for i, h in s.world.humans {
+	for i, h in w.humans {
 		scene << lcl.Entity{
 			id:   h.id
 			kind: 'human'
-			pos:  s.walkers[i].at.clone()
+			pos:  walkers[i].at.clone()
 			r:    h.r
 		}
 	}

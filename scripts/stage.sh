@@ -38,13 +38,13 @@ fi
 mkdir -p "$run/hq" "$run/field"
 run=$(cd "$run" && pwd)
 
-# Every variable of docs/configuration.md but SSL_CERT_FILE and DRIVE, so nothing hosted or
+# Every variable of docs/configuration.md but SSL_CERT_FILE, DRIVE and BODY, so nothing hosted or
 # personal leaks in; above all CORE_JOURNAL, PLUG_RECORDER and DUMMY_WEIGHTS, the pilot's data.
 # Hosted models keep their variables, their endpoints and keys among them. WORLD goes too, since
 # every beat above is timed on the default world; a scene that plays another world exports
-# WORLD after sourcing this file and times its own beats. DRIVE only says how the simulated body
-# moves, so `DRIVE=differential just demo` flies the stage on a differential body; the beats above
-# are timed on the default drive.
+# WORLD after sourcing this file and times its own beats. DRIVE and BODY only say how the body
+# moves, so `DRIVE=differential just demo` and `just body=mujoco demo` fly the stage on a
+# differential body and on the MuJoCo base; the beats above are timed on the default body.
 unset MAGI_TIMEOUT_MS CORE_TIMEOUT_MS CORE_BACKEND CL1_SPIKES CL1_SIDECAR PILOT_ID PLUG_ADDR \
     MISSION START WORLD CORE_JOURNAL PLUG_RECORDER DUMMY_WEIGHTS HQ_PERIOD_MS UNIT_ID
 if [ "$lineup" = mock ]; then

@@ -69,6 +69,8 @@ A walking speed lies from 0.1 to 2 m/s; a loop's is its rate times its larger ra
 
 The simulator keeps its rules for every world: the body stands still while it touches anything solid, humans included, by a distance from its center under the solid's radius plus 0.25 m, and a velocity command lapses after 200 ms. The armor keeps its own ([Safety](safety.md)), whatever a human does, and a stop or aside human never steps within its `keep` of the body, so it never walks into it.
 
+Under `BODY=mujoco` the MuJoCo base plays the same world ([Safety](safety.md#how-the-body-moves)): every obstacle is a static cylinder of its radius and every human a walking capsule of its radius, which moves by the same rules on the model's clock, starting at the base's first sense and pausing with the model after a stall. There a solid stops the base through MuJoCo's contact, a human who walks through the base touches it by `Sim`'s rule and holds it still while they touch, as in `Sim`, and a beacon is nothing the base can touch.
+
 ## What gehirn refuses
 
 gehirn reads `WORLD` at startup with the other variables and refuses to start, with one line that names `WORLD`, quotes its value, says what is wrong and what it accepts, and exits 2 ([Refusals](configuration.md#refusals)), for:

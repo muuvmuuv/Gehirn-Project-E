@@ -50,8 +50,45 @@ struct Config {
 	watch       []u8 // WATCH_KEY's 32 bytes, empty when unset
 	bridge      string
 	endpoint    string
-	world       body.World // what body.new_sim plays, its start moved to START when set
+	world       body.World // what the body plays, its start moved to START when set
 	drive       body.Drive
+	body_kind   BodyKind
+}
+
+// BodyKind is the body the field unit builds, which BODY names: the planar Sim, or the base on
+// MuJoCo of ADR-0008, which only a build with -d mujoco carries.
+enum BodyKind {
+	sim
+	mujoco
+}
+
+// body_kind reads BODY for load_config and refuses mujoco in a build without -d mujoco.
+fn body_kind() !BodyKind {
+	if env_choice('BODY', 'sim', ['sim', 'mujoco'])! == 'sim' {
+		return .sim
+	}
+	$if mujoco ? {
+		return .mujoco
+	} $else {
+		return error('BODY is "mujoco", which this build of gehirn does not carry; accepted sim, or mujoco in a build with -d mujoco, such as `just body=mujoco build`')
+	}
+}
+
+// new_body builds the body cfg names on its world, for main to hand to the armor at once. A
+// MuJoCo body whose model MuJoCo cannot compile returns MuJoCo's message.
+fn new_body(cfg Config) !body.Body {
+	match cfg.body_kind {
+		.sim {
+			return body.new_sim(cfg.world, cfg.drive)
+		}
+		.mujoco {
+			$if mujoco ? {
+				return body.new_mujoco(cfg.world)!
+			} $else {
+				return error('BODY is "mujoco", which this build of gehirn does not carry')
+			}
+		}
+	}
 }
 
 fn env(key string, fallback string) string {
@@ -335,9 +372,9 @@ fn key_warning(units []magi.Unit) string {
 }
 
 // load_config reads every variable in the table of docs/configuration.md, and fails on the first
-// number, backend, drive or world file set to a value it does not accept, on two MAGI units on
-// one model, or on one key set as two of UMBILICAL_KEY, PILOT_KEY and WATCH_KEY, so main refuses
-// to start. The default URL and chat model names are those of the llama.cpp preset
+// number, backend, drive, body or world file set to a value it does not accept, on two MAGI units
+// on one model, or on one key set as two of UMBILICAL_KEY, PILOT_KEY and WATCH_KEY, so main
+// refuses to start. The default URL and chat model names are those of the llama.cpp preset
 // tools/models.ini, which names this function as its counterpart, and tools/mock_endpoint.py
 // listens on the same address.
 // core/cl1.v new_cl1 names CL1_SPIKES and CL1_SIDECAR in its errors.
@@ -414,6 +451,7 @@ fn load_config() !Config {
 		} else {
 			body.Drive.holonomic
 		}
+		body_kind:   body_kind()!
 	}
 }
 
@@ -651,7 +689,10 @@ fn main() {
 
 	// The body is made once the dummy plug has loaded: the nearest neighbor one replays the whole
 	// recorder, seconds for a long one, and the walking human's clock starts with the simulated body.
-	mut ar := armor.restrain(body.new_sim(cfg.world, cfg.drive), armor.Limits{})
+	mut ar := armor.restrain(new_body(cfg) or {
+		eprintln('gehirn: ${err.msg()}')
+		exit(1)
+	}, armor.Limits{})
 	mut rec := plug.open_recorder(cfg.recorder) or { panic(err) }
 	mut cable := umbilical.plug_in(lcl.now_ms(), cfg.budget_ms, cfg.grace_ms)
 

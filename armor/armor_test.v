@@ -708,6 +708,142 @@ fn test_a_differential_sim_moves_as_the_armor_checked() {
 	}
 }
 
+struct MujocoCase {
+	name   string
+	start  []f64 = sim_start
+	scene  []lcl.Entity // what each percept shows the armor in place of the body's own world
+	u      []f64
+	toward []f64 // the direction of the part of u drive removes
+	moves  bool  // the base drives off within the run, rather than only turns
+}
+
+// The MuJoCo base of ADR-0008, starting from rest, moves nowhere along the part of a command
+// drive removed, toward a human inside human_stop, a solid inside solid_keep or out of the fence,
+// over 30 ticks of the field loop in real time: it turns away first and drives where its heading
+// leads clear. Each start lies far from the default world's pillar and human. A base already
+// moving brakes along its motion instead, which test_a_moving_mujoco_body_stops_within_stopping
+// bounds.
+fn test_a_mujoco_body_moves_nowhere_toward_what_drive_removed() {
+	$if mujoco ? {
+		u := lcl.add(along(0.2, deg(-10)), along(0.1, deg(80)))
+		cases := [
+			MujocoCase{
+				name:   'a human inside human_stop'
+				scene:  [ent('human', off(80, 0.8), 0.3)]
+				u:      u
+				toward: along(1.0, deg(80))
+				moves:  true
+			},
+			MujocoCase{
+				name:   'a solid inside solid_keep'
+				scene:  [ent('obstacle', off(80, 0.8), 0.5)]
+				u:      u
+				toward: along(1.0, deg(80))
+				moves:  true
+			},
+			MujocoCase{
+				name:   'the east fence'
+				start:  [5.0, 0.0]
+				u:      [0.4, 0.4]
+				toward: [1.0, 0.0]
+			},
+		]
+		for c in cases {
+			b := body.new_mujoco(body.World{
+				...body.default_world()
+				start: c.start
+			})!
+			mut a := restrain(b, Limits{})
+			mut p := a.sense()
+			for _ in 0 .. 30 {
+				a.drive(c.u, lcl.Percept{ ...p, scene: c.scene }, 0.02, true)
+				time.sleep(20 * time.millisecond)
+				p = a.sense()
+				assert lcl.dot(lcl.sub(p.pose, c.start), c.toward) <= 1e-9, '${c.name}: ${p.pose}'
+			}
+			assert (lcl.dist(p.pose, c.start) > 0.02) == c.moves, '${c.name}: ${p.pose}'
+			assert math.abs(p.heading) > deg(5), '${c.name}: heading ${p.heading}'
+		}
+	}
+}
+
+// stopping is how far the MuJoCo base brakes from v_max, 1 m/s, once drive sends it nothing: the
+// slides' force limit of 200 N slows its 20 kg at 10 m/s² to 0.5 m/s, where the gain of 400 takes
+// over with a time constant of 0.05 s, so (1 - 0.5²) / 20 + 0.5 * 0.05 m. It follows from
+// body/mujoco_d_mujoco.v mjcf, and PLAN's Known issue 33 gives it.
+const stopping = 0.0625
+
+struct MovingCase {
+	name      string
+	start     []f64
+	obstacles []body.Spot
+	human     bool // a human of radius 0.3 steps in with its rim 0.65 m ahead once the base runs at v_max
+	ticks     int
+}
+
+// A MuJoCo base driving east at v_max moves on along that motion by at most stopping once drive
+// stops it, where Sim stops at once (PLAN, Known issue 33): at the fence, head on at a pillar,
+// whose keep drive widens by body.lead, and with a human stepping in ahead. drive judges the
+// command, not the motion the base brakes through, so this pins how far that motion carries.
+fn test_a_moving_mujoco_body_stops_within_stopping() {
+	$if mujoco ? {
+		cases := [
+			MovingCase{
+				name:  'the east fence'
+				start: [3.8, -4.0]
+				ticks: 100
+			},
+			MovingCase{
+				name:      'a pillar head on'
+				start:     [-2.2, -4.0]
+				obstacles: [body.Spot{
+					id:  'o1'
+					pos: [0.0, -4.0]
+					r:   0.8
+				}]
+				ticks:     90
+			},
+			MovingCase{
+				name:  'a human stepping in'
+				start: [-4.0, -4.0]
+				human: true
+				ticks: 60
+			},
+		]
+		for c in cases {
+			b := body.new_mujoco(body.World{
+				start:     c.start
+				beacons:   body.default_world().beacons
+				obstacles: c.obstacles
+			})!
+			mut a := restrain(b, Limits{})
+			mut p := a.sense()
+			mut scene := p.scene.clone()
+			mut stopped := []f64{}
+			mut speed := 0.0
+			mut most := 0.0
+			for _ in 0 .. c.ticks {
+				if c.human && scene.len == p.scene.len && lcl.norm(p.vel) > 0.999 {
+					scene << ent('human', lcl.add(p.pose, [0.95, 0.0]), 0.3)
+				}
+				v := a.drive([1.0, 0.0], lcl.Percept{ ...p, scene: scene }, 0.02, true)
+				if stopped.len == 0 && v[0] <= 1e-9 && lcl.norm(p.vel) > 0.5 {
+					stopped = p.pose.clone()
+					speed = lcl.norm(p.vel)
+				}
+				time.sleep(20 * time.millisecond)
+				p = a.sense()
+				if stopped.len > 0 {
+					most = math.max(most, p.pose[0] - stopped[0])
+				}
+			}
+			assert speed > 0.95, '${c.name}: stopped from ${speed} m/s'
+			assert most <= stopping + 1e-3, '${c.name}: ${most} m on'
+			assert lcl.norm(p.vel) < 1e-3, '${c.name}: ${p.vel}'
+		}
+	}
+}
+
 struct PermitCase {
 	name  string
 	verb  string

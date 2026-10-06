@@ -13,6 +13,13 @@ import magi
 import oai
 import umbilical
 
+// testsuite_begin clears BODY, which the justfile exports to every recipe, so `just body=mujoco
+// check` and a shell with BODY=mujoco test load_config on the default body in a build without -d
+// mujoco too.
+fn testsuite_begin() {
+	os.unsetenv('BODY')
+}
+
 struct KeyCase {
 	backend      string
 	unit_key     string
@@ -204,6 +211,7 @@ fn config_value(cfg Config, key string) string {
 		'UMBILICAL_ENDPOINT' { cfg.endpoint }
 		'START' { cfg.world.start.str() }
 		'DRIVE' { cfg.drive.str() }
+		'BODY' { cfg.body_kind.str() }
 		'WORLD' { cfg.world.humans.map(it.id).join(' ') }
 		'MISSION' { cfg.mission }
 		'DUMMY_WEIGHTS' { cfg.weights }
@@ -212,6 +220,12 @@ fn config_value(cfg Config, key string) string {
 }
 
 fn test_load_config() {
+	// A build without -d mujoco carries no MuJoCo body, so it refuses BODY=mujoco.
+	mujoco_body := $if mujoco ? {
+		'mujoco'
+	} $else {
+		'BODY is "mujoco", which this build of gehirn does not carry; accepted sim, or mujoco in a build with -d mujoco, such as `just body=mujoco build`'
+	}
 	cases := [
 		ConfigCase{'MAGI_TIMEOUT_MS', '', '10000'},
 		ConfigCase{'MAGI_TIMEOUT_MS', '2500', '2500'},
@@ -346,6 +360,12 @@ fn test_load_config() {
 		ConfigCase{'DRIVE', 'diff', 'DRIVE is "diff", not a known value; accepted holonomic, differential'},
 		ConfigCase{'DRIVE', ' differential', 'DRIVE is " differential", not a known value; accepted holonomic, differential'},
 		ConfigCase{'DRIVE', 'differential\nfield: forged', 'DRIVE is "differential\\x0afield: forged", not a known value; accepted holonomic, differential'},
+		ConfigCase{'BODY', '', 'sim'},
+		ConfigCase{'BODY', 'sim', 'sim'},
+		ConfigCase{'BODY', 'mujoco', mujoco_body},
+		ConfigCase{'BODY', 'MuJoCo', 'BODY is "MuJoCo", not a known value; accepted sim, mujoco'},
+		ConfigCase{'BODY', 'gazebo', 'BODY is "gazebo", not a known value; accepted sim, mujoco'},
+		ConfigCase{'BODY', 'mujoco\nfield: forged', 'BODY is "mujoco\\x0afield: forged", not a known value; accepted sim, mujoco'},
 		ConfigCase{'WORLD', '', 'h1'},
 		ConfigCase{'WORLD', os.join_path(@VMODROOT, 'worlds', 'default.json'), 'h1'},
 		ConfigCase{'WORLD', os.join_path(@VMODROOT, 'worlds', 'example.json'), 'h1 h2 h3 h4'},
