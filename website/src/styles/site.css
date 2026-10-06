@@ -1,30 +1,42 @@
-/* Layout: one 1120px column. Two clips of the bridge running, then the annotated bridge frame, a legend keyed
-   to its markers, vote states beside the glossary, then the demo's beats. Single dark world, as the bridge itself. */
+/* The site in the bridge's look: one dark world on ink, panels framed with the bridge's orange corner brackets,
+   Barlow Condensed for display in capitals, kanji in Zen Old Mincho as the panels' names, and orange as the one
+   accent. The vote colors appear only where a vote is shown. docs/brand.md holds the palette and the faces. */
 :root {
 	color-scheme: dark;
+
+	/* --ink comes from index.html, which paints it before this file loads. */
 	--panel: #0f0b07;
 	--line: #3a2710;
+	--line-hover: #6a4818;
 	--orange: #ff8d00;
-	--paper: #ece6dc;
+	--paper: #ece8e1;
 	--dim: #a0968a;
 	--go: #52e691;
-	--no: #ff4545;
+	--no: #ff2030;
 	--think: #3caee0;
-	--fault: #ffd60a;
+	--glow: rgba(255, 141, 0, 0.38);
+
 	--display: 'Barlow Condensed', 'Arial Narrow', 'Helvetica Neue', sans-serif;
 	--body: 'Barlow', 'Helvetica Neue', Arial, sans-serif;
 	--jp: 'Zen Old Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
 	--mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+
 	--step--1: 0.875rem;
 	--step-0: 1.0625rem;
-	--step-1: 1.375rem;
-	--step-2: 1.875rem;
-	--step-3: clamp(2.6rem, 6vw, 4.25rem);
+	--step-1: 1.25rem;
+	--step-2: clamp(2rem, 3.6vw, 2.8rem);
+	--step-3: clamp(2.9rem, 6.2vw, 5.4rem);
+
+	--gutter: clamp(16px, 4vw, 44px);
+	--ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-html {
-	background: var(--ink);
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
 }
+
 body {
 	margin: 0;
 	background: var(--ink);
@@ -32,506 +44,862 @@ body {
 	font-family: var(--body);
 	font-size: var(--step-0);
 	line-height: 1.55;
-	padding-inline: 20px;
-	padding-block: 0 64px;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	-webkit-tap-highlight-color: transparent;
+}
+
+img,
+video {
+	display: block;
+	max-width: 100%;
+	height: auto;
+}
+
+a {
+	color: var(--orange);
+}
+
+:focus-visible {
+	outline: 2px solid var(--orange);
+	outline-offset: 3px;
+}
+
+button {
+	font: inherit;
+	color: inherit;
+	cursor: pointer;
+}
+
+code {
+	font-family: var(--mono);
+	font-size: 0.92em;
+}
+
+.jp {
+	font-family: var(--jp);
+	font-weight: 700;
+}
+
+.skip {
+	position: absolute;
+	left: var(--gutter);
+	top: -100px;
+	z-index: 10;
+	padding: 8px 14px;
+	background: var(--orange);
+	color: var(--ink);
+	font-family: var(--display);
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	text-decoration: none;
+}
+
+.skip:focus {
+	top: 12px;
+}
+
+/* Page frame */
+
+.page {
+	padding-inline: var(--gutter);
+	padding-block: 0 56px;
 }
 
 .hazard {
-	height: 10px;
-	margin-inline: -20px;
+	height: 8px;
+	margin-inline: calc(-1 * var(--gutter));
 	background: repeating-linear-gradient(135deg, var(--orange) 0 12px, var(--ink) 12px 24px);
 }
 
 .wrap {
-	max-width: 1120px;
+	max-width: 1200px;
 	margin-inline: auto;
-	display: grid;
-	gap: 56px;
-	padding-block-start: 40px;
 }
 
-.eyebrow,
-.label {
+/* Nav */
+
+.nav {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 14px 28px;
+	padding-block: 18px;
+	border-bottom: 1px solid var(--line);
+}
+
+.brand {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	color: var(--paper);
+	text-decoration: none;
+}
+
+.brand__name {
+	display: block;
+	font-family: var(--display);
+	font-weight: 900;
+	font-size: 24px;
+	letter-spacing: 0.1em;
+	line-height: 1;
+}
+
+.brand__jp {
+	display: block;
+	margin-top: 4px;
+	font-family: var(--jp);
+	font-weight: 700;
+	font-size: 11px;
+	letter-spacing: 0.14em;
+	color: var(--dim);
+}
+
+.lights {
+	display: flex;
+	gap: 18px;
 	font-family: var(--display);
 	font-weight: 700;
-	text-transform: uppercase;
+	font-size: 13px;
 	letter-spacing: 0.08em;
-	color: var(--orange);
-	font-size: var(--step--1);
+	color: var(--dim);
 }
 
-header {
-	display: grid;
-	gap: 14px;
+.lights span {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
 }
-h1 {
+
+.lights i {
+	width: 9px;
+	height: 9px;
+	background: var(--go);
+	box-shadow: 0 0 8px rgba(82, 230, 145, 0.6);
+}
+
+.lights em {
+	font-style: normal;
+	color: var(--go);
+}
+
+.links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 22px;
+	font-family: var(--display);
+	font-weight: 700;
+	font-size: 15px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+.links a {
+	color: var(--paper);
+	text-decoration: none;
+	transition: color 160ms ease;
+}
+
+.links a[aria-current='page'] {
+	color: var(--orange);
+}
+
+.links .links__gh {
+	color: var(--orange);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.links a:hover {
+		color: var(--orange);
+	}
+}
+
+/* Section heads */
+
+.section {
+	padding-block: 64px;
+	border-top: 1px solid var(--line);
+}
+
+.head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 10px 32px;
+	margin-bottom: 30px;
+}
+
+.head p {
+	margin: 0;
+	max-width: 52ch;
+	color: var(--dim);
+}
+
+.eyebrow {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px 12px;
+	align-items: baseline;
+	font-family: var(--display);
+	font-weight: 700;
+	font-size: var(--step--1);
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--orange);
+}
+
+.eyebrow .jp {
+	letter-spacing: 0.2em;
+}
+
+h1,
+h2,
+h3 {
+	text-wrap: balance;
+}
+
+.h1 {
 	margin: 0;
 	font-family: var(--display);
 	font-weight: 800;
 	font-size: var(--step-3);
-	line-height: 0.95;
+	line-height: 0.9;
+	letter-spacing: 0.005em;
 	text-transform: uppercase;
-	letter-spacing: 0.01em;
-	text-wrap: balance;
-	display: flex;
-	flex-wrap: wrap;
-	align-items: baseline;
-	gap: 0 0.4em;
-}
-h1 .jp {
-	font-family: var(--jp);
-	font-weight: 900;
-	font-size: 0.55em;
-	color: var(--orange);
-	letter-spacing: 0.12em;
-}
-.lede {
-	margin: 0;
-	max-width: 62ch;
-	color: var(--paper);
-	font-size: var(--step-1);
-	line-height: 1.45;
-}
-.lede + .lede {
-	font-size: var(--step-0);
-	color: var(--dim);
 }
 
-h2 {
+.h1 em {
+	font-style: normal;
+	color: var(--orange);
+	text-shadow: 0 0 22px var(--glow);
+}
+
+.h2 {
 	margin: 0;
 	font-family: var(--display);
 	font-weight: 800;
 	font-size: var(--step-2);
-	text-transform: uppercase;
-	letter-spacing: 0.02em;
 	line-height: 1;
-	text-wrap: balance;
-}
-h2 .jp {
-	font-family: var(--jp);
-	font-weight: 700;
-	font-size: 0.6em;
-	color: var(--orange);
-	margin-inline-start: 0.4em;
-	letter-spacing: 0.1em;
-}
-section {
-	display: grid;
-	gap: 20px;
-}
-.section-head {
-	display: grid;
-	gap: 6px;
-}
-.section-head p {
-	margin: 0;
-	color: var(--dim);
-	max-width: 62ch;
+	letter-spacing: 0.01em;
+	text-transform: uppercase;
 }
 
-/* The frame, with the bridge's own corner brackets */
-figure {
-	margin: 0;
-	display: grid;
-	gap: 12px;
+.h2 .jp,
+.h1 .jp {
+	margin-inline-start: 0.35em;
+	font-size: 0.55em;
+	letter-spacing: 0.14em;
+	color: var(--orange);
 }
+
+.lede {
+	margin: 0;
+	max-width: 40ch;
+	font-size: var(--step-1);
+	line-height: 1.5;
+}
+
+/* Frame: a panel with the bridge's corner brackets, and its heading strip */
+
 .frame {
 	position: relative;
 	border: 1px solid var(--line);
-	padding: 6px;
 	background: var(--panel);
 }
+
 .frame::before,
 .frame::after {
 	content: '';
 	position: absolute;
+	z-index: 2;
 	width: 22px;
 	height: 22px;
 	border: 2px solid var(--orange);
 	pointer-events: none;
 }
+
 .frame::before {
 	top: -2px;
 	left: -2px;
 	border-right: 0;
 	border-bottom: 0;
 }
+
 .frame::after {
-	bottom: -2px;
 	right: -2px;
+	bottom: -2px;
 	border-left: 0;
 	border-top: 0;
 }
-.shot {
-	position: relative;
-}
-.shot img {
-	display: block;
-	width: 100%;
-	max-width: 100%;
-	height: auto;
-	aspect-ratio: 1280 / 800;
+
+.strip {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	gap: 4px 14px;
+	padding: 8px 14px;
+	border-bottom: 1px solid var(--line);
+	font-family: var(--display);
+	font-weight: 700;
+	font-size: 13px;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--orange);
 }
 
-.pin,
-.key {
+.strip__jp {
+	font-family: var(--jp);
+	letter-spacing: 0.15em;
+}
+
+.strip__aside {
+	color: var(--dim);
+}
+
+.shot {
+	position: relative;
+	padding: 6px;
+}
+
+/* The bridge's scanlines over a recording, faint enough to leave its text sharp. */
+.shot--scan::after {
+	content: '';
+	position: absolute;
+	inset: 6px;
+	pointer-events: none;
+	background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.12) 0 1px, transparent 1px 3px);
+}
+
+.clip {
+	width: 100%;
+	background: var(--ink);
+}
+
+.cap {
+	margin: 12px 0 0;
+	max-width: 72ch;
+	font-size: var(--step--1);
+	color: var(--dim);
+}
+
+.cap strong {
+	color: var(--paper);
+	font-weight: 600;
+}
+
+/* Tags name what a caption's sentence is: real, staged or scripted. */
+.tag {
+	display: inline-block;
+	margin-inline-end: 6px;
+	padding: 0 6px;
+	border: 1px solid currentColor;
 	font-family: var(--display);
-	font-weight: 800;
-	font-variant-numeric: tabular-nums;
-	display: inline-grid;
+	font-weight: 700;
+	font-size: 12px;
+	letter-spacing: 0.1em;
+	line-height: 1.5;
+	text-transform: uppercase;
+	vertical-align: 1px;
+}
+
+.tag--real {
+	color: var(--go);
+}
+
+.tag--staged {
+	color: var(--orange);
+}
+
+.vote {
+	font-family: var(--jp);
+	font-weight: 900;
+}
+
+.vote--go {
+	color: var(--go);
+}
+
+.vote--no {
+	color: var(--no);
+}
+
+/* Term: a shell command with its copy button */
+
+.term {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 14px;
+	padding: 10px 10px 10px 18px;
+	border: 1px solid var(--line);
+	background: var(--panel);
+}
+
+.term code {
+	font-size: 18px;
+	color: var(--orange);
+	white-space: nowrap;
+}
+
+.term__prompt {
+	color: var(--dim);
+}
+
+.term__copy {
+	padding: 6px 12px;
+	border: 1px solid var(--orange);
+	background: transparent;
+	color: var(--orange);
+	font-family: var(--display);
+	font-weight: 700;
+	font-size: 13px;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	transition:
+		background-color 160ms ease,
+		color 160ms ease,
+		transform 140ms var(--ease-out);
+}
+
+.term__copy:active {
+	transform: scale(0.97);
+}
+
+.term--large code {
+	font-size: 22px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.term__copy:hover {
+		background: var(--orange);
+		color: var(--ink);
+	}
+}
+
+/* Pins on the annotated bridge frame */
+
+.pin {
+	position: absolute;
+	display: grid;
 	place-items: center;
+	width: 28px;
+	height: 28px;
 	border-radius: 50%;
 	background: var(--orange);
 	color: var(--ink);
-}
-.pin {
-	position: absolute;
-	width: 28px;
-	height: 28px;
+	font-family: var(--display);
+	font-weight: 800;
 	font-size: 16px;
-	transform: translate(-50%, -50%);
+	font-variant-numeric: tabular-nums;
 	text-decoration: none;
+	transform: translate(-50%, -50%);
 	box-shadow:
 		0 0 0 2px var(--ink),
 		0 0 0 4px rgba(255, 141, 0, 0.45);
 	transition:
-		transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
+		transform 160ms var(--ease-out),
 		box-shadow 160ms ease-out;
 }
-.pin:hover,
-.pin:focus-visible,
-.pin.on {
+
+.pin.is-on,
+.pin:focus-visible {
 	transform: translate(-50%, -50%) scale(1.25);
 	box-shadow:
 		0 0 0 2px var(--ink),
 		0 0 0 6px var(--orange);
 	outline: none;
 }
-figcaption {
-	color: var(--dim);
+
+/* Footer */
+
+.footer {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px 32px;
+	padding-top: 28px;
+	border-top: 1px solid var(--line);
 	font-size: var(--step--1);
-	max-width: 80ch;
-}
-figcaption strong {
-	color: var(--paper);
-	font-weight: 600;
+	color: var(--dim);
 }
 
-/* Clips of the bridge running, each in a frame */
+.footer__fan {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	font-family: var(--display);
+	font-weight: 700;
+	font-size: 14px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--paper);
+}
+
+.footer__links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 22px;
+}
+
+.footer__links a {
+	color: var(--dim);
+	text-underline-offset: 3px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.footer__links a:hover {
+		color: var(--paper);
+	}
+}
+
+/* ── The guide to the bridge (/bridge) ─────────────────────────── */
+
+.guide-hero {
+	display: grid;
+	gap: 18px;
+	padding-block: 56px 64px;
+}
+
+.guide-hero .lede + .lede {
+	max-width: 62ch;
+	font-size: var(--step-0);
+	color: var(--dim);
+}
+
 .clips {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: 32px;
 	align-items: start;
 }
+
 .clips code {
 	white-space: nowrap;
 }
-.clips video {
-	display: block;
-	width: 100%;
-	height: auto;
-	aspect-ratio: 1280 / 800;
-	background: var(--ink);
-}
 
-/* Legend keyed to the pins */
 .legend {
-	list-style: none;
 	margin: 0;
 	padding: 0;
+	list-style: none;
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
 	gap: 1px;
-	background: var(--line);
 	border: 1px solid var(--line);
+	background: var(--line);
 }
+
 .legend li {
-	background: var(--ink);
-	padding: 20px 20px 22px;
 	display: grid;
 	grid-template-columns: auto 1fr;
 	grid-template-rows: auto 1fr;
 	gap: 6px 14px;
 	align-content: start;
-	transition: background-color 160ms ease-out;
+	padding: 20px 20px 22px;
+	background: var(--ink);
+	transition: background-color 160ms ease;
 }
-.legend li.on,
+
+.legend li.is-on,
 .legend li:target {
 	background: var(--panel);
 }
-.key {
+
+.legend .key {
+	grid-row: 1 / span 2;
+	display: grid;
+	place-items: center;
 	width: 30px;
 	height: 30px;
-	font-size: 17px;
-	grid-row: 1 / span 2;
-}
-.legend h3 {
-	margin: 0;
+	border-radius: 50%;
+	background: var(--orange);
+	color: var(--ink);
 	font-family: var(--display);
-	font-weight: 700;
-	font-size: var(--step-1);
-	text-transform: uppercase;
-	letter-spacing: 0.03em;
-	line-height: 1.1;
+	font-weight: 800;
+	font-size: 17px;
+}
+
+.legend h3 {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: baseline;
 	gap: 0 0.45em;
-}
-.legend h3 .jp {
-	font-family: var(--jp);
+	margin: 0;
+	font-family: var(--display);
 	font-weight: 700;
-	font-size: 0.8em;
-	color: var(--orange);
-	letter-spacing: 0.06em;
-	text-transform: none;
+	font-size: var(--step-1);
+	line-height: 1.1;
+	letter-spacing: 0.03em;
+	text-transform: uppercase;
 }
+
+.legend h3 .jp {
+	font-size: 0.8em;
+	letter-spacing: 0.06em;
+	color: var(--orange);
+}
+
 .legend p {
 	margin: 0;
-	color: var(--paper);
-	font-size: var(--step-0);
+	font-size: 16px;
 }
-.legend p b {
+
+.legend b {
 	font-weight: 600;
 	color: var(--orange);
 }
 
-/* Vote states */
 .split {
 	display: grid;
 	grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
 	gap: 48px;
 	align-items: start;
 }
+
+.split > div {
+	display: grid;
+	gap: 20px;
+	align-content: start;
+}
+
 .states {
-	list-style: none;
 	margin: 0;
 	padding: 0;
+	list-style: none;
 	display: grid;
 	gap: 12px;
 }
+
 .states li {
 	display: grid;
-	grid-template-columns: 5.2rem 1fr;
-	gap: 4px 16px;
+	grid-template-columns: 6.4rem 1fr;
+	gap: 2px 16px;
 	align-items: center;
 	padding: 14px 16px;
 	border: 1px solid var(--line);
 	background: var(--panel);
 }
+
 .states .glyph {
+	grid-row: 1 / span 2;
 	font-family: var(--jp);
 	font-weight: 900;
 	font-size: 1.85rem;
 	line-height: 1;
-	grid-row: 1 / span 2;
+	white-space: nowrap;
 }
+
 .states .name {
 	font-family: var(--display);
 	font-weight: 700;
-	text-transform: uppercase;
 	letter-spacing: 0.06em;
+	text-transform: uppercase;
 }
+
 .states .what {
-	color: var(--dim);
 	font-size: var(--step--1);
+	color: var(--dim);
 }
-.s-think .glyph,
-.s-think .name {
+
+.s-think {
 	color: var(--think);
 }
+
+.s-go {
+	color: var(--go);
+}
+
+.s-no,
+.s-fault {
+	color: var(--no);
+}
+
+/* 審議中 flickers in step with the bridge's; 故障 blinks red over the deep red of docs/brand.md. */
 .s-think .glyph {
 	animation: flicker 0.5s steps(1) infinite;
 }
-.s-go .glyph,
-.s-go .name {
-	color: var(--go);
+
+.s-fault .glyph {
+	animation: fault 1s steps(1) infinite;
 }
-.s-no .glyph,
-.s-no .name {
-	color: var(--no);
-}
-.s-fault .glyph,
-.s-fault .name {
-	color: var(--fault);
-}
+
 @keyframes flicker {
 	50% {
 		opacity: 0.35;
 	}
 }
-.rule {
-	margin: 0;
-	color: var(--paper);
-	border-inline-start: 2px solid var(--orange);
-	padding-inline-start: 14px;
+
+@keyframes fault {
+	50% {
+		color: #6e0000;
+	}
 }
 
-/* Glossary */
+.rule {
+	margin: 0;
+	padding-inline-start: 14px;
+	border-inline-start: 2px solid var(--orange);
+}
+
 .table-wrap {
 	overflow-x: auto;
 	border: 1px solid var(--line);
 }
-table {
+
+.table-wrap table {
 	width: 100%;
-	border-collapse: collapse;
 	min-width: 420px;
+	border-collapse: collapse;
 }
-th,
-td {
-	text-align: left;
+
+.table-wrap th,
+.table-wrap td {
 	padding: 9px 14px;
 	border-bottom: 1px solid var(--line);
+	text-align: left;
 	vertical-align: baseline;
 }
-tr:last-child td {
+
+.table-wrap tr:last-child td {
 	border-bottom: 0;
 }
-th {
+
+.table-wrap th {
+	background: var(--panel);
 	font-family: var(--display);
 	font-weight: 700;
-	text-transform: uppercase;
-	letter-spacing: 0.08em;
 	font-size: var(--step--1);
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
 	color: var(--orange);
-	background: var(--panel);
 }
-td.t {
+
+.table-wrap td.t {
 	font-family: var(--jp);
 	font-weight: 700;
 	font-size: 1.15rem;
 	white-space: nowrap;
 }
-td.r {
+
+.table-wrap td.r {
 	font-family: var(--mono);
 	font-size: 0.8rem;
-	color: var(--dim);
 	white-space: nowrap;
+	color: var(--dim);
 }
 
-/* Demo beats */
 .beats {
-	list-style: none;
 	margin: 0;
 	padding: 0;
+	list-style: none;
+	counter-reset: beat;
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
 	gap: 28px 32px;
-	counter-reset: beat;
 }
+
 .beats li {
 	display: grid;
 	gap: 6px;
-	padding-block-start: 14px;
+	align-content: start;
+	padding-top: 14px;
 	border-top: 2px solid var(--line);
 	counter-increment: beat;
 }
+
 .beats li::before {
 	content: counter(beat, decimal-leading-zero);
 	font-family: var(--display);
 	font-weight: 800;
-	color: var(--orange);
-	letter-spacing: 0.06em;
 	font-size: var(--step--1);
+	letter-spacing: 0.06em;
+	color: var(--orange);
 }
+
 .beats h3 {
 	margin: 0;
 	font-family: var(--display);
 	font-weight: 700;
 	font-size: var(--step-1);
-	text-transform: uppercase;
-	letter-spacing: 0.03em;
 	line-height: 1.1;
+	letter-spacing: 0.03em;
+	text-transform: uppercase;
 }
+
 .beats p {
 	margin: 0;
 	color: var(--dim);
 }
-.tag {
-	font-family: var(--jp);
-	font-weight: 900;
-}
-.tag.go {
-	color: var(--go);
-}
-.tag.no {
-	color: var(--no);
-}
 
-footer {
+.credits {
 	display: grid;
-	gap: 12px;
-	padding-block-start: 28px;
+	gap: 10px;
+	padding-block: 40px 48px;
 	border-top: 1px solid var(--line);
 	color: var(--dim);
 	font-size: var(--step--1);
 }
-footer p {
+
+.credits p {
 	margin: 0;
 	max-width: 80ch;
 }
-code {
-	font-family: var(--mono);
-	font-size: 0.92em;
-	color: var(--paper);
-	background: var(--panel);
-	border: 1px solid var(--line);
-	padding: 1px 6px;
-}
-.run {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: 10px 14px;
-	color: var(--paper);
-	font-size: var(--step-0);
-}
-.run code {
-	font-size: 1rem;
-	padding: 6px 12px;
-	color: var(--orange);
-}
 
-a {
-	color: var(--orange);
-}
-:focus-visible {
-	outline: 2px solid var(--orange);
-	outline-offset: 3px;
-}
+/* Narrow screens */
 
-@media (max-width: 900px) {
+@media (max-width: 960px) {
+	.lights {
+		display: none;
+	}
+
+	.clips,
+	.split {
+		grid-template-columns: minmax(0, 1fr);
+		gap: 40px;
+	}
+
 	.legend,
 	.beats {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
-	.split,
-	.clips {
-		grid-template-columns: minmax(0, 1fr);
-		gap: 40px;
-	}
 }
+
 @media (max-width: 600px) {
+	.section {
+		padding-block: 48px;
+	}
+
+	.links {
+		gap: 6px 16px;
+		font-size: 14px;
+	}
+
 	.legend,
 	.beats {
 		grid-template-columns: minmax(0, 1fr);
 	}
+
 	.pin {
-		width: 20px;
-		height: 20px;
-		font-size: 12px;
+		width: 18px;
+		height: 18px;
+		font-size: 11px;
 		box-shadow: 0 0 0 1.5px var(--ink);
 	}
-	.wrap {
-		gap: 44px;
-		padding-block-start: 28px;
+
+	.term code {
+		font-size: 16px;
 	}
 }
+
 @media (prefers-reduced-motion: reduce) {
-	.s-think .glyph {
+	.s-think .glyph,
+	.s-fault .glyph {
 		animation: none;
 	}
+
 	.pin,
 	.legend li {
 		transition: none;
