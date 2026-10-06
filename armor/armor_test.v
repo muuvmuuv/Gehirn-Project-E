@@ -272,6 +272,55 @@ fn test_drive() {
 	}
 }
 
+// A holonomic body moves toward no human inside human_stop and into no solid inside solid_keep,
+// and speeds up by no more than a_max * dt, where restraining the command one step after another
+// would break one: the blend from a last velocity toward a human who just stepped within reach,
+// two drops in turn, the fence after a drop, and the fence after the blend. The first two are the
+// probes of PLAN Known issue 32. In the second and third every motion within 90 degrees of the
+// command closes on the human or the pillar or leaves the fence, so the body stands.
+fn test_drive_moves_a_holonomic_body_toward_nothing_within_reach() {
+	ne := 0.9 / math.sqrt(2.0)
+	cases := [
+		DriveCase{
+			name:  'no blend toward a human just inside human_stop'
+			scene: [ent('human', [0.95, 0.0], 0.3)]
+			last:  [0.1, 0.0]
+			u:     [0.0, 0.2]
+			dt:    0.02
+			want:  [0.0, 0.06 / math.sqrt(5.0)]
+		},
+		DriveCase{
+			name:  'no drop toward a human brings back motion into a pillar'
+			scene: [ent('obstacle', [1.0, 0.0], 0.8), ent('human', [-ne, ne], 0.3)]
+			u:     [0.6, 0.8]
+			want:  [0.0, 0.0]
+		},
+		DriveCase{
+			name:  'no fence brings back motion toward a human'
+			pose:  [-5.0, 0.0]
+			scene: [ent('human', [-5.0 + ne, ne], 0.3)]
+			u:     [-1.0, 0.5]
+			want:  [0.0, 0.0]
+		},
+		DriveCase{
+			name: 'speeds up along the fence by a_max where the fence leaves the blend past it'
+			pose: [-5.0, 0.0]
+			last: [-0.01, 0.5]
+			u:    [0.0, 1.0]
+			dt:   0.02
+			want: [0.0, 0.5 + math.sqrt(0.0008)]
+		},
+	]
+	for c in cases {
+		mut f := &Fake{}
+		mut a := restrain(f, Limits{})
+		a.last = c.last.clone()
+		got := a.drive(c.u, at(c.pose, ...c.scene), c.dt, c.manned)
+		assert same(got, c.want), '${c.name}: got ${got}'
+		assert f.sent.len == 1 && same(f.sent[0], got)
+	}
+}
+
 // deg is a in degrees, in rad.
 fn deg(a f64) f64 {
 	return a * math.pi / 180.0

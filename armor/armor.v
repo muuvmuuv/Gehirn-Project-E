@@ -40,9 +40,9 @@ mut:
 	ejected bool
 }
 
-// still is the speed, in m/s, below which drive takes a part of a differential body's motion for
-// rounding: steered along the slide past a pillar, the cosine and sine of its heading leave about
-// 1e-16 m/s toward the pillar.
+// still is the speed, in m/s, below which drive takes a part of a body's motion for rounding:
+// steered along the slide past a pillar, the cosine and sine of a differential body's heading
+// leave about 1e-16 m/s toward the pillar, and a drop as little.
 const still = 1e-9
 
 // restrain takes the body. From here on nothing else holds it.
@@ -105,12 +105,13 @@ pub fn (mut a Armor) eject() {
 }
 
 // drive pushes one planar command through every restraint, actuates, and returns the planar
-// velocity the body moves with: the command itself on a holonomic body. A differential body
-// gets the Course body.steer makes of the command, no faster than fastest allows, and its motion
-// along the body's heading can point where the restraints removed from the command, so drive
-// checks that motion against them again and sends a turn in place instead of any motion that
-// breaks one. On a command or percept it cannot use, and when the body fails to actuate, it halts
-// the body and returns zeros, so the next command ramps up from rest.
+// velocity the body moves with: on a holonomic body the restrained command itself, which keeps
+// every restraint allows checks. A differential body gets the Course body.steer makes of the
+// command, no faster than fastest allows, and its motion along the body's heading can point where
+// the restraints removed from the command, so drive checks that motion against them again and
+// sends a turn in place instead of any motion that breaks one. On a command or percept it cannot
+// use, and when the body fails to actuate, it halts the body and returns zeros, so the next
+// command ramps up from rest.
 pub fn (mut a Armor) drive(u []f64, p lcl.Percept, dt f64, manned bool) []f64 {
 	if a.ejected || u.len != a.last.len || !finite(u) || !a.measurable(p) {
 		a.bd.halt()
@@ -143,7 +144,16 @@ pub fn (mut a Armor) drive(u []f64, p lcl.Percept, dt f64, manned bool) []f64 {
 			if lcl.norm(v) > lcl.norm(a.last) {
 				v = lcl.add(a.last, lcl.clamp_norm(lcl.sub(v, a.last), a.limits.a_max * dt))
 			}
-			v = a.fenced(v, p)
+
+			// The blend keeps what last had toward a human or a solid that came within reach
+			// since, and one drop above can bring back motion toward what another took out, so
+			// kept takes the blend to the nearest velocity clear of them all and the fence. That
+			// slows it at most, but can leave it further than a_max * dt from last, and then the
+			// body speeds up along kept's direction only as far as fastest allows.
+			v = a.kept(v, p)
+			if !a.allows(v, p, dt, vmax) {
+				v = lcl.clamp_norm(v, a.fastest(math.atan2(v[1], v[0]), dt))
+			}
 			sent = v.clone()
 		}
 		.differential {
@@ -175,9 +185,9 @@ pub fn (mut a Armor) drive(u []f64, p lcl.Percept, dt f64, manned bool) []f64 {
 	return v
 }
 
-// fastest is the most speed a differential body at heading may move with after dt. a_max bounds
-// its motion as drive bounds a holonomic body's command: while the body speeds up, the motion
-// changes by at most a_max * dt from last, and at no more speed than last it may change freely.
+// fastest is the most speed the body may move with along heading after dt. a_max bounds its
+// motion on either drive: while the body speeds up, the motion changes by at most a_max * dt from
+// last, and at no more speed than last it may change freely.
 fn (a Armor) fastest(heading f64, dt f64) f64 {
 	ahead := lcl.dot(a.last, body.Course{
 		speed: 1.0
@@ -192,10 +202,9 @@ fn (a Armor) fastest(heading f64, dt f64) f64 {
 	return math.max(lcl.norm(a.last), ahead + math.sqrt(room))
 }
 
-// allows reports whether m, the planar motion of a differential body at p, keeps every restraint
-// drive puts on a command: no faster than vmax scaled for the nearest human, no change from last
-// beyond a_max * dt while it speeds up, nothing toward a human inside human_stop or anything solid
-// inside solid_keep, and nothing further out of the fence.
+// allows reports whether m, the planar motion of the body at p, keeps every restraint drive puts
+// on a command: no faster than vmax scaled for the nearest human, no change from last beyond
+// a_max * dt while it speeds up, and what keeps checks.
 fn (a Armor) allows(m []f64, p lcl.Percept, dt f64, vmax f64) bool {
 	speed := lcl.norm(m)
 	if speed > vmax * a.separation(p) + still {
@@ -204,8 +213,32 @@ fn (a Armor) allows(m []f64, p lcl.Percept, dt f64, vmax f64) bool {
 	if speed > lcl.norm(a.last) + still && lcl.dist(m, a.last) > a.limits.a_max * dt + still {
 		return false
 	}
+	return a.keeps(m, p)
+}
+
+// keeps reports whether m, a planar motion of the body at p, moves toward no human inside
+// human_stop, into nothing solid inside solid_keep and no further out of the fence.
+fn (a Armor) keeps(m []f64, p lcl.Percept) bool {
 	return a.toward(p, 0.0).all(lcl.dist(drop_toward(m, it), m) <= still)
 		&& lcl.dist(a.fenced(m, p), m) <= still
+}
+
+// kept is the motion nearest v that keeps passes at p: v itself, v without its part toward one
+// entity drive moves the body no closer to or out of the fence, or rest. Each such entity, and
+// each wall of the fence the body stands at, rules out the motions on one side of a line through
+// rest, so the nearest motion none rules out is v, lies on the line of one that v crosses, or is
+// rest.
+fn (a Armor) kept(v []f64, p lcl.Percept) []f64 {
+	mut near := a.toward(p, 0.0).map(drop_toward(v, it))
+	near << v
+	near << a.fenced(v, p)
+	mut best := []f64{len: v.len}
+	for m in near {
+		if a.keeps(m, p) && lcl.dist(m, v) < lcl.dist(best, v) {
+			best = m.clone()
+		}
+	}
+	return best
 }
 
 // toward is the direction from p's pose to each entity drive moves the body no closer to: a human
