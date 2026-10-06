@@ -6,8 +6,16 @@ module zenoh
 import x.json2
 
 #flag -I @VMODROOT/thirdparty/zenoh-c/include
-#flag @VMODROOT/thirdparty/zenoh-c/lib/libzenohc.a
+
+// On Linux the archive needs the libraries that zenoh-c's lib/cmake/zenohc/zenohcConfig.cmake
+// names, after it. V keeps only the first of two equal flags, and vlib's -ldl, -lpthread and -lm
+// come before any module's, so @START_LIBS moves the archive to the front of the libraries.
+#flag @VMODROOT/thirdparty/zenoh-c/lib/libzenohc.a@START_LIBS
 #flag darwin -framework Foundation -framework Security
+#flag linux -lrt
+#flag linux -lpthread
+#flag linux -lm
+#flag linux -ldl
 #include "zenoh.h"
 
 @[typedef]
