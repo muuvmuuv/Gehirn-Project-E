@@ -136,7 +136,8 @@ fn test_a_stall_pauses_the_mujoco_body() {
 }
 
 // A MuJoCo body reports the world Sim reports, in Sim's order, with its human where the human's
-// walk puts it on the model's clock, and carries and releases its payload as Sim does.
+// walk puts it on the model's clock and the velocity of its last step, and carries and releases
+// its payload as Sim does.
 fn test_a_mujoco_body_reports_its_world_like_sim() {
 	$if mujoco ? {
 		mut b := new_mujoco(default_world())!
@@ -148,6 +149,9 @@ fn test_a_mujoco_body_reports_its_world_like_sim() {
 		}
 		assert p.scene.map('${it.id} ${it.kind} ${it.r}') == s.sense().scene.map('${it.id} ${it.kind} ${it.r}')
 		assert p.scene[2].pos == default_world().humans[0].path(b.steps * step_ms)
+		last := default_world().humans[0].path((b.steps - 1) * step_ms)
+		assert p.scene[2].vel == lcl.scale(lcl.sub(p.scene[2].pos, last), 1000.0 / f64(step_ms))
+		assert p.scene[0].vel.len == 0 && p.scene[1].vel.len == 0
 		assert p.payload
 		assert !p.contact
 		b.effect('goto')!

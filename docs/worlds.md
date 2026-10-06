@@ -71,6 +71,10 @@ The simulator keeps its rules for every world: the body stands still while it to
 
 Under `BODY=mujoco` the MuJoCo base plays the same world ([Safety](safety.md#how-the-body-moves)): every obstacle is a static cylinder of its radius and every human a walking capsule of its radius, which moves by the same rules on the model's clock, starting at the base's first sense and pausing with the model after a stall. There a solid stops the base through MuJoCo's contact, a human who walks through the base touches it by `Sim`'s rule and holds it still while they touch, as in `Sim`, and a beacon is nothing the base can touch.
 
+### A walking human's velocity
+
+The percept carries each walking human's velocity, the step it took since the last sense over that time, in m/s, and none for a human that stands, stopped or waiting included. The recorder writes it with the scene, and the text the models read leaves it out.
+
 ## What gehirn refuses
 
 gehirn reads `WORLD` at startup with the other variables and refuses to start, with one line that names `WORLD`, quotes its value, says what is wrong and what it accepts, and exits 2 ([Refusals](configuration.md#refusals)), for:

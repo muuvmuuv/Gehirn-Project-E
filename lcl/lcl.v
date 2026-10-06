@@ -29,13 +29,15 @@ pub const arrive = 0.35
 pub const beacon_reach = 0.5
 
 // Entity is one thing in a percept's scene: an obstacle, a beacon or a human, with its position
-// and radius in meters. body.Sim reports them, and the armor, the reflex and MAGI read them.
+// and radius in meters and, for a walking human, its velocity. body.Sim reports them, and the
+// armor, the reflex and MAGI read them.
 pub struct Entity {
 pub:
 	id   string
 	kind string // obstacle, beacon, human
 	pos  []f64
 	r    f64
+	vel  []f64 @[omitempty] // m/s, a walking human's; empty for anything that stands, a stopped human included, never [0, 0]
 }
 
 // Percept is one reading of the body: pose, velocity, scene, payload, contact and heading.
@@ -188,8 +190,9 @@ pub fn (i Intent) label() string {
 	return i.verb
 }
 
-// describe renders a percept as text for language backends.
-// tools/mock_endpoint.py parses this layout.
+// describe renders a percept as text for language backends. It leaves out a human's velocity,
+// so a model reads the same text whether a human walks or stands. tools/mock_endpoint.py parses
+// this layout.
 pub fn (p Percept) describe() string {
 	mut lines := [
 		'self at (${p.pose[0]:.2f}, ${p.pose[1]:.2f}), carrying payload: ${p.payload}, in contact: ${p.contact}',

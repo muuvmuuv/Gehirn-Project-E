@@ -115,7 +115,14 @@ fn test_context_and_outcome_open_to_what_was_sealed() {
 			t_ms:    lcl.now_ms()
 			pose:    [-3.5, -2.5]
 			vel:     [0.1, 0.0]
-			scene:   [lcl.Entity{'h1', 'human', [2.6, 1.2], 0.3}]
+			scene:   [
+				lcl.Entity{
+					id:   'h1'
+					kind: 'human'
+					pos:  [2.6, 1.2]
+					r:    0.3
+				},
+			]
 			payload: true
 		}
 		goal:    lcl.Intent{
@@ -150,7 +157,14 @@ fn test_a_heading_travels_only_from_a_differential_body() {
 			t_ms:    1700000000000
 			pose:    [-3.5, -2.5]
 			vel:     [0.1, 0.0]
-			scene:   [lcl.Entity{'h1', 'human', [2.6, 1.2], 0.3}]
+			scene:   [
+				lcl.Entity{
+					id:   'h1'
+					kind: 'human'
+					pos:  [2.6, 1.2]
+					r:    0.3
+				},
+			]
 			payload: true
 		}
 		goal:    lcl.Intent{
@@ -177,6 +191,30 @@ fn test_a_heading_travels_only_from_a_differential_body() {
 	assert f.payload.bytestr().contains('"contact":false,"heading":-0.5}')
 	assert o.context(sample(f))!.percept == turned.percept
 	assert o.view(sample(s.view(lcl.FieldView{ percept: turned.percept })))!.percept == turned.percept
+}
+
+// A standing human has no velocity, so the percept above seals to the bytes it sealed to before
+// the scene carried one; a walking human's velocity travels to HQ and the bridge.
+fn test_a_walking_humans_velocity_travels_to_hq_and_the_bridge() {
+	mut s := new_sealer(link, 'eva01')!
+	mut o := new_opener(link, 'eva01')!
+	p := lcl.Percept{
+		t_ms:  lcl.now_ms()
+		pose:  [-3.5, -2.5]
+		scene: [
+			lcl.Entity{
+				id:   'h1'
+				kind: 'human'
+				pos:  [2.6, 1.2]
+				r:    0.3
+				vel:  [-0.5, 0.36]
+			},
+		]
+	}
+	f := s.context(lcl.Context{ percept: p })
+	assert f.payload.bytestr().contains('"r":0.3,"vel":[-0.5,0.36]}')
+	assert o.context(sample(f))!.percept == p
+	assert o.view(sample(s.view(lcl.FieldView{ percept: p })))!.percept == p
 }
 
 fn test_new_sealer() {

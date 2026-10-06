@@ -408,3 +408,52 @@ fn test_a_sim_stands_while_the_clock_steps_back() {
 		assert p.heading == 0.0, '${drive}'
 	}
 }
+
+// A walker reports the step of its last walk over that time as its velocity, whatever its
+// behavior, none while it stands, and keeps it over a step of no time; Sim.scene hands it on.
+fn test_a_walker_reports_the_velocity_of_its_last_step() {
+	h1 := default_world().humans[0]
+	mut w := Walker{
+		at: h1.path(0)
+	}
+	for t := i64(20); t <= 21_000; t += 20 {
+		w.step(h1, t, 20, [-3.5, -2.5])
+		a := 0.3 * f64(t - 10) / 1000.0
+		assert close(w.vel, [-0.54 * math.sin(a), 0.36 * math.cos(a)]), '${t} ms: ${w.vel}'
+	}
+
+	along := Human{
+		r:        0.3
+		behavior: .waypoints
+		reaction: .stop
+		points:   [[0.0, 0.0], [4.0, 0.0]]
+		speed:    0.5
+		keep:     1.0
+	}
+	mut x := Walker{
+		at: along.path(0)
+	}
+	walk(mut x, along, 0, 1000, 20, [0.0, 4.0])
+	assert close(x.vel, [0.5, 0.0]), '${x.vel}'
+	x.step(along, 1000, 0, [0.0, 4.0])
+	assert close(x.vel, [0.5, 0.0]), 'a step of no time: ${x.vel}'
+	walk(mut x, along, 1000, 3000, 20, [2.0, 0.0])
+	assert x.waited_ms > 0 && x.vel == [], 'a stop human waiting: ${x.vel}'
+
+	stand := Human{
+		r:        0.3
+		behavior: .stand
+		reaction: .through
+		pos:      [1.0, 1.0]
+	}
+	mut y := Walker{
+		at: stand.path(0)
+	}
+	walk(mut y, stand, 0, 100, 20, [0.0, 0.0])
+	assert y.vel == []
+
+	mut s := new_sim(default_world(), .holonomic)
+	scene := s.scene(s.t0_ms + 20)
+	assert scene.map(it.vel.len) == [0, 0, 2]
+	assert scene[2].vel == s.walkers[0].vel
+}

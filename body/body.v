@@ -156,8 +156,9 @@ pub fn (mut s Sim) halt() {
 	s.aim = s.heading
 }
 
-// scene is the world at now, with every human walked on to now. On default_world it is beacon
-// b1, pillar o1 and human h1 on its loop at every time.
+// scene is the world at now, with every human walked on to now and each walking human with the
+// velocity of its last step. On default_world it is beacon b1, pillar o1 and human h1 on its loop
+// at every time.
 fn (mut s Sim) scene(now i64) []lcl.Entity {
 	// lcl.now_ms reads the wall clock, which can step back.
 	dt_ms := math.max(i64(0), now - s.walked_ms)
@@ -168,8 +169,9 @@ fn (mut s Sim) scene(now i64) []lcl.Entity {
 	return s.world.scene(s.walkers)
 }
 
-// scene is w as a percept's scene, with its humans where walkers, one per human, have them: its
-// beacons, obstacles and humans in that order, each kind in the world's order.
+// scene is w as a percept's scene, with its humans where walkers, one per human, have them and
+// each walking human with its walker's velocity: its beacons, obstacles and humans in that order,
+// each kind in the world's order.
 fn (w World) scene(walkers []Walker) []lcl.Entity {
 	mut scene := []lcl.Entity{cap: w.beacons.len + w.obstacles.len + walkers.len}
 	for b in w.beacons {
@@ -194,6 +196,7 @@ fn (w World) scene(walkers []Walker) []lcl.Entity {
 			kind: 'human'
 			pos:  walkers[i].at.clone()
 			r:    h.r
+			vel:  walkers[i].vel.clone()
 		}
 	}
 	return scene

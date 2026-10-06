@@ -393,17 +393,21 @@ fn route(points [][]f64, cycle bool) [][]f64 {
 	return line
 }
 
-// Walker is where one human of Sim's world is and how long it has stood waiting for the body.
+// Walker is where one human of Sim's world is, how fast it last walked and how long it has stood
+// waiting for the body.
 struct Walker {
 mut:
 	at        []f64
+	vel       []f64 // m/s, the step of its last walk over that time; empty when that step was zero
 	waited_ms i64
 }
 
 // step moves the walker of human h to elapsed_ms after the world began, dt_ms after its last
-// step, with the body at pose. A stop human's walk resumes where it stood, since its clock runs
+// step, with the body at pose, and sets its velocity to that step over dt_ms. A step of no time
+// keeps the velocity it had. A stop human's walk resumes where it stood, since its clock runs
 // without the time it waited.
 fn (mut w Walker) step(h Human, elapsed_ms i64, dt_ms i64, pose []f64) {
+	prev := w.at.clone()
 	dt := f64(dt_ms) / 1000.0
 	next := match h.behavior {
 		.loop, .waypoints { h.path(elapsed_ms - w.waited_ms) }
@@ -437,6 +441,11 @@ fn (mut w Walker) step(h Human, elapsed_ms i64, dt_ms i64, pose []f64) {
 			}
 			w.at = clear_of(lcl.add(w.at, v), pose, gap)
 		}
+	}
+
+	if dt_ms > 0 {
+		moved := lcl.sub(w.at, prev)
+		w.vel = if lcl.norm(moved) > 0.0 { lcl.scale(moved, 1000.0 / f64(dt_ms)) } else { []f64{} }
 	}
 }
 
