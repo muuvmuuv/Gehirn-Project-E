@@ -1,6 +1,6 @@
 # ADR-0008: The simulator
 
-**Status:** Accepted on 2026-10-06
+**Status:** Accepted on 2026-10-06; the armor widens its keeps by the base's stopping distance (PLAN, Known issue 33)
 **Date:** 2026-10-06
 **Deciders:** repository owner
 
@@ -134,7 +134,7 @@ Easier: Task 4 builds on a module and a Body whose calls the probes ran on three
 
 Harder: a second build of gehirn, with `-d mujoco`, that `just check` never compiles, so Task 4 adds a recipe that builds and tests it and a CI job of its own that runs it. Every platform builds MuJoCo from source once, with cmake, a C++ compiler, git and the network, and the Mac no longer takes it from the cask. A fault inside MuJoCo ends the field unit rather than halting the body in a running one. Under `BODY=mujoco` the percept's `contact` means touching, the base brakes over its stopping distance where `Sim` stops at once, and a stall pauses the humans, so contacts and the human's closest distance measured there do not compare with numbers from `Sim`, which stays the measured reference.
 
-Invariant 1 holds: the MuJoCo body is a `Body`, and only the armor holds it. Invariant 5 holds: the armor checks every approved goal and every command as before, and, for a differential body, the motion the command's course makes along the body's heading, which is the motion the Body sets; the Body adds no direction of its own, and its inertia, which the armor does not check, carries the base on by its stopping distance (PLAN, Known issue 33). Invariant 9 holds: MuJoCo 3.14.0 builds for aarch64 musl and both probes ran as static aarch64 musl binaries, and a build without the define links none of it. Invariant 10 holds: the Body never runs its model ahead of the wall clock and drops time it cannot catch up within 50 ms, as `pace` drops a backlog, zeroes stale commands as a motor controller does and ends the field unit on an unstable step, and hard limits stay the motor controller's once hardware exists.
+Invariant 1 holds: the MuJoCo body is a `Body`, and only the armor holds it. Invariant 5 holds: the armor checks every approved goal and every command as before, and, for a differential body, the motion the command's course makes along the body's heading, which is the motion the Body sets; the Body adds no direction of its own, and its inertia carries the base on by its stopping distance, which the armor widens its keeps and the fence by (PLAN, Known issue 33). Invariant 9 holds: MuJoCo 3.14.0 builds for aarch64 musl and both probes ran as static aarch64 musl binaries, and a build without the define links none of it. Invariant 10 holds: the Body never runs its model ahead of the wall clock and drops time it cannot catch up within 50 ms, as `pace` drops a backlog, zeroes stale commands as a motor controller does and ends the field unit on an unstable step, and hard limits stay the motor controller's once hardware exists.
 
 Revisit when the first real base is known (Open question 1), which may ask for wheels on a floor; when something needs camera frames, which take MuJoCo's renderer and a graphics context that no probe has tried in the field unit; when upstream builds a static library, which retires the patch; or when a field computer cannot spare the library, which brings back option B.
 

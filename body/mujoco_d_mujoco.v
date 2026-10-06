@@ -17,6 +17,17 @@ const catch_up = 25
 // time constant, so the turn lands on the heading without overshoot.
 const settle = 0.04
 
+// base_mass is the base's mass in kg, which mjcf writes and stopping brakes.
+const base_mass = 20.0
+
+// slide_gain is each slide's velocity gain in N s/m, which mjcf writes: the slide follows its
+// command with the time constant base_mass / slide_gain, 0.05 s.
+const slide_gain = 400.0
+
+// slide_force is each slide's force limit in N, which mjcf writes: it brakes the base at
+// slide_force / base_mass, 10 m/s², at most.
+const slide_force = 200.0
+
 // Mujoco is a differential base on MuJoCo in a World, the Body main.v builds with new_mujoco
 // when BODY is mujoco (ADR-0008). Planar joints, a slide along x, a slide along y and a hinge
 // about z, carry a cylinder of body_radius, each with a velocity actuator and a force limit, so
@@ -65,6 +76,24 @@ pub fn (b &Mujoco) dof() int {
 // drive is how the base moves, always differential.
 pub fn (b &Mujoco) drive() Drive {
 	return .differential
+}
+
+// stopping is how far the base may move along a motion at speed m/s that a command sets, in
+// meters, before it stands once a later command takes the motion out: catch_up steps at that
+// speed, the most one sense runs the command before the next command can replace it, whatever
+// the field loop's tick, 5 cm from 1 m/s, and then its braking. A slide brakes at its force limit
+// down to slide_force / slide_gain, 0.5 m/s, below which it closes in on its command with the time
+// constant base_mass / slide_gain, so it brakes 6.25 cm from 1 m/s and 2.5 cm from 0.5 m/s. Each
+// slide brakes its own axis, so a motion between the axes stops sooner. A NaN speed gives NaN, on
+// which the armor halts the base.
+pub fn (b &Mujoco) stopping(speed f64) f64 {
+	tau := base_mass / slide_gain
+	knee := slide_force / slide_gain
+	hold := speed * f64(catch_up * step_ms) / 1000.0
+	if speed <= knee {
+		return hold + speed * tau
+	}
+	return hold + (speed * speed - knee * knee) * base_mass / (2.0 * slide_force) + knee * tau
 }
 
 // sense steps the model up to the wall clock's time since new_mujoco, less what it dropped, at
@@ -157,10 +186,9 @@ fn (mut b Mujoco) walk() {
 // with no thread, plugin or floor, and autoreset off. A beacon is no geom, since nothing touches
 // it, and a human's capsule takes part in no contact: a mocap body pushes with no limit on its
 // force, so a human walking through a base beside a pillar would squeeze the base into the pillar
-// and fling it out at about 8 m/s. The base weighs 20 kg, so the slides' gain of 400 gives them a time
-// constant of 0.05 s, and the hinge's gain of 62.5 one of 0.01 s on the cylinder's 0.625 kg m²;
-// force limits of 200 N and 100 N m cap the push as a motor's saturation does. armor/armor_test.v
-// stopping is the base's stopping distance from 1 m/s that these numbers give.
+// and fling it out at about 8 m/s. The base weighs base_mass, so slide_gain gives the slides a
+// time constant of 0.05 s, and the hinge's gain of 62.5 one of 0.01 s on the cylinder's
+// 0.625 kg m²; force limits of slide_force and 100 N m cap the push as a motor's saturation does.
 // ponytail: planar joints, not wheels, as ADR-0008 decides; wheels on a floor, with slip and a
 // caster, once Open question 1 names the first real base.
 fn mjcf(w World) string {
@@ -170,7 +198,7 @@ fn mjcf(w World) string {
 	x.write_string('<option timestep="${f64(step_ms) / 1000.0}"><flag autoreset="disable"/></option><worldbody>')
 	x.write_string('<body name="base" pos="${w.start[0]} ${w.start[1]} ${z}">')
 	x.write_string('<joint name="x" type="slide" axis="1 0 0"/><joint name="y" type="slide" axis="0 1 0"/><joint name="yaw" type="hinge" axis="0 0 1"/>')
-	x.write_string('<geom name="base" type="cylinder" size="${body_radius} ${z}" mass="20"/></body>')
+	x.write_string('<geom name="base" type="cylinder" size="${body_radius} ${z}" mass="${base_mass}"/></body>')
 	for o in w.obstacles {
 		x.write_string('<geom type="cylinder" pos="${o.pos[0]} ${o.pos[1]} ${z}" size="${o.r} ${z}"/>')
 	}
@@ -179,7 +207,9 @@ fn mjcf(w World) string {
 		x.write_string('<body mocap="true" pos="${at[0]} ${at[1]} ${z}"><geom type="capsule" size="${h.r} ${z}" contype="0" conaffinity="0"/></body>')
 	}
 	x.write_string('</worldbody><actuator>')
-	x.write_string('<velocity joint="x" kv="400" forcerange="-200 200"/><velocity joint="y" kv="400" forcerange="-200 200"/>')
+	for joint in ['x', 'y'] {
+		x.write_string('<velocity joint="${joint}" kv="${slide_gain}" forcerange="${-slide_force} ${slide_force}"/>')
+	}
 	x.write_string('<velocity joint="yaw" kv="62.5" forcerange="-100 100"/>')
 	x.write_string('</actuator></mujoco>')
 	return x.str()

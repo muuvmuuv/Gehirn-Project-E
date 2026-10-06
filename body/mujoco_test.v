@@ -114,6 +114,69 @@ fn test_a_mujoco_body_stops_with_its_command() {
 	}
 }
 
+struct StoppingCase {
+	speed   f64  // m/s the base drives at before the command that takes the motion out
+	heading f64  // rad
+	tight   bool // the motion runs along a slide, which moves by the full bound
+}
+
+// stopping bounds how far a MuJoCo base moves along a motion a command sets, measured from where
+// it stood when that command came: through a sense that stalls past catch_up steps, the longest
+// one sense runs it, and its braking once the next command takes the motion out. Along a
+// slide it moves the bound, to within 5%, and between the slides less. Each run, on an empty
+// floor, turns the base onto its heading in place first.
+fn test_stopping() {
+	$if mujoco ? {
+		cases := [
+			StoppingCase{0.2, 0.0, true},
+			StoppingCase{0.5, 0.0, true},
+			StoppingCase{0.8, 0.0, true},
+			StoppingCase{1.0, 0.0, true},
+			StoppingCase{1.0, math.pi / 2.0, true},
+			StoppingCase{1.0, math.pi / 6.0, false},
+			StoppingCase{1.0, math.pi / 4.0, false},
+			StoppingCase{1.5, -math.pi / 4.0, false},
+			StoppingCase{2.0, math.pi, true},
+		]
+		for c in cases {
+			mut b := new_mujoco(World{
+				start:   [0.0, 0.0]
+				beacons: default_world().beacons
+			})!
+			mut p := b.sense()
+			for _ in 0 .. 25 {
+				b.actuate([0.0, c.heading])!
+				b.t0_ms -= 40
+				p = b.sense()
+			}
+			for _ in 0 .. 25 {
+				b.actuate([c.speed, c.heading])!
+				b.t0_ms -= 40
+				p = b.sense()
+			}
+			name := '${c.speed} m/s at ${c.heading} rad'
+			assert math.abs(lcl.norm(p.vel) - c.speed) < 1e-3, '${name}: ${p.vel}'
+			from := p.pose.clone()
+			bound := b.stopping(lcl.norm(p.vel))
+			b.actuate([c.speed, c.heading])!
+			b.t0_ms -= 60
+			p = b.sense()
+			b.actuate([0.0, c.heading])!
+			for _ in 0 .. 25 {
+				b.t0_ms -= 40
+				p = b.sense()
+			}
+			on := lcl.dot(lcl.sub(p.pose, from), [math.cos(c.heading),
+				math.sin(c.heading)])
+			assert lcl.norm(p.vel) < 1e-6, '${name}: ${p.vel}'
+			assert on <= bound, '${name}: ${on} m on, bound ${bound} m'
+			if c.tight {
+				assert on > 0.95 * bound, '${name}: ${on} m on, bound ${bound} m'
+			}
+		}
+	}
+}
+
 // A stall of the field loop pauses the model: one sense takes at most catch_up steps, 50 ms of
 // its clock, drops the rest, and the human walks those 50 ms only, while the percept's t_ms stays
 // the field unit's clock.

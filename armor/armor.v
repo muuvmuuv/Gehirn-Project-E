@@ -109,11 +109,19 @@ pub fn (mut a Armor) eject() {
 // every restraint allows checks. A differential body gets the Course body.steer makes of the
 // command, no faster than fastest allows, and its motion along the body's heading can point where
 // the restraints removed from the command, so drive checks that motion against them again and
-// sends a turn in place instead of any motion that breaks one. On a command or percept it cannot
-// use, and when the body fails to actuate, it halts the body and returns zeros, so the next
-// command ramps up from rest.
+// sends a turn in place instead of any motion that breaks one. A body that moves on along a motion
+// once a command takes it out gets the keeps and the fence widened by what its stopping reports
+// at the speed it may reach, so it stands before them. On a command or percept it cannot use, a
+// stopping distance that is negative, NaN or infinite, and when the body fails to actuate, it
+// halts the body and returns zeros, so the next command ramps up from rest.
 pub fn (mut a Armor) drive(u []f64, p lcl.Percept, dt f64, manned bool) []f64 {
-	if a.ejected || u.len != a.last.len || !finite(u) || !a.measurable(p) {
+	// The fastest the body may move until the next command: the faster of the motion drive sent
+	// last and the velocity the body reports, sped up by a_max. math.max returns its second
+	// argument when that is NaN, so stopping sees a NaN velocity.
+	speed := math.max(lcl.norm(a.last), lcl.norm(p.vel)) + a.limits.a_max * dt
+	coast := a.bd.stopping(speed)
+	if a.ejected || u.len != a.last.len || !finite(u) || !a.measurable(p) || !math.is_finite(coast)
+		|| coast < 0.0 {
 		a.bd.halt()
 		a.last = []f64{len: a.last.len}
 		return a.last.clone()
@@ -135,7 +143,7 @@ pub fn (mut a Armor) drive(u []f64, p lcl.Percept, dt f64, manned bool) []f64 {
 		}
 	}
 
-	for dir in a.toward(p, lead) {
+	for dir in a.toward(p, lead + coast) {
 		v = slide(v, dir, tilt)
 	}
 	mut sent := []f64{}
@@ -150,8 +158,8 @@ pub fn (mut a Armor) drive(u []f64, p lcl.Percept, dt f64, manned bool) []f64 {
 			// kept takes the blend to the nearest velocity clear of them all and the fence. That
 			// slows it at most, but can leave it further than a_max * dt from last, and then the
 			// body speeds up along kept's direction only as far as fastest allows.
-			v = a.kept(v, p)
-			if !a.allows(v, p, dt, vmax) {
+			v = a.kept(v, p, coast)
+			if !a.allows(v, p, dt, vmax, coast) {
 				v = lcl.clamp_norm(v, a.fastest(math.atan2(v[1], v[0]), dt))
 			}
 			sent = v.clone()
@@ -159,13 +167,13 @@ pub fn (mut a Armor) drive(u []f64, p lcl.Percept, dt f64, manned bool) []f64 {
 		.differential {
 			// The base reaches the command's direction by turning, so a_max bounds the motion
 			// along its heading, not the command.
-			mut c := body.steer(a.fenced(v, p), p.heading)
+			mut c := body.steer(a.fenced(v, p, coast), p.heading)
 			c = body.Course{
 				speed:   math.min(c.speed, a.fastest(p.heading, dt))
 				heading: c.heading
 			}
 			v = c.motion(p.heading)
-			if !a.allows(v, p, dt, vmax) {
+			if !a.allows(v, p, dt, vmax, coast) {
 				// Turning in place moves the body's center nowhere, so it breaks no restraint.
 				c = body.Course{
 					heading: c.heading
@@ -204,8 +212,9 @@ fn (a Armor) fastest(heading f64, dt f64) f64 {
 
 // allows reports whether m, the planar motion of the body at p, keeps every restraint drive puts
 // on a command: no faster than vmax scaled for the nearest human, no change from last beyond
-// a_max * dt while it speeds up, and what keeps checks.
-fn (a Armor) allows(m []f64, p lcl.Percept, dt f64, vmax f64) bool {
+// a_max * dt while it speeds up, and what keeps checks with the keeps and the fence widened by
+// margin meters.
+fn (a Armor) allows(m []f64, p lcl.Percept, dt f64, vmax f64, margin f64) bool {
 	speed := lcl.norm(m)
 	if speed > vmax * a.separation(p) + still {
 		return false
@@ -213,28 +222,29 @@ fn (a Armor) allows(m []f64, p lcl.Percept, dt f64, vmax f64) bool {
 	if speed > lcl.norm(a.last) + still && lcl.dist(m, a.last) > a.limits.a_max * dt + still {
 		return false
 	}
-	return a.keeps(m, p)
+	return a.keeps(m, p, margin)
 }
 
 // keeps reports whether m, a planar motion of the body at p, moves toward no human inside
-// human_stop, into nothing solid inside solid_keep and no further out of the fence.
-fn (a Armor) keeps(m []f64, p lcl.Percept) bool {
-	return a.toward(p, 0.0).all(lcl.dist(drop_toward(m, it), m) <= still)
-		&& lcl.dist(a.fenced(m, p), m) <= still
+// human_stop, into nothing solid inside solid_keep and no further out of the fence, each widened
+// by margin meters.
+fn (a Armor) keeps(m []f64, p lcl.Percept, margin f64) bool {
+	return a.toward(p, margin).all(lcl.dist(drop_toward(m, it), m) <= still)
+		&& lcl.dist(a.fenced(m, p, margin), m) <= still
 }
 
-// kept is the motion nearest v that keeps passes at p: v itself, v without its part toward one
-// entity drive moves the body no closer to or out of the fence, or rest. Each such entity, and
-// each wall of the fence the body stands at, rules out the motions on one side of a line through
-// rest, so the nearest motion none rules out is v, lies on the line of one that v crosses, or is
-// rest.
-fn (a Armor) kept(v []f64, p lcl.Percept) []f64 {
-	mut near := a.toward(p, 0.0).map(drop_toward(v, it))
+// kept is the motion nearest v that keeps passes at p with margin: v itself, v without its part
+// toward one entity drive moves the body no closer to or out of the fence, or rest. Each such
+// entity, and each wall of the fence the body stands at, rules out the motions on one side of a
+// line through rest, so the nearest motion none rules out is v, lies on the line of one that v
+// crosses, or is rest.
+fn (a Armor) kept(v []f64, p lcl.Percept, margin f64) []f64 {
+	mut near := a.toward(p, margin).map(drop_toward(v, it))
 	near << v
-	near << a.fenced(v, p)
+	near << a.fenced(v, p, margin)
 	mut best := []f64{len: v.len}
 	for m in near {
-		if a.keeps(m, p) && lcl.dist(m, v) < lcl.dist(best, v) {
+		if a.keeps(m, p, margin) && lcl.dist(m, v) < lcl.dist(best, v) {
 			best = m.clone()
 		}
 	}
@@ -242,29 +252,30 @@ fn (a Armor) kept(v []f64, p lcl.Percept) []f64 {
 }
 
 // toward is the direction from p's pose to each entity drive moves the body no closer to: a human
-// inside human_stop and anything else solid inside solid_keep, each widened by lead meters.
-fn (a Armor) toward(p lcl.Percept, lead f64) [][]f64 {
+// inside human_stop and anything else solid inside solid_keep, each widened by margin meters.
+fn (a Armor) toward(p lcl.Percept, margin f64) [][]f64 {
 	mut dirs := [][]f64{}
 	for e in p.scene {
 		if e.kind == 'beacon' {
 			continue
 		}
 		keep := if e.kind == 'human' { a.limits.human_stop } else { a.limits.solid_keep }
-		if lcl.dist(p.pose, e.pos) - e.r < keep + lead {
+		if lcl.dist(p.pose, e.pos) - e.r < keep + margin {
 			dirs << lcl.sub(e.pos, p.pose)
 		}
 	}
 	return dirs
 }
 
-// fenced is v without the parts that would carry the body at p further out of the bounds.
-fn (a Armor) fenced(v []f64, p lcl.Percept) []f64 {
+// fenced is v without the parts that would carry the body at p further out of the bounds, each
+// wall moved margin meters in.
+fn (a Armor) fenced(v []f64, p lcl.Percept, margin f64) []f64 {
 	mut out := v.clone()
 	b := a.limits.bounds
-	if (p.pose[0] <= b[0] && v[0] < 0.0) || (p.pose[0] >= b[2] && v[0] > 0.0) {
+	if (p.pose[0] <= b[0] + margin && v[0] < 0.0) || (p.pose[0] >= b[2] - margin && v[0] > 0.0) {
 		out[0] = 0.0
 	}
-	if (p.pose[1] <= b[1] && v[1] < 0.0) || (p.pose[1] >= b[3] && v[1] > 0.0) {
+	if (p.pose[1] <= b[1] + margin && v[1] < 0.0) || (p.pose[1] >= b[3] - margin && v[1] > 0.0) {
 		out[1] = 0.0
 	}
 	return out

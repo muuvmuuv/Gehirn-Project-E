@@ -7,10 +7,15 @@ import math
 import lcl
 
 // Body is the robot API, anything that can sense, take a velocity command, run an effector and
-// stop. Sim implements it, and armor.restrain takes the one main.v builds.
+// stop. Sim implements it, and armor.restrain takes the one main.v builds. stopping is how far,
+// in meters, the body may move along a motion at a speed in m/s that a command sets before it
+// stands once a later command takes the motion out: until the next command and through its
+// braking after. A body that stops with the command that takes a motion out reports 0, since it
+// then moves toward nothing inside a keep. armor.Armor.drive widens its keeps and the fence by it.
 pub interface Body {
 	dof() int
 	drive() Drive
+	stopping(speed f64) f64
 mut:
 	sense() lcl.Percept
 	actuate(u []f64) !
@@ -63,6 +68,12 @@ pub fn (s &Sim) dof() int {
 // drive is how the body moves, the Drive it was built on.
 pub fn (s &Sim) drive() Drive {
 	return s.drive
+}
+
+// stopping is 0 at every speed: the body moves with exactly the motion of its last command, so it
+// stops with the command that takes a motion out.
+pub fn (s &Sim) stopping(speed f64) f64 {
+	return 0.0
 }
 
 // sense integrates the motion since the last call and reports where it left the body. A

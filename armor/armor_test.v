@@ -7,8 +7,9 @@ import lcl
 
 // Fake is a body that records what the armor sends it, so a test sees what moved.
 struct Fake {
-	fail bool // actuate errs instead of recording
-	base body.Drive
+	fail  bool // actuate errs instead of recording
+	base  body.Drive
+	coast f64 // s: stopping reports the speed times this
 mut:
 	sent    [][]f64
 	effects []string
@@ -21,6 +22,10 @@ fn (f &Fake) dof() int {
 
 fn (f &Fake) drive() body.Drive {
 	return f.base
+}
+
+fn (f &Fake) stopping(speed f64) f64 {
+	return f.coast * speed
 }
 
 fn (mut f Fake) sense() lcl.Percept {
@@ -558,8 +563,199 @@ fn test_a_differential_body_keeps_moving_past_a_walking_human() {
 
 		// Headed along the slide of a tick before, with the human a degree further round, it
 		// would close on them.
-		assert !a.allows(along(lcl.norm(got), deg(bearing + 1.0 - 90.0)), p, 1.0, 1.0), '${bearing}'
+		assert !a.allows(along(lcl.norm(got), deg(bearing + 1.0 - 90.0)), p, 1.0, 1.0, 0.0), '${bearing}'
 		heading = f.sent.last()[1]
+	}
+}
+
+struct CoastCase {
+	name    string
+	base    body.Drive
+	coast   f64   = 0.1
+	pose    []f64 = [0.0, 0.0]
+	heading f64
+	scene   []lcl.Entity
+	last    []f64 = [1.0, 0.0]
+	vel     []f64 = [0.0, 0.0]
+	u       []f64 = [1.0, 0.0]
+	want    []f64 // the motion drive returns
+	sent    []f64 // what it actuates, want when empty
+}
+
+// A body that moves on along a motion once a command takes it out gets every keep and the fence
+// widened by the stopping distance it reports at the speed it may reach, the faster of last and
+// its velocity sped up by a_max for a tick, here 0.1 s at 1.03 m/s, 0.103 m, so on either drive no
+// motion takes it toward a solid, a human or out of the fence within that margin. Each case has a
+// twin that stops at once, or reports no velocity, and drives as before, and past the margin a
+// coasting body drives as before too. In the last two the command slides along a human 0.75 m
+// north, and at 20 degrees north of east the heading lets the body drive, so only the check of
+// that motion against the widened keep turns it in place.
+fn test_drive_widens_the_keeps_and_the_fence_by_the_stopping_distance() {
+	ne := [0.6, 0.8]
+	solid := [ent('obstacle', [1.4, 0.0], 1.0)] // 0.4 m off, 0.05 m outside solid_keep
+	human := [ent('human', [1.25, 0.0], 0.5)] // 0.75 m off, 0.05 m outside human_stop
+	north := [ent('human', [0.0, 1.25], 0.5)]
+	far := [ent('obstacle', [1.55, 0.0], 1.0)] // 0.55 m off, past the margin
+	slid := 0.2 / math.sqrt(1.0 + 1.5 * 1.5)
+	cases := [
+		CoastCase{
+			name:  'a holonomic body slides along a solid within the margin'
+			scene: solid
+			last:  ne
+			u:     ne
+			want:  [0.0, 0.8]
+		},
+		CoastCase{
+			name:  'a holonomic body that stops at once drives on past that solid'
+			coast: 0.0
+			scene: solid
+			last:  ne
+			u:     ne
+			want:  ne
+		},
+		CoastCase{
+			name:  'a holonomic body slides along a solid within what a_max adds to its speed'
+			scene: [ent('obstacle', [1.4515, 0.0], 1.0)] // 0.1015 m outside solid_keep
+			last:  ne
+			u:     ne
+			want:  [0.0, 0.8]
+		},
+		CoastCase{
+			name:  'a holonomic body at rest slides along a solid within the margin of its velocity'
+			scene: solid
+			last:  [0.0, 0.0]
+			vel:   [1.0, 0.0]
+			u:     ne
+			want:  [0.0, 0.03]
+		},
+		CoastCase{
+			name:  'a holonomic body at rest that reports no velocity speeds up toward that solid'
+			scene: solid
+			last:  [0.0, 0.0]
+			u:     ne
+			want:  [0.018, 0.024]
+		},
+		CoastCase{
+			name:  'a holonomic body moves nothing toward a human within the margin'
+			scene: human
+			last:  ne
+			u:     ne
+			want:  [0.0, 0.16]
+		},
+		CoastCase{
+			name:  'a holonomic body that stops at once moves on toward that human, slowed'
+			coast: 0.0
+			scene: human
+			last:  ne
+			u:     ne
+			want:  [0.12, 0.16]
+		},
+		CoastCase{
+			name: 'a holonomic body moves nothing out toward a wall within the margin'
+			pose: [4.95, 0.0]
+			last: ne
+			u:    ne
+			want: [0.0, 0.8]
+		},
+		CoastCase{
+			name:  'a holonomic body that stops at once moves on toward that wall'
+			coast: 0.0
+			pose:  [4.95, 0.0]
+			last:  ne
+			u:     ne
+			want:  ne
+		},
+		CoastCase{
+			name:  'past the margin a solid does not deflect a holonomic body'
+			scene: far
+			last:  ne
+			u:     ne
+			want:  ne
+		},
+		CoastCase{
+			name:  'a differential body turns in place before a solid within the margin and its lead'
+			base:  .differential
+			scene: [ent('obstacle', [1.45, 0.0], 1.0)]
+			want:  [0.0, 0.0]
+			sent:  [0.0, 0.0]
+		},
+		CoastCase{
+			name:  'a differential body that stops at once drives on'
+			base:  .differential
+			coast: 0.0
+			scene: [ent('obstacle', [1.45, 0.0], 1.0)]
+			want:  [1.0, 0.0]
+		},
+		CoastCase{
+			name:  'a differential body turns in place before a human within the margin'
+			base:  .differential
+			scene: human
+			want:  [0.0, 0.0]
+			sent:  [0.0, 0.0]
+		},
+		CoastCase{
+			name:  'a differential body that stops at once drives on, slowed'
+			base:  .differential
+			coast: 0.0
+			scene: human
+			want:  [0.2, 0.0]
+		},
+		CoastCase{
+			name: 'a differential body turns in place before a wall within the margin'
+			base: .differential
+			pose: [4.95, 0.0]
+			want: [0.0, 0.0]
+			sent: [0.0, 0.0]
+		},
+		CoastCase{
+			name:  'a differential body that stops at once drives on'
+			base:  .differential
+			coast: 0.0
+			pose:  [4.95, 0.0]
+			want:  [1.0, 0.0]
+		},
+		CoastCase{
+			name:  'past the margin and its lead a solid does not deflect a differential body'
+			base:  .differential
+			scene: [ent('obstacle', [1.6, 0.0], 1.0)]
+			want:  [1.0, 0.0]
+		},
+		CoastCase{
+			name:    'a differential body turns in place where its heading closes on a human within the margin'
+			base:    .differential
+			heading: deg(20)
+			scene:   north
+			u:       [0.2, 0.3]
+			want:    [0.0, 0.0]
+			sent:    [0.0, -body.shy]
+		},
+		CoastCase{
+			name:    'a differential body drives where its heading leads away from that human'
+			base:    .differential
+			heading: deg(-20)
+			scene:   north
+			u:       [0.2, 0.3]
+			want:    along(slid * math.cos(deg(20) - body.shy), deg(-20))
+			sent:    [slid * math.cos(deg(20) - body.shy), -body.shy]
+		},
+	]
+	for c in cases {
+		mut f := &Fake{
+			base:  c.base
+			coast: c.coast
+		}
+		mut a := restrain(f, Limits{})
+		a.last = c.last.clone()
+		p := lcl.Percept{
+			pose:    c.pose
+			vel:     c.vel
+			heading: c.heading
+			scene:   c.scene
+		}
+		got := a.drive(c.u, p, 0.02, true)
+		assert same(got, c.want), '${c.name}: got ${got}'
+		sent := if c.sent.len > 0 { c.sent } else { c.want }
+		assert f.sent.len == 1 && same(f.sent[0], sent), '${c.name}: sent ${f.sent}'
 	}
 }
 
@@ -611,7 +807,7 @@ fn test_allows() {
 		mut a := restrain(f, Limits{})
 		a.last = c.last.clone()
 		vmax := if c.manned { a.limits.v_max } else { a.limits.v_unmanned }
-		assert a.allows(c.m, at(c.pose, ...c.scene), c.dt, vmax) == c.want, c.name
+		assert a.allows(c.m, at(c.pose, ...c.scene), c.dt, vmax, 0.0) == c.want, c.name
 	}
 }
 
@@ -721,8 +917,8 @@ struct MujocoCase {
 // drive removed, toward a human inside human_stop, a solid inside solid_keep or out of the fence,
 // over 30 ticks of the field loop in real time: it turns away first and drives where its heading
 // leads clear. Each start lies far from the default world's pillar and human. A base already
-// moving brakes along its motion instead, which test_a_moving_mujoco_body_stops_within_stopping
-// bounds.
+// moving brakes along its motion instead, which drive leaves room for, as
+// test_a_moving_mujoco_body_stands_before_its_keeps shows.
 fn test_a_mujoco_body_moves_nowhere_toward_what_drive_removed() {
 	$if mujoco ? {
 		u := lcl.add(along(0.2, deg(-10)), along(0.1, deg(80)))
@@ -767,31 +963,54 @@ fn test_a_mujoco_body_moves_nowhere_toward_what_drive_removed() {
 	}
 }
 
-// stopping is how far the MuJoCo base brakes from v_max, 1 m/s, once drive sends it nothing: the
-// slides' force limit of 200 N slows its 20 kg at 10 m/s² to 0.5 m/s, where the gain of 400 takes
-// over with a time constant of 0.05 s, so (1 - 0.5²) / 20 + 0.5 * 0.05 m. It follows from
-// body/mujoco_d_mujoco.v mjcf, and PLAN's Known issue 33 gives it.
-const stopping = 0.0625
-
 struct MovingCase {
 	name      string
 	start     []f64
 	obstacles []body.Spot
-	human     bool // a human of radius 0.3 steps in with its rim 0.65 m ahead once the base runs at v_max
+	human     []f64 // where a human of radius 0.3 stands in every percept, nowhere when empty
+	steps_in  bool  // a human of radius 0.3 steps in with its rim 0.65 m ahead once the base runs at v_max
 	ticks     int
+	tick_ms   int = 20 // between a drive and the next sense
 }
 
-// A MuJoCo base driving east at v_max moves on along that motion by at most stopping once drive
-// stops it, where Sim stops at once (PLAN, Known issue 33): at the fence, head on at a pillar,
-// whose keep drive widens by body.lead, and with a human stepping in ahead. drive judges the
-// command, not the motion the base brakes through, so this pins how far that motion carries.
-fn test_a_moving_mujoco_body_stops_within_stopping() {
+// depth is how far the base at p stands inside the keep of the case: past the east fence, inside
+// solid_keep of its pillar or inside human_stop of its standing human.
+fn (c MovingCase) depth(p lcl.Percept, l Limits) f64 {
+	if c.obstacles.len > 0 {
+		return l.solid_keep - (lcl.dist(p.pose, c.obstacles[0].pos) - c.obstacles[0].r)
+	}
+	if c.human.len > 0 {
+		return l.human_stop - (lcl.dist(p.pose, c.human) - 0.3)
+	}
+	return p.pose[0] - l.bounds[2]
+}
+
+// A MuJoCo base driving east at v_max brakes to a stand outside the keep it drives at, since drive
+// widens the keeps and the fence by its stopping distance (PLAN, Known issue 33): at the fence,
+// also on ticks of 60 ms, longer than the 50 ms one sense runs the base's last command, from two
+// starts half such a tick of travel apart, head on at a pillar, whose keep drive widens by
+// body.lead too, and before a standing human, whom it slows for. A human who steps in already
+// inside human_stop leaves it no room to brake, and the base moves on toward them by no more than
+// its stopping distance from the speed it had.
+fn test_a_moving_mujoco_body_stands_before_its_keeps() {
 	$if mujoco ? {
 		cases := [
 			MovingCase{
 				name:  'the east fence'
 				start: [3.8, -4.0]
 				ticks: 100
+			},
+			MovingCase{
+				name:    'the east fence on long ticks'
+				start:   [3.8, -4.0]
+				ticks:   60
+				tick_ms: 60
+			},
+			MovingCase{
+				name:    'the east fence on long ticks half a tick on'
+				start:   [3.825, -4.0]
+				ticks:   60
+				tick_ms: 60
 			},
 			MovingCase{
 				name:      'a pillar head on'
@@ -804,10 +1023,16 @@ fn test_a_moving_mujoco_body_stops_within_stopping() {
 				ticks:     90
 			},
 			MovingCase{
-				name:  'a human stepping in'
-				start: [-4.0, -4.0]
-				human: true
-				ticks: 60
+				name:  'a standing human'
+				start: [-3.0, -4.0]
+				human: [-1.0, -4.0]
+				ticks: 250
+			},
+			MovingCase{
+				name:     'a human stepping in'
+				start:    [-4.0, -4.0]
+				steps_in: true
+				ticks:    60
 			},
 		]
 		for c in cases {
@@ -819,11 +1044,21 @@ fn test_a_moving_mujoco_body_stops_within_stopping() {
 			mut a := restrain(b, Limits{})
 			mut p := a.sense()
 			mut scene := p.scene.clone()
+			if c.human.len > 0 {
+				scene << ent('human', c.human, 0.3)
+			}
 			mut stopped := []f64{}
 			mut speed := 0.0
 			mut most := 0.0
+			mut deepest := -1.0
+
+			// Once the base stands, drive lets it creep on as its stopping distance shrinks, and
+			// head on at the pillar a rounding error can start it sliding around, so the run asks
+			// that the base slowed to 1 cm/s after it ran, not that it stands at the end.
+			mut ran := false
+			mut stood := false
 			for _ in 0 .. c.ticks {
-				if c.human && scene.len == p.scene.len && lcl.norm(p.vel) > 0.999 {
+				if c.steps_in && scene.len == p.scene.len && lcl.norm(p.vel) > 0.999 {
 					scene << ent('human', lcl.add(p.pose, [0.95, 0.0]), 0.3)
 				}
 				v := a.drive([1.0, 0.0], lcl.Percept{ ...p, scene: scene }, 0.02, true)
@@ -831,15 +1066,22 @@ fn test_a_moving_mujoco_body_stops_within_stopping() {
 					stopped = p.pose.clone()
 					speed = lcl.norm(p.vel)
 				}
-				time.sleep(20 * time.millisecond)
+				time.sleep(c.tick_ms * time.millisecond)
 				p = a.sense()
 				if stopped.len > 0 {
 					most = math.max(most, p.pose[0] - stopped[0])
 				}
+				deepest = math.max(deepest, c.depth(p, a.limits))
+				ran = ran || lcl.norm(p.vel) > 0.5
+				stood = stood || (ran && lcl.norm(p.vel) < 0.01)
 			}
-			assert speed > 0.95, '${c.name}: stopped from ${speed} m/s'
-			assert most <= stopping + 1e-3, '${c.name}: ${most} m on'
-			assert lcl.norm(p.vel) < 1e-3, '${c.name}: ${p.vel}'
+			assert stood, '${c.name}: ${p.vel}'
+			if c.steps_in {
+				assert speed > 0.95, '${c.name}: stopped from ${speed} m/s'
+				assert most <= b.stopping(speed), '${c.name}: ${most} m on'
+			} else {
+				assert deepest <= 1e-9, '${c.name}: ${deepest} m inside'
+			}
 		}
 	}
 }
@@ -1026,6 +1268,39 @@ fn test_unmeasurable_percept_permits_nothing_and_halts() {
 		assert f.sent.len == 0, name
 		assert f.halts == 1, name
 		assert a.last == [0.0, 0.0], name
+	}
+}
+
+// A stopping distance that is NaN, negative or infinite, and a velocity that leaves a coasting
+// body's margin so, halt the body on either drive as a percept the armor cannot measure does,
+// since no keep can be widened by it. Each case gives the Fake's coast and the velocity.
+fn test_an_unmeasurable_stopping_distance_halts() {
+	nan := math.nan()
+	inf := math.inf(1)
+	cases := {
+		'a NaN stopping distance':                    [nan, 0.0]
+		'a negative stopping distance':               [-0.01, 0.0]
+		'an infinite stopping distance':              [inf, 0.0]
+		'a NaN velocity of a body that coasts':       [0.1, nan]
+		'an infinite velocity of a body that coasts': [0.1, inf]
+	}
+	for name, c in cases {
+		for base in [body.Drive.holonomic, .differential] {
+			mut f := &Fake{
+				base:  base
+				coast: c[0]
+			}
+			mut a := restrain(f, Limits{})
+			a.last = [0.5, 0.0]
+			p := lcl.Percept{
+				pose: [0.0, 0.0]
+				vel:  [c[1], 0.0]
+			}
+			assert a.drive([0.5, 0.0], p, 0.02, true) == [0.0, 0.0], '${name}, ${base}'
+			assert f.sent.len == 0, '${name}, ${base}'
+			assert f.halts == 1, '${name}, ${base}'
+			assert a.last == [0.0, 0.0], '${name}, ${base}'
+		}
 	}
 }
 
