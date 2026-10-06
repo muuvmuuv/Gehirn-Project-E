@@ -35,6 +35,8 @@ Decisions the owner made that are not architecture, with the day, the reason and
 
 - **2026-10-07, a planner that steers around people.** The owner wants the body's way to the goal planned, not only pulled toward the goal and pushed off what is near: around obstacles, around where a walking human is heading, and, when a human comes toward the body, aside in a direction that clears the human and still gains on the goal, rather than only braking. It stays code with no model in it, and the armor still restrains every command (PLAN, Phase 3 Task 6).
 
+- **2026-10-07, 2D first.** gehirn stays a 2D stack for now: the percept, the armor and the bridge's radar work on the plane, and new ground, such as water, ditches, moving boats or a falling object's landing spot, enters as zones and moving entities on it (PLAN, Phase 3 Task 8). Real terrain in 3D, a body on legs that learns to walk, flying and a 3D map view come much later, each with an ADR, since they change the stack's 2D principle. A model that writes worlds to find where the stack fails comes first, as a test tool (Phase 3 Task 7).
+
 ## Tooling
 
 - **2026-10-05, shell scripts.** The task runner's long bash recipes live in `scripts/`, checked with shellcheck and formatted with shfmt in `just check` and the pre-commit hook. The owner installed shfmt for it.
