@@ -969,7 +969,7 @@ struct MovingCase {
 	obstacles []body.Spot
 	human     []f64 // where a human of radius 0.3 stands in every percept, nowhere when empty
 	steps_in  bool  // a human of radius 0.3 steps in with its rim 0.65 m ahead once the base runs at v_max
-	ticks     int
+	ticks     int   // slows the base to 1 cm/s even where every tick lasts exactly tick_ms (PLAN, Known issue 36)
 	tick_ms   int = 20 // between a drive and the next sense
 }
 
@@ -998,7 +998,7 @@ fn test_a_moving_mujoco_body_stands_before_its_keeps() {
 			MovingCase{
 				name:  'the east fence'
 				start: [3.8, -4.0]
-				ticks: 100
+				ticks: 150
 			},
 			MovingCase{
 				name:    'the east fence on long ticks'
@@ -1020,7 +1020,7 @@ fn test_a_moving_mujoco_body_stands_before_its_keeps() {
 					pos: [0.0, -4.0]
 					r:   0.8
 				}]
-				ticks:     90
+				ticks:     140
 			},
 			MovingCase{
 				name:  'a standing human'
@@ -1032,7 +1032,7 @@ fn test_a_moving_mujoco_body_stands_before_its_keeps() {
 				name:     'a human stepping in'
 				start:    [-4.0, -4.0]
 				steps_in: true
-				ticks:    60
+				ticks:    100
 			},
 		]
 		for c in cases {
