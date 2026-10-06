@@ -8,9 +8,16 @@ set -euo pipefail
 # shellcheck source=scripts/stage.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../stage.sh"
 
+# The Geofront with the default world's start, beacon and pillar, so the first pilot's flight
+# along the fence, the handover and the bench are the demo's; nothing new comes within the
+# reflex's 1.2 m of that track. The evacuee crosses the body's way after the second pilot sits
+# down and steps around it, and from about 29 s on nobody is within 4.6 m of the beacon.
+export WORLD=$root/worlds/ep19-bench.json
+field_note="the Geofront: Gendo stands by the cage, Kaji tends his melons, and an evacuee leaves the crushed shelter"
+
 say "Episode 19, \"Introjection\": Unit-01 rejects the dummy plug, and Shinji returns to pilot it"
-say "staged: the dummy plug learns from a pilot who steers 120 degrees off the core's goal, and a second pilot sits down 5 s after the bench"
-say "real: the dummy plug's own sync ratio, the bench at 30%, the core driving alone, and the bench lifting for a pilot"
+say "staged: the Geofront, with NERV's pyramid, Zeruel at its flank, Gendo by the cage, Kaji at his melons and an evacuee from the crushed shelter, who stop or step aside for the body; the dummy plug learns from a pilot who steers 120 degrees off the core's goal, and a second pilot sits down 5 s after the bench"
+say "real: the dummy plug's own sync ratio, the bench at 30%, the core driving alone, the bench lifting for a pilot, and the armor slowing the body near a human"
 # shellcheck disable=SC2119 # the scene adds no arguments to the mock's
 up
 beat "goto approved; the core steers toward the beacon" "$run/hq/hq.log" 'need 2: 可決' 30
@@ -22,7 +29,10 @@ beat "the pilot leaves; the dummy plug, cloned from that pilot, takes the seat a
 seated=$(grep -cF 'seat pilot' "$run/field/field.log")
 sleep 5
 pilot --offset 0 --avoid 1.2 --seconds 40
-beat "a second pilot sits down: the bench lifts, and the dummy plug's sync starts over" "$run/field/field.log" 'seat pilot' 5 $((seated + 1))
-beat "released on target" "$run/hq/core.shinji.jsonl" 'released on target' 90
+beat "a second pilot sits down as the unit passes Kaji's melons: the bench lifts, and the dummy plug's sync starts over" "$run/field/field.log" 'seat pilot' 5 $((seated + 1))
+beat "released on target, with nobody within 2.5 m of the beacon" "$run/hq/core.shinji.jsonl" 'released on target' 90
 ballots 'need 3: 可決'
+if grep -qF 'outcome: contact' "$run/hq/core.shinji.jsonl"; then
+    fail "the body touched someone; the journal records a contact"
+fi
 sleep 5

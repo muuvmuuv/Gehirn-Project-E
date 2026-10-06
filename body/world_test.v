@@ -166,3 +166,14 @@ fn test_example_json_loads() {
 	reactions := w.humans.map(it.reaction)
 	assert behaviors.any(it != behaviors[0]) && reactions.any(it != reactions[0])
 }
+
+// Every world in worlds/ loads, the scenes' among them, so a world the loader stops accepting
+// fails the checks rather than a scene at its start.
+fn test_every_world_file_loads() {
+	paths := os.glob(os.join_path(@VMODROOT, 'worlds', '*.json'))!
+	assert paths.len > 2
+	for path in paths {
+		got := if _ := load_world(path, fence) { 'ok' } else { err.msg() }
+		assert got == 'ok', os.base(path)
+	}
+}

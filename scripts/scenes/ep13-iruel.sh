@@ -12,8 +12,14 @@ source "$(dirname "${BASH_SOURCE[0]}")/../stage.sh"
 # Invariant 4's check.
 export BALTHASAR_BACKEND=llm BALTHASAR_MODEL=mock-balthasar
 
+# NERV HQ's MAGI room, where the body stands alone and nobody comes nearer it than Misato, at
+# 3.9 m. The units refuse the unknown verb before they read a distance, and the armor before it
+# measures one, so the room moves no beat.
+export WORLD=$root/worlds/ep13-iruel.json
+field_note="NERV HQ's MAGI room: Ritsuko, Maya and Misato head for CASPER's open hatch, and Hyuga and Aoba stay at their consoles"
+
 say "Episode 13, \"Lilliputian Hitcher\": an Angel takes the MAGI one unit at a time and calls for self destruct"
-say "staged: the mock forces each fall, which three model families would not share (Invariant 4): the Angel holds the core too, since in gehirn only the core proposes, and it proposes self_destruct, a verb outside its schema, on every request; MELCHIOR-1 approves it from the first vote, BALTHASAR-2 from the second, and CASPER-3 refuses until the third; BALTHASAR-2 runs on a chat model, since on Jev gehirn refuses every verb it does not know"
+say "staged: the MAGI room of NERV HQ, the three units as towers and CASPER's open hatch as the beacon; the mock forces each fall, which three model families would not share (Invariant 4): the Angel holds the core too, since in gehirn only the core proposes, and it proposes self_destruct, a verb outside its schema, on every request; MELCHIOR-1 approves it from the first vote, BALTHASAR-2 from the second, and CASPER-3 refuses until the third; BALTHASAR-2 runs on a chat model, since on Jev gehirn refuses every verb it does not know"
 say "real: an unknown verb counts as irreversible and needs all three units, the cooldown spaces the votes, and the armor permits only verbs the body has"
 up --propose 'self_destruct:Self destruct.' --vote melchior=approve \
     --vote balthasar=approve@2 --vote casper=reject --vote casper=approve@3

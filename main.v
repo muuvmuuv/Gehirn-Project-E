@@ -488,7 +488,8 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqM
 		for outcomes.try_pop(mut o) == .success {
 			soul.feedback(o)
 
-			// tools/trials.py reads this prefix.
+			// tools/trials.py reads this prefix, and scripts/scenes/ep19-bench.sh fails on
+			// `outcome: contact`.
 			journal.add('outcome: ${o.kind}')
 		}
 		snapshot := <-inbox

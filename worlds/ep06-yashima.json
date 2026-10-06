@@ -1,0 +1,19 @@
+{
+  "start": [-4.5, -4.5],
+  "beacons": [
+    {"id": "futago", "pos": [2.6, -1.0], "r": 0.3}
+  ],
+  "obstacles": [
+    {"id": "ramiel", "pos": [-3.4, 3.4], "r": 1.0},
+    {"id": "substation", "pos": [4.54, -2.42], "r": 0.4}
+  ],
+  "humans": [
+    {"id": "rei", "r": 0.3, "behavior": "waypoints",
+     "points": [[4.7, 4.6], [2.1, 2.26], [2.33, 0.78], [1.88, 0.65], [1.47, 0.4], [1.15, 0.06], [0.02, 0.89]], "speed": 0.25, "cycle": false,
+     "reaction": "aside", "keep": 1.2},
+    {"id": "toji", "r": 0.3, "behavior": "stand", "pos": [-4.2, -0.5],
+     "reaction": "aside", "keep": 1.0},
+    {"id": "kensuke", "r": 0.3, "behavior": "stand", "pos": [-4.4, 0.4],
+     "reaction": "aside", "keep": 1.0}
+  ]
+}

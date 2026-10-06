@@ -42,9 +42,11 @@ run=$(cd "$run" && pwd)
 # personal leaks in; above all CORE_JOURNAL, PLUG_RECORDER and DUMMY_WEIGHTS, the pilot's data.
 # Hosted models keep their variables, their endpoints and keys among them. WORLD goes too, since
 # every beat above is timed on the default world; a scene that plays another world exports
-# WORLD after sourcing this file and times its own beats. DRIVE and BODY only say how the body
-# moves, so `DRIVE=differential just demo` and `just body=mujoco demo` fly the stage on a
-# differential body and on the MuJoCo base; the beats above are timed on the default body.
+# WORLD after sourcing this file, as an absolute path since HQ and the field unit each run in a
+# directory of their own, times its own beats and sets field_note, which up says in place of
+# the default world's walking human. DRIVE and BODY only say how the body moves, so
+# `DRIVE=differential just demo` and `just body=mujoco demo` fly the stage on a differential body
+# and on the MuJoCo base; the beats above are timed on the default body.
 unset MAGI_TIMEOUT_MS CORE_TIMEOUT_MS CORE_BACKEND CL1_SPIKES CL1_SIDECAR PILOT_ID PLUG_ADDR \
     MISSION START WORLD CORE_JOURNAL PLUG_RECORDER DUMMY_WEIGHTS HQ_PERIOD_MS UNIT_ID
 if [ "$lineup" = mock ]; then
@@ -177,7 +179,7 @@ up() {
     start field
     # shellcheck disable=SC2034 # the scenes read field
     field=$!
-    say "field unit up; a human walks a loop past beacon b1"
+    say "field unit up; ${field_note:-a human walks a loop past beacon b1}"
 }
 
 # pilot seats tools/pilot.py in the field unit's directory, steering pilot_offset degrees off the

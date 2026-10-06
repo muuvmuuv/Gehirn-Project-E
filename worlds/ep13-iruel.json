@@ -1,0 +1,23 @@
+{
+  "start": [4.2, 0.0],
+  "beacons": [
+    {"id": "hatch", "pos": [-1.4, -2.0], "r": 0.4}
+  ],
+  "obstacles": [
+    {"id": "melchior", "pos": [1.4, -0.9], "r": 0.7},
+    {"id": "balthasar", "pos": [0.0, 1.5], "r": 0.7},
+    {"id": "casper", "pos": [-1.4, -0.9], "r": 0.7}
+  ],
+  "humans": [
+    {"id": "ritsuko", "r": 0.3, "behavior": "waypoints", "points": [[-3.3, 0.6], [-3.3, -2.0], [-1.4, -2.0]], "speed": 0.55, "cycle": false,
+     "reaction": "aside", "keep": 1.0},
+    {"id": "maya", "r": 0.3, "behavior": "waypoints", "points": [[-3.3, 1.6], [-3.3, -2.0], [-2.4, -2.0]], "speed": 0.45, "cycle": false,
+     "reaction": "aside", "keep": 1.0},
+    {"id": "misato", "r": 0.3, "behavior": "waypoints", "points": [[-2.9, 2.6], [-0.6, 0.3], [0.1, -0.9], [-0.4, -2.0]], "speed": 0.6, "cycle": false,
+     "reaction": "aside", "keep": 1.0},
+    {"id": "hyuga", "r": 0.3, "behavior": "stand", "pos": [-4.1, 1.8],
+     "reaction": "stop", "keep": 1.0},
+    {"id": "aoba", "r": 0.3, "behavior": "stand", "pos": [-4.1, 0.6],
+     "reaction": "stop", "keep": 1.0}
+  ]
+}

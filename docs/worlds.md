@@ -99,6 +99,17 @@ just build
 WORLD=$PWD/worlds/example.json python3 tools/trials.py --runs 3 --jobs 3
 ```
 
-`tools/pilot.py` reads `WORLD` too and starts from the world's start, moved to `START` when set, and steers to its first beacon unless `--beacon` names another. The mission gehirn sets by default names the world's first beacon, so with HQ and the field unit apart, give HQ the same `WORLD`, or a `MISSION` of its own. The mock's core heads for the beacon the mission names, else the first ([Running gehirn](running.md#the-mock-by-hand)). The start sets of `tools/eval_dummy.py` lie in the default world, so with `WORLD` set it takes only starts you give it ([Piloting](piloting.md#training-the-dummy-plug)). `magi-eval` plays no world, since `tools/scenarios.json` holds its own scene. The bridge draws whatever the percept holds. The demo and the scenes unset `WORLD`, since their beats are timed on the default world; a scene that plays another world sets it itself.
+`tools/pilot.py` reads `WORLD` too and starts from the world's start, moved to `START` when set, and steers to its first beacon unless `--beacon` names another. The mission gehirn sets by default names the world's first beacon, so with HQ and the field unit apart, give HQ the same `WORLD`, or a `MISSION` of its own. The mock's core heads for the beacon the mission names, else the first ([Running gehirn](running.md#the-mock-by-hand)). The start sets of `tools/eval_dummy.py` lie in the default world, so with `WORLD` set it takes only starts you give it ([Piloting](piloting.md#training-the-dummy-plug)). `magi-eval` plays no world, since `tools/scenarios.json` holds its own scene. The bridge draws whatever the percept holds. The demo unsets `WORLD`, since its beats are timed on the default world, and each scene sets it to a world of its own ([The scene worlds](#the-scene-worlds)).
 
 PLAN's State holds what the example world's humans did in mock missions.
+
+## The scene worlds
+
+Each canon scene of [Scenes](scenes.md) plays a world of its episode, which the scene's script sets as `WORLD`; the scene's section says what each element stands for. A scene's beats are timed on its world, so a change to the file flies that scene again (CONTRIBUTING.md, Checks). `body/world_test.v` `test_every_world_file_loads` loads every file in `worlds/`, so a world the loader stops accepting fails `just check` before it fails a scene.
+
+| File | Scene | Stages |
+| --- | --- | --- |
+| [worlds/ep13-iruel.json](../worlds/ep13-iruel.json) | `ep13-iruel` | NERV HQ's MAGI room: the three MAGI as towers, CASPER's hatch as the beacon, Ritsuko, Maya and Misato walking to it, two operators at their consoles, and the body alone at the far end |
+| [worlds/ep03-cable.json](../worlds/ep03-cable.json) | `ep03-cable` | Tokyo-3 on the default world's start, beacon and pillar: buildings, a shelter, a shrine, and two boys who walk from the shelter to the shrine and stop for the body |
+| [worlds/ep19-bench.json](../worlds/ep19-bench.json) | `ep19-bench` | The Geofront on the default world's start, beacon and pillar: the Angel beside the pyramid, Kaji's melons and a crushed shelter, with Gendo and Kaji who stop for the body and an evacuee who steps aside |
+| [worlds/ep06-yashima.json](../worlds/ep06-yashima.json) | `ep06-yashima` | Mt. Futago: the firing point, the substation behind it and Ramiel across the map, with Rei guarding the gunner and two classmates watching |
