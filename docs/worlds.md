@@ -73,7 +73,7 @@ Under `BODY=mujoco` the MuJoCo base plays the same world ([Safety](safety.md#how
 
 ### A walking human's velocity
 
-The percept carries each walking human's velocity, the step it took since the last sense over that time, in m/s, and none for a human that stands, stopped or waiting included. The recorder writes it with the scene, and the text the models read leaves it out. MAGI judge a goto by it ([MAGI](magi.md#a-goto-toward-a-walking-human)), but only a goto the body could reach within 2 s, from within 2.35 m of its target. A goto from farther than that never draws it: in the default world every start the tools fly lies at least 2.50 m from the beacon, so the mission's first goto never does, while a re-goto from near the beacon may. Of the scenes, only `ep18-bardiel` proposes a goto from that close, and a flight of it checks that MAGI refuse the one onto Toji's way.
+The percept carries each walking human's velocity, the step it took since the last sense over that time, in m/s, and none for a human that stands, stopped or waiting included. The recorder writes it with the scene, and the text the models read leaves it out. MAGI judge a goto by it ([MAGI](magi.md#a-goto-toward-a-walking-human)), but only a goto the body could reach within 2 s, from within 2.35 m of its target. A goto from farther than that never draws it: in the default world every start the tools fly lies at least 2.50 m from the beacon, so the mission's first goto never does, while a re-goto from near the beacon may. Of the scenes, only `ep18-bardiel` proposes a goto from that close, and a flight of it checks that MAGI refuse the one onto Toji's way. [The crossing world](#the-crossing-world) starts the body that close to its beacon, so the rule judges the mission's first goto.
 
 ## What gehirn refuses
 
@@ -114,3 +114,16 @@ Each canon scene of [Scenes](scenes.md) plays a world of its episode, which the 
 | [worlds/ep19-bench.json](../worlds/ep19-bench.json) | `ep19-bench` | The Geofront on the default world's start, beacon and pillar: the Angel beside the pyramid, Kaji's melons and a crushed shelter, with Gendo and Kaji who stop for the body and an evacuee who steps aside |
 | [worlds/ep06-yashima.json](../worlds/ep06-yashima.json) | `ep06-yashima` | Mt. Futago: the firing point, the substation behind it and Ramiel across the map, with Rei guarding the gunner and two classmates watching |
 | [worlds/ep18-bardiel.json](../worlds/ep18-bardiel.json) | `ep18-bardiel` | The battle line at Nobeyama on the default world's start, beacon and pillar: Toji, who walks the north edge, turns straight for the body at the beacon and stops 1 m short of it |
+
+## The crossing world
+
+[worlds/crossing.json](../worlds/crossing.json) measures the course rule on the gotos a core proposes (PLAN, Known issue 34). It keeps the default world's beacon b1, pillar o1 and walking human h1, and starts the body 2 m north of b1, at 3,4, so the mission's first goto lies within the rule's 2.35 m. h1 walks the default world's loop, which turns at 0.3 radians a second and brushes past b1, the human's rim coming within 0.336 m of the beacon's center, 14 mm inside the reach in which a goto ends, so a few centimeters decide whether a COURSE fact holds there. Its loop starts 0.75 radians behind the default world's, so h1 is within that reach from 3.56 to 4.08 s after the start, soon after a hosted core's first goto is judged about 2 s in, and it steps aside for the body at 1.0 m. Fly it as any world:
+
+```sh
+just build
+WORLD=$PWD/worlds/crossing.json python3 tools/trials.py --runs 10 --jobs 3
+```
+
+The mock's core answers at once, so on the mock the first goto is judged at the start, before h1 nears b1, and the rule never fires. Slow the mock's core to judge it later, as `python3 tools/mock_endpoint.py --slow core=2000` does, or fly a hosted core ([Running gehirn](running.md#hosted-models)).
+
+PLAN's State holds how often the rule fired there and how often its fact held, on the mock and on hosted lineup A.
