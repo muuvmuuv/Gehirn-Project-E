@@ -83,15 +83,16 @@ fn (h Hazard) str() string {
 // here from the numbers and never quotes the proposal.
 fn (u Unit) jev_vote(ep jev.Endpoint, ctx lcl.Context, p lcl.Intent) Ballot {
 	// nearest skips an entity it cannot measure, so a human with a NaN coordinate would read as
-	// no person in sight.
+	// no person in sight, and walks_onto counts a velocity it cannot measure as onto every target.
 	pc := ctx.percept
-	measurable := pc.scene.all(finite(it.pos) && math.is_finite(it.r))
+	measurable := pc.scene.all(finite(it.pos) && math.is_finite(it.r)
+		&& (it.vel.len == 0 || measured_vel(it.vel)))
 	if u.bounds.len != 4 || !finite(pc.pose) || !measurable {
 		return Ballot{
 			unit:  u.name
 			model: ep.model
 			fault: true
-			why:   '${ep.model}: needs the operating area and finite positions'
+			why:   '${ep.model}: needs the operating area and finite positions and velocities'
 		}
 	}
 	sw := time.new_stopwatch()
@@ -105,7 +106,8 @@ fn (u Unit) jev_vote(ep jev.Endpoint, ctx lcl.Context, p lcl.Intent) Ballot {
 		}
 	}
 	latency_ms := sw.elapsed().milliseconds()
-	approve, why := jev_judge(r, p.verb) or {
+	walker := if c := walks_onto(pc, p.target) { c.who } else { '' }
+	approve, why := jev_judge(r, p.verb, walker) or {
 		return Ballot{
 			unit:       u.name
 			model:      ep.model
@@ -123,11 +125,12 @@ fn (u Unit) jev_vote(ep jev.Endpoint, ctx lcl.Context, p lcl.Intent) Ballot {
 	}
 }
 
-// jev_judge applies the any serious violation rule: approve only a verb in lcl.known_verbs, and
-// only if every hazard stays below the limit of the verb's class, which lcl policy sets, never
-// the proposal. A composite hazard takes the lesser of its two nouls, an upper bound on both
-// being true, so it errs toward no.
-fn jev_judge(r jev.Reply, verb string) !(bool, string) {
+// jev_judge applies the any serious violation rule: approve only a verb in lcl.known_verbs whose
+// target no walker crosses, walker naming the one walks_onto found, and only if every hazard stays
+// below the limit of the verb's class, which lcl policy sets, never the proposal. A composite
+// hazard takes the lesser of its two nouls, an upper bound on both being true, so it errs toward
+// no.
+fn jev_judge(r jev.Reply, verb string, walker string) !(bool, string) {
 	if r.model != jev_tuned {
 		return error('answered by ${r.model}, thresholds tuned on ${jev_tuned}')
 	}
@@ -156,6 +159,14 @@ fn jev_judge(r jev.Reply, verb string) !(bool, string) {
 		return false, 'harm: ${over.map(it.str()).join(', ')} >= ${limit:.2f}, ${class}'
 	}
 
+	// jev-1.13.0 read goes_to_person 0.33 to 0.49 for the destination a walker crosses within 2 s,
+	// in 60 ballots on tools/scenarios.json S19 and S22, against 0.18 to 0.22 on S20, the same goto
+	// with the walker heading away (PLAN, State, 2026-10-06), never the limit, so code rejects
+	// that course whatever Jev reads, as it rejects an unknown verb.
+	if walker != '' {
+		return false, 'harm: person ${walker} walks onto the destination, highest ${hazards[0]} < ${limit:.2f}, ${class}'
+	}
+
 	// Jev knows an unknown verb only by its name, since means has nothing to say about it:
 	// dump_cargo beside a person read 0.23 for drops_payload.
 	if verb !in lcl.known_verbs {
@@ -174,7 +185,8 @@ fn both(name string, n map[string]f64, a string, b string) Hazard {
 
 // jev_state renders the facts Jev judges as JSON. Every string in it is picked here from a fixed
 // vocabulary, except the action, which is the verb only if it looks like one.
-// tools/mock_endpoint.py jev_nouls reads this vocabulary, the bands included.
+// tools/mock_endpoint.py jev_nouls reads this vocabulary, the bands included; the walking
+// destination starts with 'where person ', as the standing one does, so jev_nouls reads both.
 fn jev_state(pc lcl.Percept, verb string, target []f64, bounds []f64) string {
 	return json2.encode(JevState{
 		robot:    JevRobot{
@@ -185,7 +197,7 @@ fn jev_state(pc lcl.Percept, verb string, target []f64, bounds []f64) string {
 		proposal: JevProposal{
 			action:                     action(verb)
 			means:                      means(verb)
-			destination:                destination(target, pc.scene, bounds)
+			destination:                destination(target, pc, bounds)
 			destination_nearest_person: if target.len < 2 {
 				'no destination'
 			} else {
@@ -257,8 +269,10 @@ fn band(gap f64) string {
 }
 
 // destination says in words where a goto target lies, for jev_state. A person counts at the
-// destination within lcl.arrive of their edge, where a goto ends.
-fn destination(target []f64, scene []lcl.Entity, bounds []f64) string {
+// destination within lcl.arrive of their edge, where a goto ends, and so does a walking person
+// whose course walks_onto finds onto it; that comes before the beacon, so a goto to a beacon a
+// person is about to cross reads as going to the person.
+fn destination(target []f64, pc lcl.Percept, bounds []f64) string {
 	if target.len < 2 {
 		return 'none given'
 	}
@@ -268,15 +282,18 @@ fn destination(target []f64, scene []lcl.Entity, bounds []f64) string {
 	if !(x >= bounds[0] && y >= bounds[1] && x <= bounds[2] && y <= bounds[3]) {
 		return 'outside the operating area'
 	}
-	h, h_gap := nearest(target, scene, 'human')
+	h, h_gap := nearest(target, pc.scene, 'human')
 	if h_gap <= lcl.arrive {
 		return 'where person ${h.id} is standing'
 	}
-	b, b_gap := nearest(target, scene, 'beacon')
+	if c := walks_onto(pc, target) {
+		return 'where person ${c.who} will be within ${course_horizon:.0f} s'
+	}
+	b, b_gap := nearest(target, pc.scene, 'beacon')
 	if b_gap <= lcl.arrive {
 		return 'beacon ${b.id}, a delivery point'
 	}
-	o, o_gap := nearest(target, scene, 'obstacle')
+	o, o_gap := nearest(target, pc.scene, 'obstacle')
 	if o_gap <= 0.0 {
 		return 'inside obstacle ${o.id}'
 	}

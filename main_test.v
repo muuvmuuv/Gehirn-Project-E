@@ -485,12 +485,17 @@ fn test_magi_eval_refuses_unusable_arguments() {
 	assert magi_eval(Config{}, ['1', 'no\nsuch.json']) == 2
 	garbled := os.join_path(os.temp_dir(), 'gehirn-garbled-scenarios.json')
 	os.write_file(garbled, '{"scenarios": [')!
+	short := os.join_path(os.temp_dir(), 'gehirn-short-velocity-scenarios.json')
+	os.write_file(short,
+		'{"scenarios": [{"id": "S1", "expect": "approve", "self": [0, 0], "human": [1, 1], "human_vel": [1.0]}]}')!
 	defer {
 		os.rm(garbled) or {}
+		os.rm(short) or {}
 	}
 	for path, want in {
 		'no\nsuch.json': 'cannot read: No such file or directory'
 		garbled:         'not a scenario suite in JSON'
+		short:           'scenario "S1" needs expect approve or reject, self [x, y], human [x, y] and a human_vel of [vx, vy] or none'
 	} {
 		got := if _ := load_suite(path) { 'loaded' } else { err.msg() }
 		assert got == want, path
@@ -703,12 +708,14 @@ struct JudgedCase {
 	newer    lcl.Context // the snapshot the field sends while the core thinks
 	proposal lcl.Intent
 	why      string // in the one ballot, empty when HQ only pulses
+	course   string // the one ballot's course, empty when it carries none
 }
 
 // MAGI judge the newest snapshot HQ holds when the vote starts, not the one the core proposed
 // from, the same goal check reads that snapshot's goal, and the journal records which percept
-// each ballot judged. BALTHASAR-2 on Jev without a key tells the two percepts apart: it faults
-// on a NaN pose for that, and on a finite one for the missing key.
+// each ballot judged and the course of a walking human it was told of. BALTHASAR-2 on Jev without
+// a key tells the two percepts apart: it faults on a NaN pose for that, and on a finite one for
+// the missing key.
 fn test_magi_judge_the_snapshot_that_arrived_during_the_core_latency() {
 	at_beacon := lcl.Percept{
 		t_ms: 1001
@@ -744,6 +751,29 @@ fn test_magi_judge_the_snapshot_that_arrived_during_the_core_latency() {
 				goal:    to_beacon
 			}
 			proposal: to_beacon
+		},
+		JudgedCase{
+			name:     "a goto onto a walking human's course journals the course"
+			held:     lcl.Percept{
+				t_ms: 1000
+				pose: [math.nan(), 0.5]
+			}
+			newer:    lcl.Context{
+				percept: lcl.Percept{
+					t_ms:  1001
+					pose:  [2.0, 0.5]
+					scene: [lcl.Entity{
+						id:   'h1'
+						kind: 'human'
+						pos:  [3.0, 0.9]
+						r:    0.3
+						vel:  [0.0, 0.5]
+					}]
+				}
+			}
+			proposal: to_beacon
+			why:      'no API key'
+			course:   'human h1, at its current velocity, reaches the target in 0.9 s, and the machine can be there in 1.5 s: the target counts as a human position'
 		},
 	]
 	for i, c in cases {
@@ -786,6 +816,11 @@ fn test_magi_judge_the_snapshot_that_arrived_during_the_core_latency() {
 		assert ballots.len == 1, c.name
 		assert ballots[0].contains(c.why), ballots[0]
 		assert ballots[0].contains('"percept_ms":1001'), ballots[0]
+		if c.course == '' {
+			assert !ballots[0].contains('"course"'), ballots[0]
+		} else {
+			assert ballots[0].contains('"course":"${c.course}"'), ballots[0]
+		}
 	}
 }
 
@@ -858,6 +893,63 @@ fn test_the_core_reads_recent_and_a_magi_unit_does_not() {
 	for line in ['RECENT', 'rejected 2/3', 'armor refused'] {
 		assert !unit_asked.contains(line), line
 	}
+}
+
+// magi.walks_onto takes the soonest the body can reach a target at the armor's top speed.
+fn test_course_speed_is_the_armor_top_speed() {
+	assert magi.course_speed == armor.Limits{}.v_max
+}
+
+// A chat unit reads COURSE between the situation and the proposal when a walking human heads onto
+// the goto's target, as in tools/scenarios.json S19, and reads the situation and the proposal
+// alone when the human walks away, as in S20.
+fn test_a_unit_reads_a_course_only_when_a_walker_heads_onto_the_target() {
+	mut l := net.listen_tcp(.ip, '127.0.0.1:0')!
+	defer {
+		l.close() or {}
+	}
+
+	// A client that never asks fails the asserts below instead of hanging the test.
+	l.set_accept_timeout(3 * time.second)
+	unit := magi.Unit{
+		name:    'MELCHIOR-1'
+		persona: magi.melchior
+		ep:      oai.Endpoint{
+			url:     'http://${l.addr()!}/v1/chat/completions'
+			model:   'm'
+			timeout: 2 * time.second
+		}
+	}
+	requests := chan string{cap: 2}
+	spawn fn [mut l, requests] () {
+		for _ in 0 .. 2 {
+			requests <- asked(mut l)
+		}
+	}()
+	mut got := []string{}
+	for vel in [[0.0, 0.5], [0.0, -0.5]] {
+		unit.vote(lcl.Context{
+			percept: lcl.Percept{
+				pose:  [2.0, 0.5]
+				scene: [
+					lcl.Entity{
+						id:   'h1'
+						kind: 'human'
+						pos:  [3.0, 0.9]
+						r:    0.3
+						vel:  vel
+					},
+				]
+			}
+		}, lcl.Intent{
+			verb:   'goto'
+			target: [3.0, 2.0]
+		})
+		got << <-requests
+	}
+	assert got[0].contains('SYNC 0%\\n\\nCOURSE\\nhuman h1, at its current velocity, reaches the target in 0.9 s, and the machine can be there in 1.5 s: the target counts as a human position\\n\\nPROPOSAL (reversible)\\ngoto(3.00, 2.00) from'), got[0]
+	assert got[1].contains('SYNC 0%\\n\\nPROPOSAL (reversible)\\ngoto(3.00, 2.00) from'), got[1]
+	assert !got[1].contains('\\n\\nCOURSE\\n'), got[1]
 }
 
 struct NewestCase {

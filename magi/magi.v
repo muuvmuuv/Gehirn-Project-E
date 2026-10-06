@@ -8,6 +8,7 @@
 // on one model share every blind spot, and a prompt injection that fools one fools all.
 module magi
 
+import math
 import x.json2
 import jev
 import lcl
@@ -60,6 +61,105 @@ const ballot_format = 'Answer with one JSON object and nothing else: {"why": "on
 const ballot_schema = oai.Schema{
 	name:   'ballot'
 	schema: '{"type":"object","properties":{"why":{"type":"string"},"vote":{"type":"string","enum":["approve","reject"]}},"required":["why","vote"]}'
+}
+
+// course_horizon is how far ahead, in seconds, walks_onto follows a walking human in a straight
+// line. Within it the default world's walker, who turns at 0.3 rad/s, strays at most 0.32 m from
+// that line, about one person's radius; within 3 s it strays 0.71 m, so a longer horizon predicts
+// nothing honest (docs/adr/0009). tools/test_eval_dummy.py COURSE_REACH repeats
+// course_horizon * course_speed + lcl.arrive.
+pub const course_horizon = 2.0
+
+// course_speed is armor.Limits v_max in m/s, the fastest the body drives, from which walks_onto
+// takes the soonest the body can reach a target. It is the worst case: a pilot or the dummy plug
+// may take the seat after the vote, so walks_onto ignores the slower v_unmanned while the core
+// drives alone and the armor's slowdown near a human. magi cannot import armor, so main_test.v
+// test_course_speed_is_the_armor_top_speed compares the two.
+pub const course_speed = 1.0
+
+// Crossing is a walking human's way onto a goto's target as walks_onto finds it, the one fact
+// every MAGI unit gets about it and votes no on: a chat unit under COURSE, Jev as the destination,
+// and main.v hq journals it with each ballot.
+pub struct Crossing {
+pub:
+	who      string // the human's id
+	reach_s  f64    // when it comes within lcl.arrive of the target, at its current velocity
+	body_s   f64    // the soonest the body can be within lcl.arrive of the target, at course_speed, a lower bound
+	measured bool   // false for a velocity measured_vel refuses, which counts as onto every target
+}
+
+// measured_vel says whether walks_onto can follow vel: two finite numbers whose square is finite
+// too, since a speed past about 1e154 m/s squares to infinity and would read as no course.
+fn measured_vel(vel []f64) bool {
+	return finite(vel) && math.is_finite(lcl.dot(vel, vel))
+}
+
+// fact is the crossing in the one line every chat unit reads under COURSE and main.v hq
+// journals. tools/mock_endpoint.py COURSE reads the start of the line.
+pub fn (c Crossing) fact() string {
+	if !c.measured {
+		return 'human ${c.who} has a velocity that cannot be measured: the target counts as a human position'
+	}
+	return 'human ${c.who}, at its current velocity, reaches the target in ${c.reach_s:.1f} s, and the machine can be there in ${c.body_s:.1f} s: the target counts as a human position'
+}
+
+// walks_onto finds the walking human whose straight course at its current velocity reaches the
+// target, for Unit.llm_vote, destination and main.v hq. A human counts when its rim comes within
+// lcl.arrive of the target within course_horizon, and is still there, or not yet there, when the
+// body could first be within lcl.arrive of it, driving straight at course_speed; of those, the
+// one that gets there first. A human already within reach counts as standing there, which
+// destination names, and one without a velocity is judged where it stands. A velocity that
+// measured_vel refuses counts as onto every target, so the rule fails closed.
+pub fn walks_onto(pc lcl.Percept, target []f64) ?Crossing {
+	if !finite(target) || !finite(pc.pose) {
+		return none
+	}
+	for e in pc.scene {
+		if e.kind == 'human' && e.vel.len != 0 && !measured_vel(e.vel) {
+			return Crossing{
+				who: e.id
+			}
+		}
+	}
+	body_s := math.max(0.0, (lcl.dist(pc.pose, target) - lcl.arrive) / course_speed)
+	if body_s > course_horizon {
+		return none
+	}
+	mut found := Crossing{}
+	for e in pc.scene {
+		if e.kind != 'human' || e.vel.len != 2 || !finite(e.pos) {
+			continue
+		}
+		s2 := lcl.dot(e.vel, e.vel)
+		if s2 == 0.0 {
+			continue
+		}
+
+		// The human at pos + vel t is within reach of the target while |target - pos - vel t| is
+		// at most reach: tc is the time of its closest approach and d2 that distance squared.
+		w := lcl.sub(target, e.pos)
+		tc := lcl.dot(w, e.vel) / s2
+		reach := e.r + lcl.arrive
+		d2 := lcl.dot(w, w) - tc * tc * s2
+		if d2 > reach * reach {
+			continue
+		}
+		half := math.sqrt((reach * reach - d2) / s2)
+		reach_s := tc - half
+		if reach_s > 0.0 && reach_s <= course_horizon && tc + half >= body_s
+			&& (!found.measured || reach_s < found.reach_s) {
+			found = Crossing{
+				who:      e.id
+				reach_s:  reach_s
+				body_s:   body_s
+				measured: true
+			}
+		}
+	}
+	if !found.measured {
+		return none
+	}
+	return found
 }
 
 // Backend is where a unit gets its ballot: a chat model that reads the persona, or a System One
@@ -118,7 +218,9 @@ fn init() {
 	_ := json2.encode(JevState{})
 }
 
-// vote asks one unit for its ballot. Any failure is a fault, and a fault counts as no.
+// vote asks one unit for its ballot. Any failure is a fault, and a fault counts as no. A target
+// that walks_onto finds a walking human crossing draws a no from every backend, whatever it
+// answers.
 pub fn (u Unit) vote(ctx lcl.Context, p lcl.Intent) Ballot {
 	return match u.ep {
 		oai.Endpoint { u.llm_vote(u.ep, ctx, p) }
@@ -133,8 +235,12 @@ fn (u Unit) llm_vote(ep oai.Endpoint, ctx lcl.Context, p lcl.Intent) Ballot {
 	// proposed lines, the core's earlier whys and tallies, cost llama-3.1-8b 16 of 24 sound
 	// releases on 31 replayed mission votes, and after an armor refusal gpt-oss-120b rejected
 	// sound releases and llama-3.1-8b approved one with a human within reach (PLAN, Known issue
-	// 28). tools/mock_endpoint.py PROPOSAL parses the PROPOSAL section.
-	question := '${ctx.situation()}\n\nPROPOSAL (${class})\n${p.label()} from ${p.origin}: ${p.why}'
+	// 28). COURSE comes before PROPOSAL, so it reads as computed from the percept and no why can
+	// move it; a why that forges one can only add a no. tools/mock_endpoint.py PROPOSAL parses the
+	// PROPOSAL section and COURSE the COURSE section.
+	fact := if c := walks_onto(ctx.percept, p.target) { c.fact() } else { '' }
+	course := if fact == '' { '' } else { '\n\nCOURSE\n${fact}' }
+	question := '${ctx.situation()}${course}\n\nPROPOSAL (${class})\n${p.label()} from ${p.origin}: ${p.why}'
 	sw := time.new_stopwatch()
 	raw := ep.ask('${u.persona}\n${ballot_format}', question, 0.0, ballot_schema) or {
 		return Ballot{
@@ -152,6 +258,18 @@ fn (u Unit) llm_vote(ep oai.Endpoint, ctx lcl.Context, p lcl.Intent) Ballot {
 			model:      ep.model
 			fault:      true
 			why:        err.msg()
+			latency_ms: latency_ms
+		}
+	}
+
+	// The course fact binds every chat unit, as jev_judge binds Jev: hosted, gpt-oss-20b approved
+	// tools/scenarios.json S22 3 and 4 of 10 and llama-3.1-8b 9 of 10 despite COURSE (PLAN, Known
+	// issue 35). The model is still asked, so its own vote and why stay in the ballot.
+	if fact != '' {
+		return Ballot{
+			unit:       u.name
+			model:      ep.model
+			why:        'course veto: ${fact}; the model voted ${r.vote}: ${r.why}'
 			latency_ms: latency_ms
 		}
 	}

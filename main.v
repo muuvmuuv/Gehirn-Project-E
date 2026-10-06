@@ -255,6 +255,7 @@ struct BallotEntry {
 	why        string
 	latency_ms i64
 	percept_ms i64 // t_ms of the percept the ballot judged, on the field unit's clock
+	course     string @[omitempty] // the fact magi.walks_onto gave every unit, empty when none
 }
 
 // FaultEntry is one core fault as a journal line, written for every fault while HQ prints only a
@@ -553,6 +554,7 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqM
 				votes:    [shown(b)]
 			})
 		})
+		course := if c := magi.walks_onto(judged.percept, proposal.target) { c.fact() } else { '' }
 		for b in verdict.ballots {
 			journal.log(BallotEntry{
 				t_ms:       lcl.now_ms()
@@ -564,6 +566,7 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqM
 				why:        b.why
 				latency_ms: b.latency_ms
 				percept_ms: judged.percept.t_ms
+				course:     course
 			})
 		}
 		_ = events.try_push(lcl.HqEvent{

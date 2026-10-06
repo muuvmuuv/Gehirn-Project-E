@@ -9,7 +9,7 @@ import tempfile
 from pathlib import Path
 
 from eval_dummy import KNN_LIMIT, STARTS, met, outcome, pilot_ticks, plug_up, summary
-from pilot import parser
+from pilot import BEACON, START, parser
 
 STYLE = parser().parse_args(["--offset", "20"])
 AHEAD = [0.6 * 0.7071067811865476, 0.6 * 0.7071067811865476]  # straight at the beacon from (0, -1)
@@ -82,5 +82,15 @@ for worse in ({"off_deg": 11.24}, {"astray_pct": 12.4}, {"arrived": 29}, {"bench
 sets = {k: set(v.split(";")) for k, v in STARTS.items()}
 assert len(sets["fresh"]) == 61 and not sets["fresh"] & (sets["train"] | sets["validation"] | sets["test"])
 assert len(sets["fresh-train"]) == 35 and sets["fresh-train"] < sets["train"]
+
+# No first goto of Phase 4's protocol draws MAGI's course rule (docs/adr/0009), which judges only a
+# goto the body could reach within its horizon: every start lies farther from the beacon than that.
+COURSE_REACH = 2.35  # magi/magi.v course_horizon * course_speed + lcl.arrive
+root = Path(__file__).parent.parent
+const = {name: float(re.search(rf"pub const {name} = (\S+)", (root / src).read_text())[1])
+         for name, src in (("course_horizon", "magi/magi.v"), ("course_speed", "magi/magi.v"), ("arrive", "lcl/lcl.v"))}
+assert math.isclose(COURSE_REACH, const["course_horizon"] * const["course_speed"] + const["arrive"]), const
+starts = [START] + [tuple(map(float, s.split(","))) for v in sets.values() for s in v]
+assert min(math.dist(s, BEACON) for s in starts) > COURSE_REACH, min(math.dist(s, BEACON) for s in starts)
 
 print("eval_dummy: ok")

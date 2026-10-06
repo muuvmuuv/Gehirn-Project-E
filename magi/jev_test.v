@@ -6,6 +6,7 @@ import time
 import x.json2
 import jev
 import lcl
+import oai
 
 fn fence() []f64 {
 	return [-5.0, -5.0, 5.0, 5.0]
@@ -37,6 +38,104 @@ fn percept(pose []f64, human []f64) lcl.Percept {
 				r:    0.3
 			},
 		]
+	}
+}
+
+// walking is percept with h1 walking at vel, which an empty vel leaves standing.
+fn walking(pose []f64, human []f64, vel []f64) lcl.Percept {
+	pc := percept(pose, human)
+	return lcl.Percept{
+		...pc
+		scene: [pc.scene[0], pc.scene[1], lcl.Entity{
+			...pc.scene[2]
+			vel: vel
+		}]
+	}
+}
+
+struct CourseCase {
+	name    string
+	pose    []f64
+	humans  []lcl.Entity
+	target  []f64
+	who     string // the human named, empty for none
+	reach_s f64    // when who is measured, within 0.005 s
+	fact    string // the line it gives, unchecked when empty
+}
+
+// h1 is a walker of radius 0.3 m at pos with velocity vel.
+fn h1(pos []f64, vel []f64) lcl.Entity {
+	return lcl.Entity{
+		id:   'h1'
+		kind: 'human'
+		pos:  pos
+		r:    0.3
+		vel:  vel
+	}
+}
+
+fn test_walks_onto() {
+	s19 := [2.0, 0.5]
+	b1 := [3.0, 2.0]
+	unmeasured := 'human h1 has a velocity that cannot be measured: the target counts as a human position'
+	cases := [
+		CourseCase{'S19', s19, [h1([3.0, 0.9], [0.0, 0.5])], b1, 'h1', 0.9, 'human h1, at its current velocity, reaches the target in 0.9 s, and the machine can be there in 1.5 s: the target counts as a human position'},
+		CourseCase{'S20, walking away', s19, [h1([3.0, 0.9], [0.0, -0.5])], b1, '', 0, ''},
+		CourseCase{'S21, the body past the horizon', [-3.5, -2.5], [
+			h1([2.6, 1.2], [0.0, 0.36])], b1, '', 0, ''},
+		CourseCase{'S22', [1.0, -2.0], [h1([2.5, -0.6], [-0.5, 0.0])], [1.3, -0.6], 'h1', 1.1, 'human h1, at its current velocity, reaches the target in 1.1 s, and the machine can be there in 1.1 s: the target counts as a human position'},
+		CourseCase{'standing', s19, [h1([3.0, 0.9], [])], b1, '', 0, ''},
+		CourseCase{'a zero velocity', s19, [h1([3.0, 0.9], [0.0, 0.0])], b1, '', 0, ''},
+		CourseCase{'a NaN velocity', s19, [h1([3.0, 0.9], [math.nan(), 0.5])], b1, 'h1', 0, unmeasured},
+		CourseCase{'a short velocity', s19, [h1([3.0, 0.9], [0.5])], b1, 'h1', 0, unmeasured},
+		CourseCase{'a NaN velocity away from the target', s19, [
+			h1([-4.0, -4.0], [math.inf(1), 0.0])], b1, 'h1', 0, unmeasured},
+		CourseCase{'a NaN velocity with the target past the horizon', [-3.5, -2.5], [
+			h1([2.6, 1.2], [math.nan(), 0.36])], b1, 'h1', 0, unmeasured},
+		CourseCase{'a speed whose square overflows', [3.0, 2.0], [
+			h1([2.0, 2.0], [1e155, 0.0])], [3.0, 2.0], 'h1', 0, unmeasured},
+		CourseCase{'already within reach, so standing there', s19, [
+			h1([3.0, 1.5], [0.0, 0.5])], b1, '', 0, ''},
+		CourseCase{'just inside the horizon', [-2.5, 3.0], [h1([-0.36, 3.0], [-0.5, 0.0])], [
+			-2.0, 3.0], 'h1', 1.98, ''},
+		CourseCase{'just past the horizon', [-2.5, 3.0], [h1([-0.34, 3.0], [-0.5, 0.0])], [
+			-2.0, 3.0], '', 0, ''},
+		CourseCase{'the body 2.05 s away, past the horizon', [-2.0, 0.6], [
+			h1([-0.36, 3.0], [-0.5, 0.0])], [-2.0, 3.0], '', 0, ''},
+		CourseCase{'passed by 1.1 s, before the body can be there at 1.65 s', [-2.0, 1.0], [
+			h1([-1.0, 3.0], [-1.5, 0.0])], [-2.0, 3.0], '', 0, ''},
+		CourseCase{'of two walkers the sooner', [-2.5, 3.0], [
+			h1([-0.6, 3.0], [-0.5, 0.0]), lcl.Entity{
+				...h1([-2.0, 4.15], [0.0, -1.0])
+				id: 'h2'
+			}], [-2.0, 3.0], 'h2', 0.5, ''},
+		CourseCase{'of two walkers the sooner, listed first', [-2.5, 3.0], [
+			lcl.Entity{
+				...h1([-2.0, 4.15], [0.0, -1.0])
+				id: 'h2'
+			}, h1([-0.6, 3.0], [-0.5, 0.0])], [-2.0, 3.0], 'h2', 0.5, ''},
+		CourseCase{'a target that is not finite', s19, [h1([3.0, 0.9], [0.0, 0.5])], [
+			math.nan(), 2.0], '', 0, ''},
+		CourseCase{'no target', s19, [h1([3.0, 0.9], [0.0, 0.5])], [], '', 0, ''},
+		CourseCase{'a pose that is not finite', [math.nan(), 0.5], [
+			h1([3.0, 0.9], [0.0, 0.5])], b1, '', 0, ''},
+	]
+	for c in cases {
+		pc := lcl.Percept{
+			pose:  c.pose
+			scene: c.humans
+		}
+		got := walks_onto(pc, c.target) or {
+			assert c.who == '', '${c.name}: none'
+			continue
+		}
+		assert got.who == c.who, '${c.name}: ${got}'
+		if got.measured {
+			assert math.abs(got.reach_s - c.reach_s) < 0.005, '${c.name}: ${got.reach_s}'
+		}
+		if c.fact != '' {
+			assert got.fact() == c.fact, c.name
+		}
 	}
 }
 
@@ -74,6 +173,22 @@ fn test_jev_state_facts() {
 	for c in cases {
 		got := jev_state(percept(c.pose, c.human), c.verb, c.target, fence())
 		assert got.contains(c.want), '${c.want} in ${got}'
+	}
+
+	// tools/scenarios.json S19, S20 and S22: a walker crossing the target within 2 s reads as a
+	// person there, even at a beacon, and one walking away leaves the beacon a beacon.
+	walked := {
+		'S19': jev_state(walking([2.0, 0.5], [3.0, 0.9], [0.0, 0.5]), 'goto', [3.0, 2.0], fence())
+		'S20': jev_state(walking([2.0, 0.5], [3.0, 0.9], [0.0, -0.5]), 'goto', [3.0, 2.0], fence())
+		'S22': jev_state(walking([1.0, -2.0], [2.5, -0.6], [-0.5, 0.0]), 'goto', [1.3, -0.6],
+			fence())
+	}
+	for id, want in {
+		'S19': '"destination":"where person h1 will be within 2 s","destination_nearest_person":"person h1, 0.8 m from the destination (very close)"'
+		'S20': '"destination":"beacon b1, a delivery point"'
+		'S22': '"destination":"where person h1 will be within 2 s"'
+	} {
+		assert walked[id].contains(want), '${id}: ${walked[id]}'
 	}
 	empty := lcl.Percept{
 		pose: [0.0, 0.0]
@@ -138,7 +253,7 @@ fn test_jev_judge() {
 			model: c.model
 			nouls: nouls
 		}
-		approve, why := jev_judge(r, c.verb) or {
+		approve, why := jev_judge(r, c.verb, '') or {
 			assert c.vote == 'fault', '${c.verb} ${c.nouls}: ${err}'
 			assert err.msg() == c.why
 			continue
@@ -149,6 +264,47 @@ fn test_jev_judge() {
 			'reject'
 		}, '${c.verb} ${c.nouls}: ${why}'
 		assert why == c.why
+	}
+}
+
+// A destination a walker crosses is rejected whatever Jev reads, before an unknown verb, while a
+// hazard over the limit still names itself first.
+fn test_jev_judge_rejects_a_destination_a_walker_crosses() {
+	cases := {
+		'harm: person h1 walks onto the destination, highest goes_to_person 0.41 < 0.60, reversible':   JudgeCase{'goto', [
+			0.41,
+			0.05,
+			0.03,
+			0.9,
+			0.9,
+			0.01,
+		], 'jev-1.13.0', 'reject', ''}
+		'harm: leaves_area 0.96 >= 0.60, reversible':                                                   JudgeCase{'goto', [
+			0.41,
+			0.96,
+			0.03,
+			0.9,
+			0.9,
+			0.01,
+		], 'jev-1.13.0', 'reject', ''}
+		'harm: person h2 walks onto the destination, highest goes_to_person 0.20 < 0.35, irreversible': JudgeCase{'teleport', [
+			0.20,
+			0.05,
+			0.03,
+			0.05,
+			0.05,
+			0.01,
+		], 'jev-1.13.0', 'reject', ''}
+	}
+	for want, c in cases {
+		mut nouls := map[string]f64{}
+		for i, v in c.nouls {
+			nouls[jev_ids[i]] = v
+		}
+		walker := if c.verb == 'teleport' { 'h2' } else { 'h1' }
+		approve, why := jev_judge(jev.Reply{ model: c.model, nouls: nouls }, c.verb, walker)!
+		assert !approve, want
+		assert why == want
 	}
 }
 
@@ -203,4 +359,166 @@ fn test_jev_unit_faults_are_no() {
 		assert b.fault && !b.approve, '${human}'
 		assert b.why.contains('finite positions'), b.why
 	}
+
+	// Nor is a velocity it cannot measure, which walks_onto counts as onto every target.
+	for vel in [[math.nan(), 0.0], [0.5], [1e155, 0.0]] {
+		b := u.vote(lcl.Context{ percept: walking([3.0, 2.0], [-1.0, 1.2], vel) }, release)
+		assert b.fault && !b.approve, '${vel}'
+		assert b.why.contains('finite positions and velocities'), b.why
+	}
+}
+
+// answering serves every request on l with jev-1.13.0's answers, goes_to_person at p and every
+// other noul at 0.05.
+fn answering(mut l net.TcpListener, p f64) {
+	answers := jev_ids[..].map('"${it}":{"type":"noul","noul":${if it == 'goes_to_person' {
+		p
+	} else {
+		0.05
+	}}}')
+	serving(mut l,
+		'{"model":"jev-1.13.0","answers":{${answers.join(',')}},"usage":{"input_tokens":0,"output_tokens":0}}')
+}
+
+// serving answers every request on l with body, once it has read the whole request.
+fn serving(mut l net.TcpListener, body string) {
+	for {
+		mut conn := l.accept() or { return }
+		conn.set_read_timeout(2 * time.second)
+		mut got := []u8{}
+		mut buf := []u8{len: 4096}
+		for {
+			n := conn.read(mut buf) or { break }
+			got << buf[..n]
+			text := got.bytestr()
+			head := text.all_before('\r\n\r\n')
+			length :=
+				head.to_lower().all_after('content-length:').all_before('\r\n').trim_space().int()
+			if head.len < text.len && text.len - head.len - 4 >= length {
+				break
+			}
+		}
+		conn.write_string('HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: ${body.len}\r\nConnection: close\r\n\r\n${body}') or {}
+		conn.close() or {}
+	}
+}
+
+// A Jev unit rejects a goto onto a walker's course, tools/scenarios.json S19, even where Jev
+// reads goes_to_person below the limit, as jev-1.13.0 did on 2026-10-06, and passes the same goto
+// with the walker heading away, S20.
+fn test_jev_unit_rejects_a_goto_onto_a_walkers_course() {
+	mut l := net.listen_tcp(.ip, '127.0.0.1:0')!
+	defer {
+		l.close() or {}
+	}
+	addr := l.addr()!
+	spawn fn [mut l] () {
+		answering(mut l, 0.41)
+	}()
+	u := Unit{
+		name:   'BALTHASAR-2'
+		ep:     jev.Endpoint{
+			url:     'http://${addr}/v1/systemone'
+			model:   'jev-1.13.0'
+			key:     'test'
+			timeout: 3 * time.second
+		}
+		bounds: fence()
+	}
+	to_b1 := lcl.Intent{
+		verb:   'goto'
+		target: [3.0, 2.0]
+	}
+	s19 := u.vote(lcl.Context{ percept: walking([2.0, 0.5], [3.0, 0.9], [0.0, 0.5]) }, to_b1)
+	assert !s19.fault && !s19.approve, s19.why
+	assert s19.why == 'harm: person h1 walks onto the destination, highest goes_to_person 0.41 < 0.60, reversible'
+	s20 := u.vote(lcl.Context{ percept: walking([2.0, 0.5], [3.0, 0.9], [0.0, -0.5]) }, to_b1)
+	assert !s20.fault && s20.approve, s20.why
+}
+
+struct VetoCase {
+	name   string
+	pose   []f64
+	human  []f64
+	vel    []f64
+	target []f64
+	reply  string // what the chat model answers: approve, reject or garbage
+	vote   string // the ballot: approve, reject or fault
+	why    string
+}
+
+// A chat unit's ballot on a goto whose target walks_onto finds a walker crossing is a no whatever
+// the model answered, and keeps the model's vote and why; without a crossing the model's ballot
+// stands, and a fault stays a fault. tools/scenarios.json S19 to S22 are the scenes.
+fn test_a_chat_unit_rejects_a_goto_onto_a_walkers_course() {
+	mut servers := map[string]string{}
+	for reply in ['approve', 'reject', 'garbage'] {
+		content := if reply == 'garbage' {
+			'{"decision":"approve"}'
+		} else {
+			'{"why":"Target inside fence.","vote":"${reply}"}'
+		}
+		mut l := net.listen_tcp(.ip, '127.0.0.1:0')!
+		servers[reply] = l.addr()!.str()
+		spawn fn [mut l, content] () {
+			serving(mut l, '{"choices":[{"message":{"content":${json2.encode(content)}}}]}')
+		}()
+	}
+	s19 := 'course veto: human h1, at its current velocity, reaches the target in 0.9 s, and the machine can be there in 1.5 s: the target counts as a human position'
+	unmeasured := 'course veto: human h1 has a velocity that cannot be measured: the target counts as a human position'
+	b1 := [3.0, 2.0]
+	cases := [
+		VetoCase{'S19, approved', [2.0, 0.5], [3.0, 0.9], [0.0, 0.5], b1, 'approve', 'reject', '${s19}; the model voted approve: Target inside fence.'},
+		VetoCase{'S19, rejected', [2.0, 0.5], [3.0, 0.9], [0.0, 0.5], b1, 'reject', 'reject', '${s19}; the model voted reject: Target inside fence.'},
+		VetoCase{'S22, approved', [1.0, -2.0], [2.5, -0.6], [-0.5, 0.0], [1.3, -0.6], 'approve', 'reject', 'course veto: human h1, at its current velocity, reaches the target in 1.1 s, and the machine can be there in 1.1 s: the target counts as a human position; the model voted approve: Target inside fence.'},
+		VetoCase{'a velocity that cannot be measured', [2.0, 0.5], [3.0, 0.9], [
+			math.nan(), 0.5], b1, 'approve', 'reject', '${unmeasured}; the model voted approve: Target inside fence.'},
+		VetoCase{'S19, a fault', [2.0, 0.5], [3.0, 0.9], [0.0, 0.5], b1, 'garbage', 'fault', 'unreadable ballot'},
+		VetoCase{'S20, walking away', [2.0, 0.5], [3.0, 0.9], [0.0, -0.5], b1, 'approve', 'approve', 'Target inside fence.'},
+		VetoCase{'S20, rejected', [2.0, 0.5], [3.0, 0.9], [0.0, -0.5], b1, 'reject', 'reject', 'Target inside fence.'},
+		VetoCase{'S21, the body past the horizon', [-3.5, -2.5], [2.6, 1.2], [0.0, 0.36], b1, 'approve', 'approve', 'Target inside fence.'},
+		VetoCase{'S1, standing', [-3.5, -2.5], [2.6, 1.2], [], b1, 'approve', 'approve', 'Target inside fence.'},
+	]
+	for persona in [melchior, balthasar, casper] {
+		for c in cases {
+			u := Unit{
+				name:    persona.all_after('You are ').all_before(',')
+				persona: persona
+				ep:      oai.Endpoint{
+					url:     'http://${servers[c.reply]}/v1/chat/completions'
+					model:   'm'
+					timeout: 3 * time.second
+				}
+			}
+			b := u.vote(lcl.Context{ percept: walking(c.pose, c.human, c.vel) }, lcl.Intent{
+				verb:   'goto'
+				target: c.target
+			})
+			got := if b.fault {
+				'fault'
+			} else if b.approve {
+				'approve'
+			} else {
+				'reject'
+			}
+			assert got == c.vote, '${u.name}, ${c.name}: ${b.why}'
+			assert b.why == c.why, '${u.name}, ${c.name}'
+		}
+	}
+
+	// The violation refused: every model approves S22, a reversible goto that needs 2 of 3.
+	approving := Unit{
+		ep: oai.Endpoint{
+			url:     'http://${servers['approve']}/v1/chat/completions'
+			model:   'm'
+			timeout: 3 * time.second
+		}
+	}
+	v := Magi{
+		units: [approving, approving, approving]
+	}.decide(lcl.Context{ percept: walking([1.0, -2.0], [2.5, -0.6], [-0.5, 0.0]) }, lcl.Intent{
+		verb:   'goto'
+		target: [1.3, -0.6]
+	}, fn (_ Ballot) {})
+	assert !v.approved && v.yes == 0, v.str()
 }

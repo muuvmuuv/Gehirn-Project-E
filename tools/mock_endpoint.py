@@ -3,12 +3,12 @@
 
 Serves POST .../chat/completions and answers as whichever role the system prompt names:
 the core walks to the beacon, the one the mission names or else the first in the percept,
-releases there and then holds. MELCHIOR-1 and BALTHASAR-2 run
-coarse versions of their persona checklists in magi/magi.v: both reject unknown verbs, a goto
-without a target or outside the fence, and a release with a human within 2.5 m; MELCHIOR-1
-also rejects a goto onto a human and a release away from the beacon, BALTHASAR-2 a goto to
-within 1 m of a human. CASPER-3 approves everything. Replies rotate through the wrappers real
-models put around JSON (think blocks, code fences, chatter), so every run exercises
+releases there and then holds. MELCHIOR-1 and BALTHASAR-2 run coarse versions of their persona
+checklists in magi/magi.v: both reject unknown verbs, a goto without a target or outside the
+fence, a goto whose request carries a COURSE section, and a release with a human within 2.5 m;
+MELCHIOR-1 also rejects a goto onto a human and a release away from the beacon, BALTHASAR-2 a
+goto to within 1 m of a human. CASPER-3 approves everything. Replies rotate through the wrappers
+real models put around JSON (think blocks, code fences, chatter), so every run exercises
 oai.extract_json.
 
 Also serves POST /v1/systemone as Jev behind BALTHASAR-2, the default: it checks the request
@@ -50,6 +50,8 @@ SELF = re.compile(
 ENTITY = re.compile(r"^(\w+) (\S+) at \((\S+), (\S+)\), radius (\S+), distance (\S+)$", re.M)
 MISSION = re.compile(r"^MISSION\n(.*?)\n\nPERCEPT$", re.M | re.S)
 PROPOSAL = re.compile(r"^PROPOSAL \(\w+\)\n([^\s(]+)(?:\((\S+), (\S+)\))? from ", re.M)
+# The COURSE section magi/magi.v Unit.llm_vote puts before PROPOSAL, from magi Crossing.fact.
+COURSE = re.compile(r"^COURSE\nhuman ([^\s,]+)", re.M)
 
 STYLES = ("plain", "think", "fence", "chatter")
 VOTE = re.compile(rf"({'|'.join(UNITS.values())})=(approve|reject)(?:@([1-9][0-9]*))?")
@@ -134,6 +136,9 @@ def objection(role: str, user: str, percept: tuple[bool, list[dict]] | None) -> 
     if verb == "goto":
         if target is None or max(map(abs, target)) > FENCE:
             return "The target is missing or outside the fence."
+        course = COURSE.search(user)
+        if course:
+            return f"Human {course[1]} walks onto the target."
         for h in humans:
             if math.dist(target, h["pos"]) < (TARGET_KEEP if role == "balthasar" else h["r"]):
                 return f"The target is too close to human {h['id']}."

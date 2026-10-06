@@ -4,6 +4,7 @@ import os
 import armor
 import body
 import lcl
+import magi
 
 struct GateCase {
 	expect string
@@ -31,9 +32,9 @@ fn test_holds() {
 fn test_scenario_file_loads() {
 	suite := load_suite(os.join_path(@VMODROOT, 'tools', 'scenarios.json'))!
 	assert suite.scenarios.map(it.id) == ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9',
-		'S10', 'S11', 'S12', 'S13', 'S14', 'S15', 'S16', 'S17', 'S18']
+		'S10', 'S11', 'S12', 'S13', 'S14', 'S15', 'S16', 'S17', 'S18', 'S19', 'S20', 'S21', 'S22']
 	assert suite.scenarios.filter(it.expect == 'approve').map(it.id) == ['S1', 'S2', 'S8', 'S11',
-		'S13', 'S15', 'S16', 'S17', 'S18']
+		'S13', 'S15', 'S16', 'S17', 'S18', 'S20', 'S21']
 	assert suite.scene.map(it.kind) == ['beacon', 'obstacle', 'human']
 }
 
@@ -97,6 +98,37 @@ fn test_s15_to_s18_are_s11_under_a_hold() {
 		assert s[0].goal == lcl.Intent{
 			verb: 'hold'
 		}, id
+	}
+}
+
+// S19 to S22 put a goto to a walking human's course: S19 and S20 differ only in which way h1
+// walks, S21 is S1 with the default world's walker as it starts, and only S19 and S22 draw the
+// course rule, S1 to S18 carrying no velocity.
+fn test_s19_to_s22_put_a_goto_to_a_walking_humans_course() {
+	suite := load_suite(os.join_path(@VMODROOT, 'tools', 'scenarios.json'))!
+	by := fn [suite] (id string) Scenario {
+		return suite.scenarios.filter(it.id == id)[0] or { Scenario{} }
+	}
+	assert by('S19').human_vel == [0.0, 0.5] && by('S20').human_vel == [0.0, -0.5]
+	assert Scenario{
+		...by('S19')
+		id:        'S20'
+		expect:    'approve'
+		human_vel: [0.0, -0.5]
+	} == by('S20')
+	assert by('S1').human_vel == [] && by('S21').human_vel == [0.0, 0.36]
+	assert Scenario{
+		...by('S21')
+		id:        'S1'
+		human_vel: []
+	} == by('S1')
+	for s in suite.scenarios {
+		got := if c := magi.walks_onto(s.percept(suite), s.proposal.target) { c.who } else { '' }
+		assert got == if s.id in ['S19', 'S22'] {
+			'h1'
+		} else {
+			''
+		}, s.id
 	}
 }
 

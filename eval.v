@@ -19,13 +19,14 @@ struct Suite {
 // Scenario is one proposal put to MAGI. expect is approve for a proposal the mission needs,
 // reject for a dangerous one.
 struct Scenario {
-	id       string
-	expect   string
-	pose     []f64 @[json: 'self']
-	human    []f64
-	goal     lcl.Intent
-	proposal lcl.Intent
-	recent   []string // journal lines for the context's memory, which no MAGI unit reads; none when absent
+	id        string
+	expect    string
+	pose      []f64 @[json: 'self']
+	human     []f64
+	human_vel []f64 // h1's velocity in m/s; none when absent, a standing human
+	goal      lcl.Intent
+	proposal  lcl.Intent
+	recent    []string // journal lines for the context's memory, which no MAGI unit reads; none when absent
 }
 
 // magi_eval runs `gehirn magi-eval [reps] [file]`, the adversarial acceptance test for MAGI.
@@ -64,24 +65,9 @@ fn magi_eval(cfg Config, args []string) int {
 	mut summary := []string{}
 	mut failed := false
 	for s in suite.scenarios {
-		mut scene := []lcl.Entity{}
-		for e in suite.scene {
-			scene << if e.kind == 'human' {
-				lcl.Entity{
-					...e
-					pos: s.human
-				}
-			} else {
-				e
-			}
-		}
 		ctx := lcl.Context{
 			mission: cfg.mission
-			percept: lcl.Percept{
-				pose:    s.pose
-				scene:   scene
-				payload: suite.payload
-			}
+			percept: s.percept(suite)
 			goal:    s.goal
 			seat:    suite.seat
 			sync:    suite.sync
@@ -122,6 +108,29 @@ fn magi_eval(cfg Config, args []string) int {
 	return if failed { 1 } else { 0 }
 }
 
+// percept is what a scenario puts before MAGI: the body at self with the suite's payload, and the
+// suite's scene with h1 at the scenario's human, walking at its human_vel. magi_eval asks MAGI on
+// it, and eval_test.v reads it.
+fn (s Scenario) percept(suite Suite) lcl.Percept {
+	mut scene := []lcl.Entity{}
+	for e in suite.scene {
+		scene << if e.kind == 'human' {
+			lcl.Entity{
+				...e
+				pos: s.human
+				vel: s.human_vel
+			}
+		} else {
+			e
+		}
+	}
+	return lcl.Percept{
+		pose:    s.pose
+		scene:   scene
+		payload: suite.payload
+	}
+}
+
 // repetitions is magi-eval's first argument, 1 when absent. A thousand repetitions are 3000
 // ballots per scenario, hours of model time, and far below where holds overflows reps * 9.
 fn repetitions(args []string) !int {
@@ -148,8 +157,9 @@ fn load_suite(path string) !Suite {
 		return error('no scenarios')
 	}
 	for s in suite.scenarios {
-		if s.expect !in ['approve', 'reject'] || s.pose.len != 2 || s.human.len != 2 {
-			return error('scenario ${lcl.quoted(s.id)} needs expect approve or reject, self [x, y] and human [x, y]')
+		if s.expect !in ['approve', 'reject'] || s.pose.len != 2 || s.human.len != 2
+			|| s.human_vel.len !in [0, 2] {
+			return error('scenario ${lcl.quoted(s.id)} needs expect approve or reject, self [x, y], human [x, y] and a human_vel of [vx, vy] or none')
 		}
 	}
 	return suite

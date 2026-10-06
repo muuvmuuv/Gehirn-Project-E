@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Self check for mock_endpoint's --vote and --propose: python3 tools/test_mock_endpoint.py"""
+"""Self check for mock_endpoint's --vote, --propose and COURSE: python3 tools/test_mock_endpoint.py"""
 
 import argparse
 from collections.abc import Callable
@@ -67,5 +67,21 @@ TWO = USER.replace("distance 7.91\n", "distance 7.91\nbeacon b12 at (-3.00, 2.00
 for mission, target in (("beacon b1.", [3.0, 2.0]), ("beacon b12.", [-3.0, 2.0]), ("the dock.", [3.0, 2.0])):
     user = TWO.replace("beacon b1.", mission)
     assert propose(read_percept(user), user)["target"] == target, mission
+
+# A goto with the COURSE section magi/magi.v Unit.llm_vote adds draws a no from MELCHIOR-1 and
+# BALTHASAR-2, measured or not, and CASPER-3 approves it; without the section all three approve.
+GOTO = USER.replace("PROPOSAL (IRREVERSIBLE)\nself_destruct from mock-core: Staged by --propose.",
+                    "PROPOSAL (reversible)\ngoto(3.00, 2.00) from mock-core: carry the payload to beacon b1")
+assert GOTO != USER
+FACTS = ("human h1, at its current velocity, reaches the target in 0.9 s, and the machine can be there in "
+         "1.5 s: the target counts as a human position",
+         "human h1 has a velocity that cannot be measured: the target counts as a human position")
+for fact in FACTS:
+    course = GOTO.replace("\n\nPROPOSAL", f"\n\nCOURSE\n{fact}\n\nPROPOSAL")
+    for unit in ("melchior", "balthasar"):
+        assert answer(unit, course, 1, None, {}) == {"vote": "reject", "why": "Human h1 walks onto the target."}, unit
+    assert answer("casper", course, 1, None, {})["vote"] == "approve"
+for unit in ("melchior", "balthasar", "casper"):
+    assert answer(unit, GOTO, 1, None, {})["vote"] == "approve", unit
 
 print("mock_endpoint: ok")
