@@ -1,11 +1,24 @@
 module zenoh
 
-import rand
+import net
 import time
 
 // patience bounds how long a test waits for a sample, since a subscription reaches a peer a
 // moment after it is declared.
 const patience = 3 * time.second
+
+// loopback is a TCP locator on 127.0.0.1 at a port the OS has just found free, for a session to
+// listen on. A random port can be taken by a parallel test or another process, and then the
+// session fails to open. wire/wire_test.v `loopback` is its copy, since one module's tests cannot
+// call another's.
+// ponytail: the port is free when the probe closes, not when Zenoh binds it; zenoh-c 1.10.1 has no
+// call that reads back the port of a listener on port 0, which would close that gap.
+fn loopback() !string {
+	mut l := net.listen_tcp(.ip, '127.0.0.1:0')!
+	port := l.addr()!.port()!
+	l.close()!
+	return 'tcp/127.0.0.1:${port}'
+}
 
 // wait polls sub for a sample until patience runs out.
 fn wait(sub &Subscriber) ?Sample {
@@ -64,7 +77,7 @@ fn test_a_ring_of_one_keeps_the_newest_sample() {
 }
 
 fn test_two_sessions_link_over_loopback() {
-	at := 'tcp/127.0.0.1:${rand.int_in_range(20000, 60000)!}'
+	at := loopback()!
 	mut hq := open(Config{ listen: [at] })!
 	mut field := open(Config{ connect: [at] })!
 	mut sub := hq.subscriber('gehirn/test/link', Queue{ cap: 8 })!

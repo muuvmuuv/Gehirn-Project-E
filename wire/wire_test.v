@@ -1,6 +1,6 @@
 module wire
 
-import rand
+import net
 import time
 import lcl
 import zenoh
@@ -14,6 +14,15 @@ const grace = i64(45000)
 
 // patience bounds how long a test waits for a value to cross the link.
 const patience = 3 * time.second
+
+// loopback is a TCP locator on 127.0.0.1 at a port the OS has just found free, for a session to
+// listen on, as zenoh/zenoh_test.v `loopback` gives, which says why.
+fn loopback() !string {
+	mut l := net.listen_tcp(.ip, '127.0.0.1:0')!
+	port := l.addr()!.port()!
+	l.close()!
+	return 'tcp/127.0.0.1:${port}'
+}
 
 fn sample(f Frame) zenoh.Sample {
 	return zenoh.Sample{
@@ -251,7 +260,7 @@ fn recv[T](ch chan T) ?T {
 }
 
 fn test_the_pumps_carry_lcl_between_the_tiers() {
-	at := 'tcp/127.0.0.1:${rand.int_in_range(20000, 60000)!}'
+	at := loopback()!
 	hq_session := zenoh.open(zenoh.Config{ listen: [at] })!
 	field_session := zenoh.open(zenoh.Config{ connect: [at] })!
 	mut h := new_hq(hq_ports(hq_session, 'eva01')!, link, 'eva01')!
@@ -323,7 +332,7 @@ fn test_the_pumps_carry_lcl_between_the_tiers() {
 
 fn test_the_watch_streams_reach_the_bridge_and_nothing_else_opens_them() {
 	watch_key := []u8{len: 32, init: u8(index * 3)}
-	at := 'tcp/127.0.0.1:${rand.int_in_range(20000, 60000)!}'
+	at := loopback()!
 	bridge_session := zenoh.open(zenoh.Config{ listen: [at] })!
 	ports := bridge_ports(bridge_session, 'eva01')!
 	mut f := field_watch(zenoh.open(zenoh.Config{ connect: [at] })!, 'eva01', watch_key)!
