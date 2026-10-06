@@ -25,7 +25,7 @@ function Landing() {
 			<div className="hazard" aria-hidden="true" />
 			<div className="wrap">
 				<Nav />
-				<main id="main">
+				<main id="main" tabIndex={-1}>
 					<Hero />
 					<Rules />
 					<Flow />

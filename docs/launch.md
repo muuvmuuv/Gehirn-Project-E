@@ -122,7 +122,7 @@ No HQ, no quorum, so nothing irreversible happens.
 ```text
 Written in V. No robot yet: the body is simulated. `just demo` runs it all on scripted models without API keys, verified on Apple Silicon Macs.
 
-Reading the bridge: https://gehirn-project-e.vercel.app
+The website: https://gehirn-project-e.vercel.app
 The code: in the reply below.
 
 A fan project, not affiliated with khara or Gehirn Inc.
@@ -130,7 +130,7 @@ A fan project, not affiliated with khara or Gehirn Inc.
 
 - Media: [website/public/media/boot.mp4](../website/public/media/boot.mp4).
 - Alt: The bridge booting: GEHIRN, operations bridge, the listening address, unit EVA01 and three status lines in Japanese, then the line fan project, not affiliated with khara or Gehirn Inc. Then the panels appear and the three judges pass the first goto 3 of 3.
-- Counts 275, with the link.
+- Counts 268, with the link.
 
 ### 9, the code reply
 
@@ -165,7 +165,7 @@ https://github.com/muuvmuuv/Gehirn-Project-E
 - **Why V?** The field unit is meant to run on Vinix, a kernel written in V, with the body as a kernel driver, `/dev/eva0`, that only the armor's process may open (PLAN, Phase 6). Field code therefore uses V's standard modules and only C libraries that build for aarch64 musl (PLAN, Invariant 9). gehirn pins V 0.5.2, and CONTRIBUTING.md lists the release's bugs it works around.
 - **Is there a real robot?** No. The body is simulated. By default it is a planar point that slides sideways, in a world with a beacon, a pillar and one person walking the same 21 s loop, which the demo and the GIF play. Worlds are files, with people who stop for the body or step aside, and each canon scene plays one of its episode ([worlds](worlds.md)). `DRIVE=differential` makes the body turn before it drives, like a robot on two wheels, and `BODY=mujoco` flies that base on MuJoCo, with mass, inertia and contacts. The body is an interface, so hardware replaces the simulator below the armor; the first real body is still open.
 - **Does it run without keys?** Yes: `just demo` flies the whole story on scripted mock models, and the README's [Try it](../README.md#try-it) says what it needs and where it is verified. Real models need an OpenRouter key and a TypeSafe key; without TypeSafe's, BALTHASAR-2 faults every ballot, so gotos pass on two votes and nothing irreversible does.
-- **Is the video staged?** Partly, and the README says which part. The GIF is `just lineup=magi demo-record`: the three judges are real hosted models, gpt-oss-20b, Jev and llama-3.1-8b-instruct, and the core is the mock's scripted one, which proposes the drop at the beacon whatever the person does. A fully hosted take cannot time a refusal for the camera: qwen3-8b, the hosted core, holds while a person is within reach, so a person comes near its drop only by walking back while the core or MAGI decide. In ten fully hosted missions on 2026-10-05, which delivered 10 of 10, MAGI refused 5 such drops 1/3, with the person 0.45 to 1.78 m away in the scene they judged, and the armor refused 4 more that MAGI had approved (PLAN's State). The world and the person are simulated. The website's two clips run wholly on the mock, and in Episode 13 the mock forces each judge's vote ([scenes](scenes.md)).
+- **Is the video staged?** Partly, and the README says which part. The GIF is `just lineup=magi demo-record`: the three judges are real hosted models, gpt-oss-20b, Jev and llama-3.1-8b-instruct, and the core is the mock's scripted one, which proposes the drop at the beacon whatever the person does. A fully hosted take cannot time a refusal for the camera: qwen3-8b, the hosted core, holds while a person is within reach, so a person comes near its drop only by walking back while the core or MAGI decide. In ten fully hosted missions on 2026-10-05, which delivered 10 of 10, MAGI refused 5 such drops 1/3, with the person 0.45 to 1.78 m away in the scene they judged, and the armor refused 4 more that MAGI had approved (PLAN's State). The world and the person are simulated. The website opens on the GIF's take and tags what in it is real and what is scripted; its boot and its five scenes run wholly on the mock, and each scene says what it forces, such as every judge's vote in Episode 13 ([scenes](scenes.md)).
 - **Is this official, or khara's?** No. gehirn is a fan project, not affiliated with khara or Gehirn Inc. It sells nothing and ships none of khara's assets: no frames, audio, logos or the show's typeface. The bridge draws its own shapes in the show's style, with the show's terms and a few of its lines, and the mark is original ([brand](brand.md#a-fan-project)).
 
 ## After posting

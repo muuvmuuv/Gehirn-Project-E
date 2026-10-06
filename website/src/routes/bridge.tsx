@@ -48,7 +48,7 @@ function BridgeGuide() {
 			<div className="hazard" aria-hidden="true" />
 			<div className="wrap">
 				<Nav />
-				<main id="main">
+				<main id="main" tabIndex={-1}>
 					<header className="guide-hero">
 						<div className="eyebrow">
 							<span className="jp">発令所</span>

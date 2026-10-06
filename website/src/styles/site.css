@@ -449,15 +449,18 @@ h3 {
 	white-space: nowrap;
 }
 
-.term__copy {
-	flex: none;
+main:focus {
+	outline: none;
 }
 
 .term__prompt {
 	color: var(--dim);
 }
 
+/* Wide enough for Copied, so the line keeps its width when the label changes. */
 .term__copy {
+	flex: none;
+	min-width: 5.6em;
 	padding: 6px 12px;
 	border: 1px solid var(--orange);
 	background: transparent;
@@ -1122,6 +1125,24 @@ h3 {
 	.viewer__meta {
 		grid-template-columns: minmax(0, 1fr);
 	}
+}
+
+/* ── A path the site does not have ─────────────────────────────── */
+
+.lost {
+	display: grid;
+	gap: 18px;
+	padding-block: 96px 120px;
+}
+
+.lost__links {
+	display: flex;
+	gap: 22px;
+	margin: 0;
+	font-family: var(--display);
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
 }
 
 /* ── The guide to the bridge (/bridge) ─────────────────────────── */

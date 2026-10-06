@@ -3,8 +3,9 @@ import { useEffect, useRef } from 'react'
 
 /**
  * A recording of the bridge: muted and looping, it plays only while it is on screen, so a page
- * with several clips downloads the one in view. Under reduced motion it stays on its poster with
- * controls. Every clip on the site is 1280 by 800 or, for the MAGI block, 800 by 448.
+ * with several clips downloads the one in view. Under reduced motion it stays on its poster. Its
+ * controls let a viewer stop it, which WCAG asks of motion that plays longer than 5 s. Every clip
+ * on the site is 1280 by 800 or, for the MAGI block, 800 by 448.
  */
 export function Clip({
 	src,
@@ -46,7 +47,7 @@ export function Clip({
 			muted
 			loop
 			playsInline
-			controls={!!reduce}
+			controls
 			preload={eager ? 'auto' : 'none'}
 		/>
 	)
