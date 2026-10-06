@@ -8,16 +8,16 @@ import math
 import body
 import lcl
 
-// Limits are the armor's hard numbers. main.v hands them to restrain and their fence to every MAGI
-// unit. core/llm.v core_prompt and the magi/magi.v personas repeat some in prose, magi/magi.v
-// course_speed v_max, tools/mock_endpoint.py FENCE and HUMAN_CLEARANCE and tools/worldgen.py
-// the speeds, a_max and the keeps in code,
-// tools/scenarios.json S13 and S14 release_keep in the words of Armor.refusal, and bridge/draw.v
-// human_stop and release_keep as the scene's rings, so change them together: v_max is 1 m/s, bounds
-// the -5 to 5 m fence, human_stop 0.7 m, human_slow 2 m, release_keep 2 m and, as center distance,
-// 2.5 m (plus a 0.3 m human radius and a 0.2 m margin, so MAGI's release line sits outside the
-// armor's; MAGI's percept is as old as the slowest ballot once their verdict lands, so the armor
-// can refuse a release MAGI approved), and verbs goto, hold, release.
+// Limits are the armor's hard numbers. main.v hands them to restrain, their fence to every MAGI
+// unit and their keeps and fence to the local planner. core/llm.v core_prompt and the magi/magi.v
+// personas repeat some in prose, magi/magi.v course_speed v_max, tools/mock_endpoint.py FENCE and
+// HUMAN_CLEARANCE, tools/trials.py HUMAN_STOP and tools/worldgen.py the speeds, a_max and the
+// keeps in code, tools/scenarios.json S13 and S14 release_keep in the words of Armor.refusal, and
+// bridge/draw.v human_stop and release_keep as the scene's rings, so change them together: v_max is
+// 1 m/s, bounds the -5 to 5 m fence, human_stop 0.7 m, human_slow 2 m, release_keep 2 m and, as
+// center distance, 2.5 m (plus a 0.3 m human radius and a 0.2 m margin, so MAGI's release line
+// sits outside the armor's; MAGI's percept is as old as the slowest ballot once their verdict
+// lands, so the armor can refuse a release MAGI approved), and verbs goto, hold, release.
 pub struct Limits {
 pub:
 	v_max        f64      = 1.0                    // m/s with a pilot or the dummy seated
@@ -128,7 +128,7 @@ pub fn (mut a Armor) drive(u []f64, p lcl.Percept, dt f64, manned bool) []f64 {
 		return a.last.clone()
 	}
 	vmax := if manned { a.limits.v_max } else { a.limits.v_unmanned }
-	mut v := lcl.clamp_norm(u, vmax * a.separation(p))
+	mut v := lcl.clamp_norm(u, a.top_speed(p, manned))
 
 	// Nothing pushes into anything solid, whoever is steering. What is left of the command
 	// slides along the surface, so a pilot leaning into a pillar gets walked around it. A
@@ -291,6 +291,17 @@ pub fn (a Armor) closeness(p lcl.Percept) f64 {
 	}
 	k := (a.limits.human_slow - nearest_human(p)) / (a.limits.human_slow - a.limits.human_stop)
 	return math.min(1.0, math.max(0.0, k))
+}
+
+// top_speed is the fastest drive lets the body move at p, in m/s: v_max with a pilot or the dummy
+// plug seated, else v_unmanned, slowed by separation near a human, and 0 on a percept the armor
+// cannot measure. main.v's field loop hands it to the local planner, which plans at that speed.
+pub fn (a Armor) top_speed(p lcl.Percept, manned bool) f64 {
+	if !a.measurable(p) {
+		return 0.0
+	}
+	vmax := if manned { a.limits.v_max } else { a.limits.v_unmanned }
+	return vmax * a.separation(p)
 }
 
 // separation scales speed down between human_slow and human_stop. Inside human_stop the

@@ -787,7 +787,7 @@ def main() -> None:
             def one(task: tuple) -> None:
                 rec, c, ns, n, mujoco = task
                 if not trials.STOP.is_set():
-                    t = trials.fly(n, ns, slots)
+                    t, _ = trials.fly(n, ns, slots)
                     rec[c].append(examine(os.path.join(ns.out, f"run-{n:02d}"), time.time(), rec["world"], mujoco, t))
 
             with ThreadPoolExecutor(args.jobs) as pool:

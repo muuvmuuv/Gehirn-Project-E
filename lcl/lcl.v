@@ -24,13 +24,14 @@ pub const arrive = 0.35
 
 // beacon_reach is how close to a beacon's center, in meters, the body counts as at the beacon,
 // where a release may happen. core/llm.v core_prompt and the magi/magi.v personas state it in
-// prose and tools/mock_endpoint.py BEACON_REACH copies it; main.v counts a release on target
-// 0.1 m further out, as magi/jev.v jev_delivery does.
+// prose and tools/mock_endpoint.py BEACON_REACH and tools/trials.py BEACON_REACH copy it; main.v
+// counts a release on target 0.1 m further out, as magi/jev.v jev_delivery does.
 pub const beacon_reach = 0.5
 
 // Entity is one thing in a percept's scene: an obstacle, a beacon or a human, with its position
 // and radius in meters and, for a walking human, its velocity. body.Sim reports them, and the
-// armor, the reflex and MAGI read them; only magi.walks_onto reads the velocity.
+// armor, the reflex, the local planner and MAGI read them; only magi.walks_onto and the planner
+// read the velocity.
 pub struct Entity {
 pub:
 	id   string
@@ -191,9 +192,9 @@ pub fn (i Intent) label() string {
 }
 
 // describe renders a percept as text for language backends. It leaves out a human's velocity,
-// which only magi.walks_onto reads, so a model reads the same text whether a human walks or
-// stands. tools/mock_endpoint.py parses this layout, and tools/worldgen.py shown rounds a distance
-// as it does.
+// which only magi.walks_onto and the local planner read, so a model reads the same text whether a
+// human walks or stands. tools/mock_endpoint.py parses this layout, and tools/worldgen.py shown
+// rounds a distance as it does.
 pub fn (p Percept) describe() string {
 	mut lines := [
 		'self at (${p.pose[0]:.2f}, ${p.pose[1]:.2f}), carrying payload: ${p.payload}, in contact: ${p.contact}',

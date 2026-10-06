@@ -11,6 +11,7 @@ import jev
 import lcl
 import magi
 import oai
+import planner
 import umbilical
 
 // testsuite_begin clears BODY, which the justfile exports to every recipe, so `just body=mujoco
@@ -212,6 +213,7 @@ fn config_value(cfg Config, key string) string {
 		'START' { cfg.world.start.str() }
 		'DRIVE' { cfg.drive.str() }
 		'BODY' { cfg.body_kind.str() }
+		'PLANNER' { cfg.steering.str() }
 		'WORLD' { cfg.world.humans.map(it.id).join(' ') }
 		'MISSION' { cfg.mission }
 		'DUMMY_WEIGHTS' { cfg.weights }
@@ -366,6 +368,12 @@ fn test_load_config() {
 		ConfigCase{'BODY', 'MuJoCo', 'BODY is "MuJoCo", not a known value; accepted sim, mujoco'},
 		ConfigCase{'BODY', 'gazebo', 'BODY is "gazebo", not a known value; accepted sim, mujoco'},
 		ConfigCase{'BODY', 'mujoco\nfield: forged', 'BODY is "mujoco\\x0afield: forged", not a known value; accepted sim, mujoco'},
+		ConfigCase{'PLANNER', '', 'reflex'},
+		ConfigCase{'PLANNER', 'reflex', 'reflex'},
+		ConfigCase{'PLANNER', 'local', 'local'},
+		ConfigCase{'PLANNER', 'Local', 'PLANNER is "Local", not a known value; accepted reflex, local'},
+		ConfigCase{'PLANNER', 'planner', 'PLANNER is "planner", not a known value; accepted reflex, local'},
+		ConfigCase{'PLANNER', 'local\nfield: forged', 'PLANNER is "local\\x0afield: forged", not a known value; accepted reflex, local'},
 		ConfigCase{'WORLD', '', 'h1'},
 		ConfigCase{'WORLD', os.join_path(@VMODROOT, 'worlds', 'default.json'), 'h1'},
 		ConfigCase{'WORLD', os.join_path(@VMODROOT, 'worlds', 'example.json'), 'h1 h2 h3 h4'},
@@ -1021,6 +1029,45 @@ fn powers(drive body.Drive) {
 		out := ar.drive(powered(state, pilot), ar.sense(), 0.02, true)
 		assert (lcl.norm(out) > 0.0) == c.moves, '${drive}: ${c.name}'
 	}
+}
+
+// The local planner flies the body from the default world's start to b1 through the armor on
+// `Sim`, at the top speed a seat allows, without contact and never inside the armor's keeps: the
+// pillar's solid_keep and the walking human's human_stop. It runs in real time, since `Sim` reads
+// the wall clock, about 12 s.
+fn test_the_planner_brings_the_body_to_b1() {
+	limits := armor.Limits{}
+	w := body.default_world()
+	mut ar := armor.restrain(body.new_sim(w, .holonomic), limits)
+	mut way := planner.Planner{
+		solid_keep: limits.solid_keep
+		human_stop: limits.human_stop
+		bounds:     limits.bounds
+	}
+	goal := lcl.Intent{
+		verb:   'goto'
+		target: w.beacons[0].pos
+	}
+	mut at := 0.0
+	for n in 0 .. 1500 {
+		p := ar.sense()
+		assert !p.contact, 'tick ${n} at ${p.pose}'
+		for e in p.scene {
+			gap := lcl.dist(p.pose, e.pos) - e.r
+			match e.kind {
+				'obstacle' { assert gap >= limits.solid_keep, 'tick ${n} at ${p.pose}' }
+				'human' { assert gap >= limits.human_stop, 'tick ${n} at ${p.pose}' }
+				else {}
+			}
+		}
+		at = lcl.dist(p.pose, goal.target)
+		if at < lcl.beacon_reach {
+			break
+		}
+		ar.drive(way.next(p, goal, ar.top_speed(p, true)), p, 0.02, true)
+		time.sleep(20 * time.millisecond)
+	}
+	assert at < lcl.beacon_reach
 }
 
 struct PaceCase {

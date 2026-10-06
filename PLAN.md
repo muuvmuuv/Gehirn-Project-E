@@ -207,6 +207,7 @@ Never run: `sidecar/cl1_sidecar.py` and the `cl1` backend.
 | `lcl` | Shared kernel: Entity, Percept, Intent, Outcome, PilotInput, Feel, Context, HqMsg, FieldView, HqEvent and Vote, vector math, the verb policy, `beacon_reach`, `quoted` and `escaped` for status lines, and `complete`, the bracket check of Known issue 25 | nothing |
 | `body` | The robot API (`Body`), the planar simulator `Sim` on either `Drive`, the worlds it plays (`World`, `default_world`, `load_world`), `steer`, the body adapter that maps a planar velocity onto a differential drive, and, built with `-d mujoco`, `Mujoco`, the differential base on MuJoCo of ADR-0008 | lcl, and mujoco in its `-d mujoco` files |
 | `armor` | Sole holder of a `Body`; every command and effector passes through it | body, lcl |
+| `planner` | The local planner of `PLANNER=local`, which makes the core's command in the field loop in place of `main.v`'s reflex: the shortest way to an approved goal around solids and standing humans, and each tick the velocity that gains most on it while it keeps clear of each walking human's course | lcl |
 | `plug` | Pilot UDP listener and its A10 reply, the pilot's end (`Pilot`, `Guard`, `stick`, `rumble`), `Sync`, `Recorder`, `Dummy` and its `Policy` | lcl |
 | `core` | `Core` (propose, feedback), the `Memory` journal, `LlmCore`, `Cl1Core` | lcl, oai |
 | `magi` | Units, ballots, quorum, the course of a walking human onto a goto's target, the Jev unit's facts and rule; Jev is BALTHASAR-2's default and only BALTHASAR-2 may use it | lcl, oai, jev |

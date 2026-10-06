@@ -6,6 +6,10 @@ port; everything else, GEHIRN_URL and the models included, comes from the enviro
 falling back to the KEY=VALUE lines of --env-file for variables the environment lacks.
 A run ends one second after the journal records the first release, or at the time limit.
 Startup warnings in a run's log, such as a Jev unit without a key, are echoed once.
+Each run's line and the total's are followed by a course line, which course measures from
+the recorder: when the body came within reach of the mission's beacon and how far it drove
+there, how close it came to a human and to a solid, and how often it stepped toward a human
+inside the armor's human_stop.
 Exits 0 when at least 80% of runs delivered on target and no ballot was lost to a parse
 error, the parts of the Phase 0 done criterion in PLAN.md that a journal shows.
 
@@ -15,10 +19,12 @@ error, the parts of the Phase 0 done criterion in PLAN.md that a journal shows.
 
 import argparse
 import json
+import math
 import os
 import queue
 import re
 import subprocess
+import statistics
 import sys
 import tempfile
 import threading
@@ -43,6 +49,12 @@ PARSE_ERRORS = ("unreadable", "no JSON object")
 # only counts, and the lines refusing a configuration load_config rejects or a core new_backend
 # cannot start, which explain a run that exits at once.
 WARNINGS = ("magi: ", "gehirn: ")
+# lcl/lcl.v beacon_reach: how close to a beacon's center, in meters, the body counts as at it.
+BEACON_REACH = 0.5
+# armor/armor.v Limits human_stop: inside it, in meters from the body's center to a human's rim,
+# the armor moves the body toward no human.
+HUMAN_STOP = 0.7
+TOWARD = 1e-9  # m, the least step toward a human that counts, as Known issue 33 counted
 LINGER = 1.0  # seconds a run goes on after the first release
 GRACE = 3.0  # seconds between terminate and kill
 POLL = 0.2
@@ -83,7 +95,7 @@ class Tally:
 
 
 def read_journal(path: str) -> list[dict]:
-    """Return every readable entry of a journal, oldest first."""
+    """Return every readable line of a journal or a recorder, oldest first, a cut one left out."""
     try:
         with open(path, encoding="utf-8") as f:
             lines = f.readlines()
@@ -133,6 +145,121 @@ def tally(journal: str) -> Tally:
     return t
 
 
+@dataclass
+class Course:
+    """How the body moved in one run, as course measures it from the recorder and the journal.
+
+    beacon_s is None when the body never came within BEACON_REACH of the mission's beacon, and
+    path_m then runs over the whole recorder; human_m and solid_m are None without a human or a
+    solid in the scene.
+    """
+
+    beacon_s: float | None = None
+    path_m: float = 0.0
+    human_m: float | None = None
+    solid_m: float | None = None
+    toward: int = 0
+
+    def __str__(self) -> str:
+        at = "never within reach" if self.beacon_s is None else f"within reach after {self.beacon_s:.2f} s"
+        return f"beacon {at}, path {self.path_m:.2f} m; " + closest(self.human_m, self.solid_m, self.toward)
+
+
+def closest(human_m: float | None, solid_m: float | None, toward: int) -> str:
+    """Render the closest approaches and the steps toward a human, for each course line."""
+    rims = ", ".join(f"{what} {'none' if m is None else f'{m:.3f} m'}"
+                     for what, m in (("human", human_m), ("solid", solid_m)))
+    return f"closest rim: {rims}; {toward} ticks toward a human inside human_stop"
+
+
+def release_tick(journal: list[dict], recorder: list[dict]) -> int:
+    """Return the index of the recorder line where the run's first release happened, else the last.
+
+    That line is the first at or after the approving verdict of the release that came out first
+    in the journal, as measure.py took the release tick (course): the last approved release verdict
+    before the journal's first release outcome.
+    """
+    texts = [(e.get("t_ms", 0), e.get("text", "")) for e in journal]
+    done = next((t for t, text in texts if text.startswith("outcome: released ")), None)
+    if done is None or not recorder:
+        return len(recorder) - 1
+    approved = [t for t, text in texts if t <= done and (m := RELEASE_VOTE.match(text)) and m[1] == "approved"]
+    at = max(approved, default=done)
+    return next((i for i, line in enumerate(recorder) if line["t_ms"] >= at), len(recorder) - 1)
+
+
+def course(journal: list[dict], recorder: list[dict]) -> Course:
+    """Measure how the body moved in one run, from its journal and recorder as read_journal reads them.
+
+    Each measure follows the scripts that measured the MuJoCo base and the stopping distance in
+    PLAN's State on 2026-10-06, analyze.py and measure.py, kept with that day's raw data outside
+    the repository, so numbers stay comparable:
+    - beacon_s, as analyze.py beacon_within_0.5_s: seconds from the recorder's first line
+      to the first whose pose lies less than BEACON_REACH from the mission's beacon, the first
+      beacon of the first line's scene, which gehirn's default MISSION names;
+    - path_m, as analyze.py path_to_beacon_m: the distance between consecutive poses summed up
+      to that line, or over the whole recorder when there is none;
+    - human_m and solid_m, as measure.py human_rim_min and obstacle_rim_min:
+      the least distance from the body's center to a human's rim and to the rim of anything
+      solid, neither beacon nor human, over the lines up to the first release (release_tick),
+      where measure.py took the whole recorder;
+    - toward, as measure.py ticks_closing_on_human, the count of Known issue 33: the pairs of
+      consecutive lines over the whole recorder in which the body's step, projected on the
+      direction from the first line's pose to a human whose rim lay inside HUMAN_STOP of it
+      there, exceeds TOWARD.
+    """
+    lines = [line for line in recorder if len(line.get("pose") or []) == 2 and "t_ms" in line]
+    if not lines:
+        return Course()
+    c = Course()
+    beacon = next((e for e in lines[0].get("scene", []) if e.get("kind") == "beacon"), None)
+    for i, line in enumerate(lines):
+        if i > 0:
+            c.path_m += math.dist(lines[i - 1]["pose"], line["pose"])
+        if beacon and math.dist(line["pose"], beacon["pos"]) < BEACON_REACH:
+            c.beacon_s = (line["t_ms"] - lines[0]["t_ms"]) / 1000
+            break
+    for line in lines[: release_tick(journal, lines) + 1]:
+        for e in line.get("scene", []):
+            if e.get("kind") == "beacon" or len(e.get("pos") or []) != 2:
+                continue
+            rim = math.dist(line["pose"], e["pos"]) - e.get("r", 0.0)
+            if e.get("kind") == "human":
+                c.human_m = rim if c.human_m is None else min(c.human_m, rim)
+            else:
+                c.solid_m = rim if c.solid_m is None else min(c.solid_m, rim)
+    for a, b in zip(lines, lines[1:]):
+        step = (b["pose"][0] - a["pose"][0], b["pose"][1] - a["pose"][1])
+        for e in a.get("scene", []):
+            if e.get("kind") != "human" or len(e.get("pos") or []) != 2:
+                continue
+            gap = math.dist(a["pose"], e["pos"])
+            ahead = step[0] * (e["pos"][0] - a["pose"][0]) + step[1] * (e["pos"][1] - a["pose"][1])
+            if gap - e.get("r", 0.0) < HUMAN_STOP and gap > 0 and ahead / gap > TOWARD:
+                c.toward += 1
+                break
+    return c
+
+
+def courses(runs: list[Course]) -> str:
+    """Render the courses of several runs as the total's course line: the median and range of the
+    beacon times and paths of the runs that came within reach, the closest approaches and the
+    steps toward a human summed."""
+    reached = [r for r in runs if r.beacon_s is not None]
+    if reached:
+        times = [r.beacon_s for r in reached if r.beacon_s is not None]
+        paths = [r.path_m for r in reached]
+        at = (f"{len(reached)} within reach after a median {statistics.median(times):.2f} s, "
+              f"{min(times):.2f} to {max(times):.2f}, path a median {statistics.median(paths):.2f} m, "
+              f"{min(paths):.2f} to {max(paths):.2f}")
+    else:
+        at = "none within reach"
+    humans = [r.human_m for r in runs if r.human_m is not None]
+    solids = [r.solid_m for r in runs if r.solid_m is not None]
+    toward = sum(r.toward for r in runs)
+    return f"beacon {at}; " + closest(min(humans, default=None), min(solids, default=None), toward)
+
+
 def warnings(log: str) -> list[str]:
     """Return the startup warnings in a run's log."""
     try:
@@ -142,9 +269,9 @@ def warnings(log: str) -> list[str]:
         return []
 
 
-def fly(n: int, args: argparse.Namespace, slots: "queue.Queue[int]") -> Tally:
+def fly(n: int, args: argparse.Namespace, slots: "queue.Queue[int]") -> tuple[Tally, Course]:
     """Run mission n in its own directory on a free plug port, until it ends, reaches the limit or
-    STOP is set, and tally it."""
+    STOP is set, tally it and measure its course."""
     slot = slots.get()
     try:
         d = os.path.join(args.out, f"run-{n:02d}")
@@ -178,14 +305,16 @@ def fly(n: int, args: argparse.Namespace, slots: "queue.Queue[int]") -> Tally:
         slots.put(slot)
     t = tally(journal)
     t.exits = int(code is not None)
+    c = course(read_journal(journal), read_journal(os.path.join(d, "plug.jsonl")))
     crash = "" if code is None else f"; gehirn exited {code} on its own"
     with print_lock:
         print(f"run {n:02d} after {elapsed:.0f} s: {t}{crash}", flush=True)
+        print(f"run {n:02d} course: {c}", flush=True)
         for w in warnings(log):
             if w not in warned:
                 warned.add(w)
                 print(w, flush=True)
-    return t
+    return t, c
 
 
 def main() -> None:
@@ -220,11 +349,14 @@ def main() -> None:
     for s in range(args.jobs):
         slots.put(s)
     total = Tally()
+    runs = []
     with ThreadPoolExecutor(args.jobs) as pool:
-        for t in pool.map(lambda n: fly(n, args, slots), range(1, args.runs + 1)):
+        for t, c in pool.map(lambda n: fly(n, args, slots), range(1, args.runs + 1)):
             total.add(t)
+            runs.append(c)
 
     print(f"total of {args.runs}: {total}")
+    print(f"course of {args.runs}: {courses(runs)}")
     # ponytail: the criterion's other clause, no release with a human inside 2 m, is not
     # checked here; journal the human distance with each release vote to add it.
     done = total.on_target * 10 >= args.runs * 8 and total.parse_faults == 0

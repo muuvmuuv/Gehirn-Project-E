@@ -14,6 +14,7 @@ import jev
 import lcl
 import magi
 import oai
+import planner
 import plug
 import umbilical
 import wire
@@ -55,6 +56,14 @@ struct Config {
 	world       body.World // what the body plays, its start moved to START when set
 	drive       body.Drive
 	body_kind   BodyKind
+	steering    Steering
+}
+
+// Steering is what makes the core's command in the field loop, which PLANNER names: main.v's
+// reflex, the default every earlier measurement flew, or the local planner of the planner module.
+enum Steering {
+	reflex
+	local
 }
 
 // BodyKind is the body the field unit builds, which BODY names: the planar Sim, or the base on
@@ -456,6 +465,11 @@ fn load_config() !Config {
 			body.Drive.holonomic
 		}
 		body_kind:   body_kind()!
+		steering:    if env_choice('PLANNER', 'reflex', ['reflex', 'local'])! == 'local' {
+			Steering.local
+		} else {
+			Steering.reflex
+		}
 	}
 }
 
@@ -699,10 +713,16 @@ fn main() {
 
 	// The body is made once the dummy plug has loaded: the nearest neighbor one replays the whole
 	// recorder, seconds for a long one, and the walking human's clock starts with the simulated body.
+	limits := armor.Limits{}
 	mut ar := armor.restrain(new_body(cfg) or {
 		eprintln('gehirn: ${err.msg()}')
 		exit(1)
-	}, armor.Limits{})
+	}, limits)
+	mut way := planner.Planner{
+		solid_keep: limits.solid_keep
+		human_stop: limits.human_stop
+		bounds:     limits.bounds
+	}
 	mut rec := plug.open_recorder(cfg.recorder) or { panic(err) }
 	mut cable := umbilical.plug_in(lcl.now_ms(), cfg.budget_ms, cfg.grace_ms)
 
@@ -854,10 +874,9 @@ fn main() {
 			println('plug: eject')
 			ar.eject()
 		}
-		u_core := reflex(p, goal)
 		mut seat := 'empty'
-		mut u_seat := []f64{len: u_core.len}
-		if now - seat_in.t_ms < plug.seat_ms && seat_in.u.len == u_core.len {
+		mut u_seat := []f64{len: p.pose.len}
+		if now - seat_in.t_ms < plug.seat_ms && seat_in.u.len == p.pose.len {
 			// A pilot who takes the seat from the dummy plug while it drives toward a goal, or
 			// after it was benched, corrects it until leaving, and the recorder marks those
 			// ticks for DAgger.
@@ -875,6 +894,12 @@ fn main() {
 			u_seat = dummy.act(p, goal.target)
 		}
 
+		// The planner plans at the speed the armor allows, which a seat raises.
+		u_core := match cfg.steering {
+			.reflex { reflex(p, goal) }
+			.local { way.next(p, goal, ar.top_speed(p, seat != 'empty')) }
+		}
+
 		mut authority := 1.0
 		if seat == 'pilot' {
 			authority = share(mut pilot_sync, u_seat, u_core)
@@ -887,7 +912,7 @@ fn main() {
 				println('plug: dummy plug out of sync at ${pct:.0f}%, benched until the pilot is back')
 				benched = true
 				seat = 'empty'
-				u_seat = []f64{len: u_core.len}
+				u_seat = []f64{len: p.pose.len}
 				authority = 1.0
 			}
 		}
