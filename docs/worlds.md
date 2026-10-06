@@ -73,7 +73,7 @@ Under `BODY=mujoco` the MuJoCo base plays the same world ([Safety](safety.md#how
 
 ### A walking human's velocity
 
-The percept carries each walking human's velocity, the step it took since the last sense over that time, in m/s, and none for a human that stands, stopped or waiting included. The recorder writes it with the scene, and the text the models read leaves it out. MAGI judge a goto by it ([MAGI](magi.md#a-goto-toward-a-walking-human)), but only a goto the body could reach within 2 s, from within 2.35 m of its target. A goto from farther than that never draws it: in the default world every start the tools fly lies at least 2.50 m from the beacon, so the mission's first goto never does, while a re-goto from near the beacon may.
+The percept carries each walking human's velocity, the step it took since the last sense over that time, in m/s, and none for a human that stands, stopped or waiting included. The recorder writes it with the scene, and the text the models read leaves it out. MAGI judge a goto by it ([MAGI](magi.md#a-goto-toward-a-walking-human)), but only a goto the body could reach within 2 s, from within 2.35 m of its target. A goto from farther than that never draws it: in the default world every start the tools fly lies at least 2.50 m from the beacon, so the mission's first goto never does, while a re-goto from near the beacon may. Of the scenes, only `ep18-bardiel` proposes a goto from that close, and a flight of it checks that MAGI refuse the one onto Toji's way.
 
 ## What gehirn refuses
 
@@ -113,3 +113,4 @@ Each canon scene of [Scenes](scenes.md) plays a world of its episode, which the 
 | [worlds/ep03-cable.json](../worlds/ep03-cable.json) | `ep03-cable` | Tokyo-3 on the default world's start, beacon and pillar: buildings, a shelter, a shrine, and two boys who walk from the shelter to the shrine and stop for the body |
 | [worlds/ep19-bench.json](../worlds/ep19-bench.json) | `ep19-bench` | The Geofront on the default world's start, beacon and pillar: the Angel beside the pyramid, Kaji's melons and a crushed shelter, with Gendo and Kaji who stop for the body and an evacuee who steps aside |
 | [worlds/ep06-yashima.json](../worlds/ep06-yashima.json) | `ep06-yashima` | Mt. Futago: the firing point, the substation behind it and Ramiel across the map, with Rei guarding the gunner and two classmates watching |
+| [worlds/ep18-bardiel.json](../worlds/ep18-bardiel.json) | `ep18-bardiel` | The battle line at Nobeyama on the default world's start, beacon and pillar: Toji, who walks the north edge, turns straight for the body at the beacon and stops 1 m short of it |

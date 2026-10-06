@@ -265,6 +265,7 @@ fn (u Unit) llm_vote(ep oai.Endpoint, ctx lcl.Context, p lcl.Intent) Ballot {
 	// The course fact binds every chat unit, as jev_judge binds Jev: hosted, gpt-oss-20b approved
 	// tools/scenarios.json S22 3 and 4 of 10 and llama-3.1-8b 9 of 10 despite COURSE (PLAN, Known
 	// issue 35). The model is still asked, so its own vote and why stay in the ballot.
+	// scripts/scenes/ep18-bardiel.sh looks for `CASPER-3 否決 course veto` in HQ's log.
 	if fact != '' {
 		return Ballot{
 			unit:       u.name

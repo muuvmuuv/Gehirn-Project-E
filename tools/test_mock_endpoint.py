@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Self check for mock_endpoint's --vote, --propose and COURSE: python3 tools/test_mock_endpoint.py"""
+"""Self check for mock_endpoint's --vote, --propose, --goto and COURSE: python3 tools/test_mock_endpoint.py"""
 
 import argparse
 from collections.abc import Callable
 
-from mock_endpoint import answer, forced, judge, propose, propose_arg, read_percept, vote_arg
+from mock_endpoint import answer, forced, goto_arg, judge, propose, propose_arg, read_percept, vote_arg
 
 # A unit's request as magi/magi.v Unit.llm_vote asks it, on lcl/lcl.v Context.situation.
 USER = """MISSION
@@ -55,7 +55,22 @@ assert answer("casper", USER, 3, STAGED, VOTES) == {"vote": "approve", "why": "f
 assert answer("balthasar", USER, 1, STAGED, VOTES) == {
     "vote": "reject", "why": "self_destruct is no verb this machine knows."}
 
-# Without either flag every role answers as scripted.
+# --goto stages a target from the core's N-th request on, the largest N up to it applying, and
+# --propose wins over it.
+for bad in ("", "3.54", "a,b", "1,2@0", "1,2@x", "1,2@", "1;2", " 1,2"):
+    assert refused(goto_arg, bad), bad
+A = {"verb": "goto", "target": [3.54, 2.84], "why": "Staged by --goto."}
+B = {"verb": "goto", "target": [1.0, 2.5], "why": "Staged by --goto."}
+assert goto_arg("3.54,2.84@5") == (5, A)
+assert goto_arg("1,2.5") == (1, B)
+assert goto_arg("-1.5,-0.25@2")[1]["target"] == [-1.5, -0.25]
+GOTOS = {5: A, 6: B}
+assert [answer("core", USER, n, None, {}, GOTOS) for n in (4, 5, 6, 7)] == [
+    propose(read_percept(USER), USER), A, B, B]
+assert answer("core", USER, 5, STAGED, {}, GOTOS) == STAGED
+assert answer("melchior", USER, 5, None, {}, GOTOS) == judge("melchior", USER, read_percept(USER))
+
+# Without any flag every role answers as scripted.
 percept = read_percept(USER)
 assert answer("core", USER, 1, None, {}) == propose(percept, USER)
 for unit in ("melchior", "balthasar", "casper"):
