@@ -40,6 +40,10 @@ pre-commit:
       run: just --fmt --check
       fail_text: run `just --fmt`
 
+    - name: workflows
+      glob: ".github/workflows/*.yml"
+      run: actionlint {staged_files}
+
 commit-msg:
   jobs:
     - name: conventional commit

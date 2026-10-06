@@ -1,0 +1,111 @@
+# Builds the binaries for a tag v* and attaches them, one archive per target with their sha256 sums,
+# to a draft release (CONTRIBUTING.md, Continuous integration; docs/running.md, Prebuilt binaries).
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  V_C_ERROR_BUG_REPORT_DISABLED: "1" # CONTRIBUTING.md, V 0.5.2 rule 9
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - runner: macos-15
+            target: macos-arm64
+          - runner: ubuntu-24.04
+            target: linux-x86_64
+          - runner: ubuntu-24.04-arm
+            target: linux-aarch64
+    runs-on: ${{ matrix.runner }}
+    env:
+      # Without it clang targets the runner's own macOS, which moves when GitHub updates the image.
+      MACOSX_DEPLOYMENT_TARGET: "15.0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # check.yml's linux job installs the same packages.
+      - name: Install SDL2 and the bridge's X11 and OpenGL libraries
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            sudo apt-get update -q
+            sudo apt-get install -y -q --no-install-recommends libsdl2-dev libgl-dev libx11-dev libxcursor-dev libxi-dev
+          else
+            brew install sdl2-compat
+          fi
+      - name: Install V, just, shellcheck and shfmt
+        run: scripts/toolchain.sh >>"$GITHUB_PATH"
+      - run: just build bridge gamepad
+      - name: Pack the binaries with the licenses
+        env:
+          TARGET: ${{ matrix.target }}
+          COPYFILE_DISABLE: "1" # keeps macOS tar from adding ._ files for extended attributes
+        run: |
+          name="gehirn-$GITHUB_REF_NAME-$TARGET"
+          mkdir "$name"
+          cp gehirn gehirn-bridge gehirn-gamepad LICENSE bridge/fonts/OFL-*.txt "$name/"
+          tar -czf "$name.tar.gz" "$name"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ matrix.target }}
+          path: gehirn-*.tar.gz
+          if-no-files-found: error
+
+  # The field unit as a static musl binary, which Vinix runs as it runs Alpine's (Invariant 9). V's
+  # release archive holds a glibc build, so it runs under Alpine's gcompat and compiles on musl.
+  musl:
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            target: linux-x86_64-musl
+          - runner: ubuntu-24.04-arm
+            target: linux-aarch64-musl
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build gehirn statically on Alpine
+        run: |
+          docker run --rm -v "$PWD:/work" -w /work -e V_C_ERROR_BUG_REPORT_DISABLED alpine:3.22 sh -euc '
+            apk add --no-cache -q bash curl unzip tar gcc musl-dev gcompat gc-dev gc-static
+            PATH="$(scripts/toolchain.sh /opt/toolchain):$PATH"
+            scripts/zenoh.sh
+            v -prod -cflags -static -o gehirn .
+          '
+      - name: Pack the binary with the license
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          name="gehirn-$GITHUB_REF_NAME-$TARGET"
+          mkdir "$name"
+          cp gehirn LICENSE "$name/"
+          tar -czf "$name.tar.gz" "$name"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ matrix.target }}
+          path: gehirn-*.tar.gz
+          if-no-files-found: error
+
+  release:
+    needs: [build, musl]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Draft the release
+        working-directory: dist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha256sum gehirn-*.tar.gz >SHA256SUMS
+          gh release create "$GITHUB_REF_NAME" gehirn-*.tar.gz SHA256SUMS --repo "$GITHUB_REPOSITORY" --draft --verify-tag --generate-notes

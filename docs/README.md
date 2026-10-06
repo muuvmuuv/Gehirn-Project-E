@@ -2,7 +2,7 @@
 
 One document per topic, each for one reader. The [README](../README.md) introduces gehirn and shows how to start the demo.
 
-- [running.md](running.md): for someone running gehirn, from the demo in detail to hosted and local models and two machines.
+- [running.md](running.md): for someone running gehirn, from the demo in detail to hosted and local models, two machines and prebuilt binaries.
 - [scenes.md](scenes.md): for someone flying or recording a scene from the series, with what each stages and what is real.
 - [configuration.md](configuration.md): for someone setting a variable, with every default and every refusal.
 - [magi.md](magi.md): for someone choosing or judging MAGI's models.

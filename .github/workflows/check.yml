@@ -1,0 +1,70 @@
+# Runs `just check` on every push to main and every pull request, on Ubuntu x86_64 always and on
+# macOS on Apple Silicon unless the change touches docs and assets only (CONTRIBUTING.md,
+# Continuous integration).
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  V_C_ERROR_BUG_REPORT_DISABLED: "1" # CONTRIBUTING.md, V 0.5.2 rule 9
+
+jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          sparse-checkout: .github
+      - id: diff
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          # macOS runners count ten times against a private repository's minutes, and no check
+          # reads docs, assets, the website, Markdown or the license. A base git cannot diff
+          # against, as for a new branch or after a force push, counts as code.
+          code=true
+          if files=$(git diff --no-renames --name-only "$BASE" HEAD) && [ -n "$files" ] &&
+            ! grep -qvE '^(docs|assets|website)/|\.md$|^LICENSE$' <<<"$files"; then
+            code=false
+          fi
+          echo "code=$code" | tee -a "$GITHUB_OUTPUT"
+
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # release.yml's build job installs the same packages.
+      - name: Install SDL2 and the bridge's X11 and OpenGL libraries
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends libsdl2-dev libgl-dev libx11-dev libxcursor-dev libxi-dev
+      - name: Install V, just, shellcheck and shfmt
+        run: scripts/toolchain.sh >>"$GITHUB_PATH"
+      - run: just check
+      - name: Build gehirn, the bridge and the gamepad
+        run: just build bridge gamepad
+
+  macos:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install V, just, shellcheck and shfmt
+        run: scripts/toolchain.sh >>"$GITHUB_PATH"
+      - run: just check

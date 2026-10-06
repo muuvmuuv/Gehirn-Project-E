@@ -19,13 +19,15 @@ The loop above comes from a `just lineup=magi demo-record` run on 2026-10-05: MA
 
 ## Try it
 
-One command flies the whole story on scripted mock models, without keys. It needs [V 0.5.2](https://github.com/vlang/v/releases/tag/0.5.2), just, curl, unzip and Python 3.10 or newer, and ffmpeg only for recording. It is verified on macOS on Apple Silicon. Intel Macs have no pinned zenoh-c, and on Linux neither gehirn nor the bridge has been built with V yet.
+One command flies the whole story on scripted mock models, without keys. It needs [V 0.5.2](https://github.com/vlang/v/releases/tag/0.5.2), just, curl, unzip and Python 3.10 or newer, and ffmpeg only for recording; on Linux the bridge also needs the X11 and OpenGL development libraries, as [check.yml](.github/workflows/check.yml) installs them. It is verified on macOS on Apple Silicon, and on Linux in containers only, the demo on a virtual display. Intel Macs have no pinned zenoh-c.
 
 ```sh
 just demo
 ```
 
 [Running gehirn](docs/running.md#the-demo) says what the demo shows beat by beat, how to record it and how to fly it on hosted models.
+
+Each release also carries [prebuilt binaries](docs/running.md#prebuilt-binaries) for macOS and Linux.
 
 ## What it is
 
@@ -66,7 +68,7 @@ An approved goal still has to pass the armor, and a refusal goes back to the cor
 
 ## Documentation
 
-- [Running gehirn](docs/running.md): the demo beat by beat and its recording, hosted models, the mock by hand, HQ and the field unit as two processes, and local models.
+- [Running gehirn](docs/running.md): the demo beat by beat and its recording, hosted models, the mock by hand, HQ and the field unit as two processes, prebuilt binaries, and local models.
 - [Scenes](docs/scenes.md): scenes from the series flown on the mock, each saying what is staged and what is real.
 - [Configuration](docs/configuration.md): every variable with its default, and what gehirn refuses to start with.
 - [MAGI](docs/magi.md): how a vote works, why the three judges come from three families, the scenario gate, and the hosted lineups as measured.

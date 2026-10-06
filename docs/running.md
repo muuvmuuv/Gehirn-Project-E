@@ -1,6 +1,6 @@
 # Running gehirn
 
-How to run gehirn beyond the first `just demo`: the demo in detail, hosted models, the mock by hand, HQ and the field unit as two processes, and local models. The [README](../README.md#try-it) lists what it needs, and [Configuration](configuration.md) every variable.
+How to run gehirn beyond the first `just demo`: the demo in detail, hosted models, the mock by hand, HQ and the field unit as two processes, prebuilt binaries, and local models. The [README](../README.md#try-it) lists what it needs, and [Configuration](configuration.md) every variable.
 
 ## The demo
 
@@ -71,6 +71,25 @@ cd hq && ../gehirn hq
 ```
 
 Kill HQ and the field unit runs on internal power once `UMBILICAL_GRACE_MS` has passed, then holds; start HQ again and the cable reconnects. `just demo` scripts all of this, with the bridge watching. Plain `./gehirn` keeps both in one process for development, and `tools/trials.py` flies only that.
+
+## Prebuilt binaries
+
+A machine that only runs gehirn, the bridge or the gamepad needs no V. Each tag `v*` builds them and attaches them to a draft release on the repository's GitHub Releases page, where they appear once the owner publishes it; while the repository is private, only those with access see it. Each target has one archive, `gehirn-<tag>-<target>.tar.gz`, with `LICENSE` beside the binaries and the font licenses beside the bridge, and `SHA256SUMS` lists each archive's sha256.
+
+| Target | Holds | Needs |
+| --- | --- | --- |
+| `macos-arm64` | gehirn, gehirn-bridge, gehirn-gamepad | macOS 15 or newer on Apple Silicon; the gamepad also Homebrew's sdl2-compat |
+| `linux-x86_64`, `linux-aarch64` | gehirn, gehirn-bridge, gehirn-gamepad | glibc 2.38 or newer, as on Ubuntu 24.04 or Debian 13; the bridge X11 and OpenGL, the gamepad SDL2, `libsdl2-2.0-0` on Debian and Ubuntu |
+| `linux-x86_64-musl`, `linux-aarch64-musl` | gehirn, statically linked | nothing: it runs on any Linux of its architecture, Alpine included, and is the field unit's build for Vinix (PLAN, Invariant 9) |
+
+Check an archive against the sums and unpack it, here for macOS:
+
+```sh
+grep gehirn-v0.1.0-macos-arm64.tar.gz SHA256SUMS | shasum -a 256 -c
+tar -xzf gehirn-v0.1.0-macos-arm64.tar.gz
+```
+
+The macOS binaries are neither signed nor notarized, so macOS refuses to open one that came through a browser until its quarantine flag is cleared, once per binary: `xattr -d com.apple.quarantine <file>`. That holds until the owner decides on signing (PLAN, Tooling task 4). The binaries run as the ones built from source do, with the variables of [Configuration](configuration.md); `just demo`, the mock and the tools under `tools/` still need a clone.
 
 ## Local models
 
