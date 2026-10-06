@@ -25,7 +25,7 @@ test: zenoh
 zenoh:
     @scripts/zenoh.sh
 
-# Links the MuJoCo installed on this Mac into thirdparty/mujoco for Phase 3's simulator work.
+# Builds the pinned MuJoCo from source as one static library into thirdparty/mujoco (ADR-0008); needs cmake, Ninja, a C++ compiler and git.
 mujoco:
     @scripts/mujoco.sh
 
