@@ -34,7 +34,7 @@ export function Nav() {
 				<Link to="/" hash="scenes">
 					Scenes
 				</Link>
-				<Link to="/bridge" activeProps={{ 'aria-current': 'page' }}>
+				<Link to="/bridge" className="links__page">
 					The bridge
 				</Link>
 				<a className="links__gh" href={REPO}>

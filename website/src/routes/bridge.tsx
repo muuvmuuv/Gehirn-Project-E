@@ -5,25 +5,13 @@ import { Footer } from '../components/Footer'
 import { Frame } from '../components/Frame'
 import { Nav } from '../components/Nav'
 import { Term } from '../components/Term'
+import { PINS } from '../lib/pins'
 
 /** The guide to reading the bridge: two clips of it running, its annotated frame, the vote states, the glossary and the demo's beats. */
 export const Route = createFileRoute('/bridge')({
 	head: () => ({ meta: [{ title: 'Reading the gehirn Bridge' }] }),
 	component: BridgeGuide,
 })
-
-/** A marker on the bridge frame, in percent of the frame, and the panel it names. */
-const PINS = [
-	{ k: '1', left: 53.9, top: 3.2, label: 'header and status lights' },
-	{ k: '2', left: 30, top: 42.6, label: 'the three MAGI judges' },
-	{ k: '3', left: 16.2, top: 25.6, label: 'the proposal' },
-	{ k: '4', left: 39.9, top: 21.9, label: 'the verdict' },
-	{ k: '5', left: 96.9, top: 28.3, label: 'the umbilical clock' },
-	{ k: '6', left: 95.3, top: 42.5, label: 'the scene radar' },
-	{ k: '7', left: 13.3, top: 66.3, label: 'the sync ratio' },
-	{ k: '8', left: 22.7, top: 87.5, label: 'the core' },
-	{ k: '9', left: 79.4, top: 90, label: 'armor refusals and outcomes' },
-]
 
 const GLOSSARY = [
 	['発令所', 'hatsureisho', 'Command center'],
