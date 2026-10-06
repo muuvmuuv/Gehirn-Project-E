@@ -47,8 +47,8 @@ Each of these sits where `website/index.html` or the manifest names it.
 | [website/bridge.png](../website/bridge.png) | The bridge refusing the release, as assets/media/bridge.png | index.html's annotated frame | A copy of assets/media/bridge.png: `cp assets/media/bridge.png website/bridge.png` | EUPL 1.2 |
 | [website/media/boot.mp4](../website/media/boot.mp4) | The demo's first 8 s, from the boot screen to MAGI passing the goto 3/3 | index.html, Watch it run | The frames of one `just demo-record` take on the mock on 2026-10-05, linked aside while it ran since scripts/record.sh removes them, from the first one the bridge drew, encoded as record.sh encodes its MP4: libx264 at crf 20, 1280 by 800, no audio | EUPL 1.2 |
 | [website/media/boot.png](../website/media/boot.png) | The boot screen with its five lines | boot.mp4's poster | A frame of the same take, 1280 by 800, cut to 256 colors | EUPL 1.2 |
-| [website/media/ep13-iruel.mp4](../website/media/ep13-iruel.mp4) | Episode 13's MAGI hack as a scene, 31 s | index.html, Watch it run | `just scene=ep13-iruel demo-record` on 2026-10-05, unchanged | EUPL 1.2 |
-| [website/media/ep13-iruel.png](../website/media/ep13-iruel.png) | The 3/3 verdict with the armor's refusal of self_destruct | ep13-iruel.mp4's poster | A frame of the same take, 1280 by 800, cut to 256 colors | EUPL 1.2 |
+| [website/media/ep13-iruel.mp4](../website/media/ep13-iruel.mp4) | Episode 13's MAGI hack as a scene in NERV HQ's MAGI room, its world `worlds/ep13-iruel.json`, 32 s | index.html, Watch it run | `just scene=ep13-iruel demo-record` on 2026-10-06, unchanged | EUPL 1.2 |
+| [website/media/ep13-iruel.png](../website/media/ep13-iruel.png) | The 3/3 verdict with the armor's refusal of self_destruct, the MAGI room on the radar | ep13-iruel.mp4's poster | The take's last frame, 1280 by 800, cut to 256 colors with ffmpeg's palettegen and paletteuse | EUPL 1.2 |
 
 ## Bridge embeds
 
