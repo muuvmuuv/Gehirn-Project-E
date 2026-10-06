@@ -438,10 +438,19 @@ h3 {
 	background: var(--panel);
 }
 
+/* A command longer than the line scrolls inside it, so the copy button stays in the box. */
 .term code {
+	flex: 1;
+	min-width: 0;
+	overflow-x: auto;
+	scrollbar-width: none;
 	font-size: 18px;
 	color: var(--orange);
 	white-space: nowrap;
+}
+
+.term__copy {
+	flex: none;
 }
 
 .term__prompt {
@@ -835,6 +844,143 @@ h3 {
 	line-height: 1.45;
 }
 
+.scenes {
+	display: grid;
+	grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+	gap: 28px;
+	align-items: start;
+}
+
+.episodes {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	display: grid;
+	gap: 8px;
+}
+
+.episode {
+	display: grid;
+	grid-template-columns: 4.8em minmax(0, 1fr);
+	gap: 2px 14px;
+	align-items: baseline;
+	width: 100%;
+	padding: 12px 14px;
+	border: 1px solid var(--line);
+	background: var(--ink);
+	text-align: left;
+	transition:
+		background-color 160ms ease,
+		border-color 160ms ease,
+		transform 140ms var(--ease-out);
+}
+
+.episode:active {
+	transform: scale(0.98);
+}
+
+.episode[aria-pressed='true'] {
+	border-color: var(--orange);
+	background: var(--panel);
+}
+
+.episode__jp {
+	grid-row: 1 / span 2;
+	font-weight: 900;
+	font-size: 20px;
+	color: var(--orange);
+	white-space: nowrap;
+}
+
+.episode b {
+	font-family: var(--display);
+	font-weight: 700;
+	font-size: 18px;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+}
+
+.episode small {
+	font-size: 14px;
+	color: var(--dim);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.episode:hover {
+		border-color: var(--line-hover);
+	}
+
+	.episode[aria-pressed='true']:hover {
+		border-color: var(--orange);
+	}
+}
+
+/* The episode's title as the series sets its title cards: heavy Mincho, squeezed, cut in rather than faded. */
+.card {
+	display: grid;
+	gap: 4px;
+	padding: 16px 18px 4px;
+	overflow: clip;
+}
+
+.card__no {
+	font-family: var(--jp);
+	font-weight: 900;
+	font-size: 14px;
+	letter-spacing: 0.14em;
+	color: var(--dim);
+}
+
+.card__title {
+	display: block;
+	font-family: var(--jp);
+	font-weight: 900;
+	font-size: clamp(1.9rem, 3.6vw, 2.8rem);
+	line-height: 1;
+	text-transform: uppercase;
+	white-space: nowrap;
+	transform: scaleX(0.78);
+	transform-origin: left center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.card {
+		animation: cut 0.45s steps(1) both;
+	}
+}
+
+@keyframes cut {
+	0% {
+		opacity: 0;
+	}
+
+	40% {
+		opacity: 1;
+	}
+}
+
+.viewer__meta {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 20px;
+	padding: 16px 18px 18px;
+	border-top: 1px solid var(--line);
+}
+
+.viewer__meta p {
+	margin: 0;
+	font-size: 15px;
+}
+
+.viewer__meta .tag {
+	display: table;
+	margin-bottom: 6px;
+}
+
+.viewer__run {
+	padding: 0 18px 18px;
+}
+
 .teaser__more {
 	display: flex;
 	flex-wrap: wrap;
@@ -921,8 +1067,13 @@ h3 {
 
 @media (max-width: 960px) {
 	.hero,
-	.runit {
+	.runit,
+	.scenes {
 		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.episodes {
+		grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
 	}
 
 	.rules,
@@ -967,7 +1118,8 @@ h3 {
 		padding-block: 40px 56px;
 	}
 
-	.parts {
+	.parts,
+	.viewer__meta {
 		grid-template-columns: minmax(0, 1fr);
 	}
 }

@@ -31,7 +31,7 @@ Everything here is gehirn's own work under the [EUPL 1.2](../LICENSE), except th
 
 ## Scene recordings
 
-One take of each scene on its world, recorded with `just scene=<id> demo-record` on 2026-10-06, and `ep12-sahaquiel` on 2026-10-07; [docs/scenes.md](../docs/scenes.md#recordings) links them. Episode 13's MP4 is the website's clip, [website/public/media/ep13-iruel.mp4](../website/public/media/ep13-iruel.mp4).
+One take of each scene on its world, recorded with `just scene=<id> demo-record` on 2026-10-06, and `ep12-sahaquiel` on 2026-10-07; [docs/scenes.md](../docs/scenes.md#recordings) links them. Episode 13's MP4 lives only as the website's clip, [website/public/media/ep13-iruel.mp4](../website/public/media/ep13-iruel.mp4), and the website plays copies of Episodes 3, 6, 18 and 19, listed under Website, but not yet Episode 12. A copy costs no LFS storage, since Git LFS stores one object per content.
 
 | File | Shows | Used by | Made by | License |
 | --- | --- | --- | --- | --- |
@@ -66,8 +66,10 @@ Each of these sits in `website/public/`, which the site serves at its root, wher
 | [website/public/media/magi.png](../website/public/media/magi.png) | The refusal, 否決 1/3 | magi.mp4's poster | The GIF's frame at 3 s, cut to 256 colors with ffmpeg's palettegen and paletteuse | EUPL 1.2 |
 | [website/public/media/boot.mp4](../website/public/media/boot.mp4) | The demo's first 8 s, from the boot screen to MAGI passing the goto 3/3 | The bridge guide, Watch it run | The frames of one `just demo-record` take on the mock on 2026-10-05, linked aside while it ran since scripts/record.sh removes them, from the first one the bridge drew, encoded as record.sh encodes its MP4: libx264 at crf 20, 1280 by 800, no audio | EUPL 1.2 |
 | [website/public/media/boot.png](../website/public/media/boot.png) | The boot screen with its five lines | boot.mp4's poster | A frame of the same take, 1280 by 800, cut to 256 colors | EUPL 1.2 |
-| [website/public/media/ep13-iruel.mp4](../website/public/media/ep13-iruel.mp4) | Episode 13's MAGI hack as a scene in NERV HQ's MAGI room, its world `worlds/ep13-iruel.json`, 32 s | The bridge guide, Watch it run | `just scene=ep13-iruel demo-record` on 2026-10-06, unchanged | EUPL 1.2 |
+| [website/public/media/ep13-iruel.mp4](../website/public/media/ep13-iruel.mp4) | Episode 13's MAGI hack as a scene in NERV HQ's MAGI room, its world `worlds/ep13-iruel.json`, 32 s | The bridge guide, Watch it run; the landing page's scenes | `just scene=ep13-iruel demo-record` on 2026-10-06, unchanged | EUPL 1.2 |
 | [website/public/media/ep13-iruel.png](../website/public/media/ep13-iruel.png) | The 3/3 verdict with the armor's refusal of self_destruct, the MAGI room on the radar | ep13-iruel.mp4's poster | The take's last frame, 1280 by 800, cut to 256 colors with ffmpeg's palettegen and paletteuse | EUPL 1.2 |
+| [website/public/media/ep03-cable.mp4](../website/public/media/ep03-cable.mp4), [ep06-yashima.mp4](../website/public/media/ep06-yashima.mp4), [ep18-bardiel.mp4](../website/public/media/ep18-bardiel.mp4), [ep19-bench.mp4](../website/public/media/ep19-bench.mp4) | The other four scenes, as under Scene recordings | The landing page's scenes | Copies of assets/media/scenes/, unchanged: `cp assets/media/scenes/<id>.mp4 website/public/media/` | EUPL 1.2 |
+| [website/public/media/ep03-cable.png](../website/public/media/ep03-cable.png), [ep06-yashima.png](../website/public/media/ep06-yashima.png), [ep18-bardiel.png](../website/public/media/ep18-bardiel.png), [ep19-bench.png](../website/public/media/ep19-bench.png) | Each scene's end, 1280 by 800 | Each clip's poster | The take's frame 0.4 s before its end, cut to 256 colors: `ffmpeg -sseof -0.4 -i <id>.mp4 -frames:v 1 -vf "split[a][b];[a]palettegen=max_colors=256[p];[b][p]paletteuse" <id>.png` | EUPL 1.2 |
 
 ## Bridge embeds
 
