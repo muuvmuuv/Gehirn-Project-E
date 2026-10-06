@@ -9,6 +9,7 @@
 	"rules": {
 		// Vite uses the automatic JSX runtime
 		"react/react-in-jsx-scope": "off",
+
 		// Stylesheets are imported for their side effects
 		"import/no-unassigned-import": ["warn", { "allow": ["**/*.css"] }],
 		"react-hooks/rules-of-hooks": "error",

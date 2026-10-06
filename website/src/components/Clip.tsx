@@ -4,8 +4,9 @@ import { useEffect, useRef } from 'react'
 /**
  * A recording of the bridge: muted and looping, it plays only while it is on screen, so a page
  * with several clips downloads the one in view. Under reduced motion it stays on its poster. Its
- * controls let a viewer stop it, which WCAG asks of motion that plays longer than 5 s. Every clip
- * on the site is 1280 by 800 or, for the MAGI block, 800 by 448.
+ * controls let a viewer stop it, which WCAG asks of motion that plays longer than 5 s, and a clip
+ * the viewer paused stays paused when it scrolls back into view. Every clip on the site is 1280
+ * by 800 or, for the MAGI block, 800 by 448.
  */
 export function Clip({
 	src,
@@ -26,13 +27,26 @@ export function Clip({
 	const reduce = useReducedMotion()
 	const inView = useInView(ref, { amount: 0.35 })
 
+	/** Whether the viewer paused the clip with its controls. */
+	const held = useRef(false)
+
+	/** Whether the next pause event is the clip's own, for leaving the screen or for reduced motion. */
+	const ours = useRef(false)
+
 	useEffect(() => {
 		const v = ref.current
-		if (!v || reduce) return
+		if (!v) return
+
+		if (reduce || !inView) {
+			if (!v.paused) {
+				ours.current = true
+				v.pause()
+			}
+			return
+		}
 
 		// play() rejects when the browser blocks it or a newer pause() wins; the poster stays, which is fine.
-		if (inView) v.play().catch(() => {})
-		else v.pause()
+		if (!held.current) v.play().catch(() => {})
 	}, [inView, reduce])
 
 	return (
@@ -48,7 +62,14 @@ export function Clip({
 			loop
 			playsInline
 			controls
-			preload={eager ? 'auto' : 'none'}
+			preload={eager && !reduce ? 'auto' : 'none'}
+			onPlay={() => {
+				held.current = false
+			}}
+			onPause={() => {
+				if (ours.current) ours.current = false
+				else held.current = true
+			}}
 		/>
 	)
 }

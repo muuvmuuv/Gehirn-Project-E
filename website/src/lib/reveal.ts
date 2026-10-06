@@ -1,7 +1,7 @@
 import { useReducedMotion } from 'motion/react'
 import type { MotionProps } from 'motion/react'
 
-/** The strong ease-out every entrance on the site shares. */
+/** The strong ease-out every entrance on the site shares; --ease-out in src/styles/site.css is the same curve for CSS. */
 export const EASE_OUT: [number, number, number, number] = [0.23, 1, 0.32, 1]
 
 /** One step of a stagger, in seconds. */

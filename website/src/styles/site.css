@@ -28,6 +28,8 @@
 	--step-3: clamp(2.9rem, 6.2vw, 5.4rem);
 
 	--gutter: clamp(16px, 4vw, 44px);
+
+	/* EASE_OUT in src/lib/reveal.ts is the same curve for Motion. */
 	--ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
@@ -523,6 +525,15 @@ main:focus {
 		0 0 0 2px var(--ink),
 		0 0 0 6px var(--orange);
 	outline: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.pin:hover {
+		transform: translate(-50%, -50%) scale(1.25);
+		box-shadow:
+			0 0 0 2px var(--ink),
+			0 0 0 6px var(--orange);
+	}
 }
 
 /* Footer */

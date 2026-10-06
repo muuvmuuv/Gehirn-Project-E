@@ -10,6 +10,7 @@ import { Term } from './Term'
 type Scene = {
 	id: string
 	episode: number
+
 	/** The episode's number as the series' title cards write it. */
 	jp: string
 	title: string
