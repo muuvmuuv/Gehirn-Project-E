@@ -1,6 +1,6 @@
 # ADR-0007: MAGI units read no journal
 
-**Status:** Accepted on 2026-10-05
+**Status:** Accepted on 2026-10-05; what a chat unit reads extended by ADR-0009
 **Date:** 2026-10-05
 **Deciders:** repository owner
 

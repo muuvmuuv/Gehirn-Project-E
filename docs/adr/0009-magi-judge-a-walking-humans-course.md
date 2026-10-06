@@ -1,6 +1,6 @@
 # ADR-0009: MAGI judge a walking human's course
 
-**Status:** Proposed
+**Status:** Accepted on 2026-10-06
 **Date:** 2026-10-06
 **Deciders:** repository owner
 
@@ -149,7 +149,7 @@ Revisit when a hosted lineup shows the known pass costing contact, which would a
 
 1. [x] Run hosted `magi-eval 10` on S1 to S22 with lineup A, which also measures Jev on the new destination phrase as ADR-0002's Action Item 3 asks. Jev read it under its limit in all 60 ballots, so `jev_judge` vetoes such a goto; A held S19 and failed the gate on S22 until every unit vetoed it, and holds the gate since (PLAN, Known issue 35).
 2. [x] Fly ten hosted missions of lineup A and report every ballot with a course. None carried one, so the rule's precision in missions is unmeasured (PLAN, Known issue 34).
-3. [ ] The owner reviews Option H, the veto in every unit that holds S22 on lineup A since 2026-10-06, chosen in the owner's absence over Options I and J (PLAN, Known issue 35).
+3. [x] The owner reviews Option H, the veto in every unit that holds S22 on lineup A since 2026-10-06, chosen in the owner's absence over Options I and J (PLAN, Known issue 35).
 4. [ ] A world or a scene whose gotos come from within 2.35 m of a walker's way, flown to measure how often the rule fires and how often its fact holds.
 5. [ ] Phase 3 Task 5's detector supplies each human's velocity from its track.
-6. [ ] On acceptance, ADR-0007's status gains "; what a chat unit reads extended by ADR-0009", and docs/decisions.md's line on Episode 18 changes.
+6. [x] On acceptance, ADR-0007's status gains "; what a chat unit reads extended by ADR-0009", and docs/decisions.md's line on Episode 18 changes.
