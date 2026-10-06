@@ -4,6 +4,7 @@ __pycache__/
 /gehirn
 /gehirn-bridge
 /gehirn-gamepad
+/musl-mujoco
 dummy.*.json
 dummy.*.set
 

@@ -41,6 +41,11 @@ mujoco:
 test-mujoco: zenoh mujoco
     v -d mujoco -W -N test .
 
+# Runs the mujoco, body and armor tests with -d mujoco on aarch64 musl and builds gehirn with it as a static binary in an alpine:3.22 container, into out with MuJoCo's licenses; needs Docker and the network (Invariant 9, ADR-0008).
+[no-exit-message]
+musl-mujoco out="musl-mujoco":
+    @scripts/musl.sh {{ quote(out) }}
+
 # Runs every tools/test_*.py self check and compiles the Python files.
 py *paths="tools/*.py sidecar/*.py":
     for t in tools/test_*.py; do python3 "$t" || exit 1; done
