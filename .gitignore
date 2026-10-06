@@ -2,8 +2,14 @@
 *.jsonl
 __pycache__/
 /gehirn
-/thirdparty/
 /gehirn-bridge
 /gehirn-gamepad
 dummy.*.json
 dummy.*.set
+
+# Without a trailing slash, so a worktree's symlink to the main checkout's thirdparty stays out too.
+/thirdparty
+
+# Claude Code's per person settings and its worktrees; .claude/settings.json and hooks/ are shared.
+/.claude/settings.local.json
+/.claude/worktrees/
