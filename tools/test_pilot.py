@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Self check for pilot.datagram: python3 tools/test_pilot.py"""
+"""Self check for pilot.datagram, avoid, off, world and home: python3 tools/test_pilot.py"""
 
 import math
+import os
+from pathlib import Path
 
-from pilot import avoid, datagram, off
+from pilot import BEACON, START, avoid, datagram, home, off, world
 
 # plug/plug_test.v test_read_datagram opens this same datagram and test_seal makes it, so the
 # sides cannot drift.
@@ -27,5 +29,32 @@ assert avoid((-1.0, 0.0), B, PILLAR, [0.6, 0.0], 0.0) == [0.6, 0.0]
 
 assert math.isclose(off([1.0, 0.0], [0.0, 2.0]), 90.0)
 assert off([0.0, 0.0], [0.6, 0.0]) == 180.0 and off([0.0, 0.0], [0.0, 0.0]) == 0.0
+
+# START and BEACON match worlds/default.json, which body/world_test.v pins to body/world.v
+# default_world. A world file WORLD names moves both, and START moves the start of any world.
+WORLDS = Path(__file__).resolve().parent.parent / "worlds"
+EXAMPLE = ((-4.0, -3.0), (3.5, 2.5))
+assert world(str(WORLDS / "default.json")) == (START, BEACON)
+assert world(str(WORLDS / "example.json")) == EXAMPLE
+saved = {k: os.environ.pop(k, None) for k in ("WORLD", "START")}
+try:
+    assert home() == (START, BEACON)
+    os.environ["START"] = "1,-2"
+    assert home() == ((1.0, -2.0), BEACON)
+    os.environ["WORLD"] = str(WORLDS / "example.json")
+    assert home() == ((1.0, -2.0), EXAMPLE[1])
+    del os.environ["START"]
+    assert home() == EXAMPLE
+    os.environ["WORLD"] = str(WORLDS / "no-such-world.json")
+    try:
+        home()
+        raise AssertionError("home read a world file that is not there")
+    except SystemExit as e:
+        assert str(e).startswith("pilot: WORLD is "), e
+finally:
+    for k, v in saved.items():
+        os.environ.pop(k, None)
+        if v is not None:
+            os.environ[k] = v
 
 print("pilot: ok")

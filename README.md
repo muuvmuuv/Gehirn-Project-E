@@ -71,6 +71,7 @@ An approved goal still has to pass the armor, and a refusal goes back to the cor
 - [Running gehirn](docs/running.md): the demo beat by beat and its recording, hosted models, the mock by hand, HQ and the field unit as two processes, prebuilt binaries, and local models.
 - [Scenes](docs/scenes.md): scenes from the series flown on the mock, each saying what is staged and what is real.
 - [Configuration](docs/configuration.md): every variable with its default, and what gehirn refuses to start with.
+- [Worlds](docs/worlds.md): the world files the simulated body plays, with their beacons, obstacles and humans who stop or step aside, and the default world every measurement flew.
 - [MAGI](docs/magi.md): how a vote works, why the three judges come from three families, the scenario gate, and the hosted lineups as measured.
 - [The bridge](docs/bridge.md): how to run the operator's view and what each panel shows.
 - [Piloting](docs/piloting.md): the signed datagrams and the A10 reply, the gamepad, the sync ratio, and training the dummy plug.

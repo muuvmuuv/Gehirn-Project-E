@@ -9,8 +9,10 @@ plug has a style around obstacles to learn. With --dagger it flies only to corre
 plug, as DAgger's expert: it takes the seat for --hold seconds whenever the dummy plug steers
 more than that many degrees off its own command, or nobody steers toward a goal. The pose,
 scene and seat come from gehirn's flight recorder, so run it from the directory gehirn writes
-to or pass --recorder. Every datagram is signed with PILOT_KEY, which gehirn needs too;
-tools/withenv.py passes it from .env:
+to or pass --recorder; until the recorder has a pose, the pilot takes the body to be at the
+start of the world WORLD names, moved to START when set, as gehirn does, and it steers to that
+world's first beacon unless --beacon says otherwise. Every datagram is signed with PILOT_KEY,
+which gehirn needs too; tools/withenv.py passes it from .env:
 
     python3 tools/withenv.py .env python3 tools/pilot.py --offset 120 --seconds 20
     python3 tools/withenv.py .env python3 tools/pilot.py --offset 20 --avoid 1.2 --dagger 30 --seconds 60
@@ -27,7 +29,8 @@ import sys
 import time
 from collections.abc import Iterator
 
-START = (-3.5, -2.5)  # main.v start_pose's default; the pose until the recorder exists, unless START is set
+START = (-3.5, -2.5)  # body/world.v default_world's start, the pose until the recorder exists
+BEACON = (3.0, 2.0)  # body/world.v default_world's beacon b1, where the pilot steers
 ARRIVE = 0.35  # lcl.arrive: close enough to the beacon to stop steering
 TAIL = 4096  # bytes read from the end of the recorder, several lines' worth
 
@@ -142,6 +145,30 @@ def point(value: str) -> tuple[float, float]:
     return float(x), float(y)
 
 
+# world() reads the format of body/world.v WorldFile, which names it; gehirn's load_world checks
+# a world file before the body starts.
+def world(path: str) -> tuple[tuple[float, float], tuple[float, float]]:
+    """Return the start and the first beacon of the world file at path."""
+    with open(path, encoding="utf-8") as f:
+        w = json.load(f)
+    (x, y), (bx, by) = w["start"], w["beacons"][0]["pos"]
+    return (float(x), float(y)), (float(bx), float(by))
+
+
+def home() -> tuple[tuple[float, float], tuple[float, float]]:
+    """Return where gehirn starts the body and the beacon to steer to: those of the world file
+    WORLD names, else of the default world, with the start moved to START when it is set."""
+    start, beacon = START, BEACON
+    if os.environ.get("WORLD"):
+        try:
+            start, beacon = world(os.environ["WORLD"])
+        except (OSError, ValueError, KeyError, IndexError, TypeError) as e:
+            sys.exit(f"pilot: WORLD is {os.environ['WORLD']!r}, no world file: {e}")
+    if os.environ.get("START"):
+        start = point(os.environ["START"])
+    return start, beacon
+
+
 def command(at: tuple[float, float], scene: list[dict], args: argparse.Namespace) -> list[float]:
     """Return what this pilot, flying with args from parser(), steers at at with scene around it."""
     return avoid(at, args.beacon, scene, steer(at, args.beacon, args.offset, args.speed), args.avoid)
@@ -158,7 +185,8 @@ def parser() -> argparse.ArgumentParser:
     ap.add_argument("--speed", type=float, default=0.6, help="commanded speed in m/s")
     ap.add_argument("--rate", type=float, default=50.0, help="datagrams per second")
     ap.add_argument("--recorder", help="gehirn's PLUG_RECORDER, default plug.<pilot>.jsonl")
-    ap.add_argument("--beacon", type=point, default=(3.0, 2.0), metavar="X,Y", help="where to steer")
+    ap.add_argument("--beacon", type=point, default=home()[1], metavar="X,Y",
+                    help="where to steer, by default the first beacon of WORLD's world")
     ap.add_argument("--eject", action="store_true", help="pull the eject handle for 0.5 s at the end")
     ap.add_argument("--avoid", type=float, default=0.0, metavar="M",
                     help="steer around solid things and humans within M meters of their rim")
@@ -172,7 +200,7 @@ def main() -> None:
     args = parser().parse_args()
 
     key = pilot_key()
-    start = point(os.environ["START"]) if os.environ.get("START") else START
+    start = home()[0]
     recorder = args.recorder or f"plug.{args.pilot}.jsonl"
     host, _, port = args.addr.rpartition(":")
     dest = (host, int(port))

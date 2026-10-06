@@ -9,7 +9,7 @@ just scene=ep13-iruel demo
 just scene=ep13-iruel demo-record
 ```
 
-`scene` names a script in `scripts/scenes`; `demo`, the default, is the whole mission of [Running gehirn](running.md#the-demo), and the parameters are the demo's. Scenes are staged on the mock, so they fly on `lineup=mock` only, and `just` refuses a scene on another lineup, or a name that is not a script there, before anything builds. A beat that does not come in time stops the scene with one line that names the log it waited on.
+`scene` names a script in `scripts/scenes`; `demo`, the default, is the whole mission of [Running gehirn](running.md#the-demo), and the parameters are the demo's. Scenes are staged on the mock, so they fly on `lineup=mock` only, and `just` refuses a scene on another lineup, or a name that is not a script there, before anything builds. A beat that does not come in time stops the scene with one line that names the log it waited on. Every scene plays the default world of [Worlds](worlds.md), on whose walking human its beats are timed, so the stage unsets `WORLD` with the other variables.
 
 `demo-record` writes `gehirn-<scene>.mp4`, from MAGI deliberating on the first goto, or from the field unit's start in a scene without one, to just after the last beat, with a 40 s grace at 8x where the scene kills HQ. Where the scene shows a vote on an irreversible proposal it also writes `gehirn-magi.gif`, the MAGI block from the first such vote to the last.
 

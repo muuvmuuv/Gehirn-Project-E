@@ -2,6 +2,7 @@ module lcl
 
 fn test_complete() {
 	line := '{"t_ms":1,"seat":"pilot","pose":[0.5,-0.25],"target":[3,2]}'
+	deep := '['.repeat(max_depth) + ']'.repeat(max_depth)
 	cases := {
 		line:                                                true
 		line + ' \n':                                        true
@@ -16,6 +17,8 @@ fn test_complete() {
 		'{"why": "a } in a string never closes the object"': false
 		']':                                                 false
 		'':                                                  false
+		deep:                                                true
+		'[' + deep + ']':                                    false // what could overflow json2's stack
 	}
 	for s, want in cases {
 		assert complete(s) == want, s

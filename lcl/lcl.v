@@ -250,12 +250,18 @@ pub fn escaped(s string) string {
 	return sb.str()
 }
 
+// max_depth is how deep complete lets brackets nest. V 0.5.2's x.json2 decodes each level in a
+// call of its own, so a text nested some thousands deep overflows the stack, a spawned thread's
+// sooner; every text that complete guards nests 5 deep at most.
+pub const max_depth = 32
+
 // complete reports whether s holds a JSON object or array whose every bracket closes, brackets in
-// strings aside, with nothing after it. V 0.5.2's x.json2 never returns from decoding a text that
-// ends right after a number inside an array, and a recorder line ends that way about every other
-// time a kill cuts it, so every decoder of text a cut can end early checks it first: plug's
-// recorder lines, datagrams, A10 replies and weights file. Drop this check once a V release returns
-// an error for such a text.
+// strings aside, nested at most max_depth deep, with nothing after it. V 0.5.2's x.json2 never
+// returns from decoding a text that ends right after a number inside an array, and a recorder
+// line ends that way about every other time a kill cuts it, so every decoder of text a cut can
+// end early checks it first: plug's recorder lines, datagrams, A10 replies and weights file, and
+// body's world file. Drop this check once a V release returns an error for such a text and
+// decodes a deep one without recursing.
 pub fn complete(s string) bool {
 	mut depth := 0
 	mut in_string := false
@@ -277,6 +283,9 @@ pub fn complete(s string) bool {
 			}
 			`{`, `[` {
 				depth++
+				if depth > max_depth {
+					return false
+				}
 			}
 			`}`, `]` {
 				depth--

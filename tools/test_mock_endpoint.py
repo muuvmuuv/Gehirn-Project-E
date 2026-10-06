@@ -57,8 +57,15 @@ assert answer("balthasar", USER, 1, STAGED, VOTES) == {
 
 # Without either flag every role answers as scripted.
 percept = read_percept(USER)
-assert answer("core", USER, 1, None, {}) == propose(percept)
+assert answer("core", USER, 1, None, {}) == propose(percept, USER)
 for unit in ("melchior", "balthasar", "casper"):
     assert answer(unit, USER, 1, None, {}) == judge(unit, USER, percept), unit
+
+# In a world of two beacons the core heads for the one its mission names, b12 not being b1, and
+# for the first when the mission names none.
+TWO = USER.replace("distance 7.91\n", "distance 7.91\nbeacon b12 at (-3.00, 2.00), radius 0.30, distance 4.50\n")
+for mission, target in (("beacon b1.", [3.0, 2.0]), ("beacon b12.", [-3.0, 2.0]), ("the dock.", [3.0, 2.0])):
+    user = TWO.replace("beacon b1.", mission)
+    assert propose(read_percept(user), user)["target"] == target, mission
 
 print("mock_endpoint: ok")

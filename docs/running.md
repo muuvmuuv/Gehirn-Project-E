@@ -58,7 +58,7 @@ Meanwhile `PILOT_KEY=<the key echo printed> python3 tools/pilot.py --offset 30 -
 
 ## HQ and the field unit apart
 
-`./gehirn hq` runs HQ alone and `./gehirn field` runs the field unit alone, linked over Zenoh as [ADR 0003](adr/0003-lcl-over-the-wire.md) decides: HQ listens on `UMBILICAL_ENDPOINT` and the field unit dials it, until HQ answers and again after HQ restarts. Both need the same `UMBILICAL_KEY`, which signs every message between them; generate one with `openssl rand -hex 32` and put it into `.env` on both machines. Each process reads the whole [configuration table](configuration.md) and uses its share: HQ the models, the mission and the journal, the field unit the plug, the recorder and the start. Start each in its own directory, since HQ writes the journal and the field unit the recorder. On one machine, against the mock:
+`./gehirn hq` runs HQ alone and `./gehirn field` runs the field unit alone, linked over Zenoh as [ADR 0003](adr/0003-lcl-over-the-wire.md) decides: HQ listens on `UMBILICAL_ENDPOINT` and the field unit dials it, until HQ answers and again after HQ restarts. Both need the same `UMBILICAL_KEY`, which signs every message between them; generate one with `openssl rand -hex 32` and put it into `.env` on both machines. Each process reads the whole [configuration table](configuration.md) and uses its share: HQ the models, the mission and the journal, the field unit the plug, the recorder, the world and the start; HQ's default mission names the first beacon of the world `WORLD` names, so give both the same one ([Worlds](worlds.md)). Start each in its own directory, since HQ writes the journal and the field unit the recorder. On one machine, against the mock:
 
 ```sh
 just build

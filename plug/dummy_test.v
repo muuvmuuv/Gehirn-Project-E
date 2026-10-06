@@ -17,7 +17,8 @@ fn test_load_dummy_skips_a_cut_line() {
 	assert d.size() == 600 && d.ready()
 }
 
-// scene is body/body.v Sim.scene with the human held still, as tools/test_export_dummy.py SCENE.
+// scene is the scene of body/world.v default_world with the human held still, as
+// tools/test_export_dummy.py SCENE.
 const scene = [
 	lcl.Entity{
 		id:   'b1'

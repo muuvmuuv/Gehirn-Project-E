@@ -16,9 +16,9 @@ name=$(basename "$0" .sh)
 scripts/lineup.sh "$lineup" "$name" || exit
 bin=$root/gehirn
 
-# The walking human (body/body.v scene, one loop per 21 s) starts with the field unit. HQ
-# listens before the field unit starts, so the field unit's first dial reaches it, and on the
-# mock the goto lands about 4 s in: 2 s for the core, 1.7 s for the slowest ballot. The pilot
+# The walking human (h1 of body/world.v default_world, one loop per 21 s) starts with the field
+# unit. HQ listens before the field unit starts, so the field unit's first dial reaches it, and on
+# the mock the goto lands about 4 s in: 2 s for the core, 1.7 s for the slowest ballot. The pilot
 # sits down as it lands, and the body reaches the beacon about 13.5 s later, as the human comes
 # within reach. HQ deliberates every 3.5 s from the goto, the core's 2 s and the 1.5 s pause,
 # and MAGI judge the percept that is newest when the core's proposal comes back: for the first
@@ -40,11 +40,13 @@ run=$(cd "$run" && pwd)
 
 # Every variable of docs/configuration.md but SSL_CERT_FILE and DRIVE, so nothing hosted or
 # personal leaks in; above all CORE_JOURNAL, PLUG_RECORDER and DUMMY_WEIGHTS, the pilot's data.
-# Hosted models keep their variables, their endpoints and keys among them. DRIVE only says how the
-# simulated body moves, so `DRIVE=differential just demo` flies the stage on a differential body;
-# the beats above are timed on the default.
+# Hosted models keep their variables, their endpoints and keys among them. WORLD goes too, since
+# every beat above is timed on the default world; a scene that plays another world exports
+# WORLD after sourcing this file and times its own beats. DRIVE only says how the simulated body
+# moves, so `DRIVE=differential just demo` flies the stage on a differential body; the beats above
+# are timed on the default drive.
 unset MAGI_TIMEOUT_MS CORE_TIMEOUT_MS CORE_BACKEND CL1_SPIKES CL1_SIDECAR PILOT_ID PLUG_ADDR \
-    MISSION START CORE_JOURNAL PLUG_RECORDER DUMMY_WEIGHTS HQ_PERIOD_MS UNIT_ID
+    MISSION START WORLD CORE_JOURNAL PLUG_RECORDER DUMMY_WEIGHTS HQ_PERIOD_MS UNIT_ID
 if [ "$lineup" = mock ]; then
     unset GEHIRN_URL GEHIRN_KEY CORE_URL CORE_KEY CORE_MODEL MELCHIOR_URL MELCHIOR_KEY \
         MELCHIOR_MODEL BALTHASAR_URL BALTHASAR_KEY BALTHASAR_MODEL CASPER_URL CASPER_KEY \

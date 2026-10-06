@@ -16,9 +16,10 @@ fmt *paths=".":
 vet *paths=".":
     v vet -W {{ paths }}
 
-# Runs every _test.v; warnings and notices fail the build.
+# Runs every _test.v, then the default world's pin in a release build too; warnings and notices fail the build.
 test: zenoh
     v -W -N test .
+    v -W -N -prod -run-only test_scene test body/body_test.v
 
 # Fetches the pinned zenoh-c release for this host into thirdparty/zenoh-c, which zenoh/zenoh.c.v links.
 zenoh:

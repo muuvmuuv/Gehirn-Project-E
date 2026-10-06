@@ -90,7 +90,8 @@ ASTRAY = 30.0  # degrees off the pilot's own command that the DAgger loop of doc
 NEAR_SOLID = 0.4  # m from a solid's rim, a little past where armor.Limits solid_keep slides a command along it
 KNN_LIMIT = 20000  # plug/dummy.v Dummy.limit, the most pilot ticks the nearest neighbor dummy plug keeps
 
-# The protocol's start sets, as the docstring derives them from body/body.v Sim.scene.
+# The protocol's start sets, as the docstring derives them from body/world.v default_world, so
+# they hold in that world only.
 STARTS = {
     "train": "-4.5,-0.5;-4.5,0;-4.5,0.5;-4.5,1;-4,-0.5;-4,0;-4,0.5;-4,1;-4,1.5;-3.5,0;-3.5,0.5;-3.5,1;"
              "-3.5,1.5;-3,0;-3,0.5;-3,1;-3,1.5;-2.5,0.5;-2.5,1;-2.5,1.5;-2,0.5;-2,1;-2,1.5;-1.5,1;-1.5,1.5;"
@@ -316,6 +317,9 @@ def main() -> None:
     else:
         args.out = tempfile.mkdtemp(prefix="gehirn-eval-")
     args.out = os.path.abspath(args.out)
+    if args.starts in STARTS and os.environ.get("WORLD"):
+        sys.exit(f"eval_dummy: --starts {args.starts} is a set of the default world, and WORLD names another; "
+                 "pass the starts as x,y;x,y")
     starts = STARTS.get(args.starts, args.starts).split(";")
     plan = [(dummy, start) for start in starts for _ in range(args.runs) for dummy in dummies]
     print(f"eval_dummy: {len(plan)} runs of {args.binary}, {args.jobs} at a time, in {args.out}", flush=True)

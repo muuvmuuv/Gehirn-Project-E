@@ -6,7 +6,7 @@ import math
 
 from export_dummy import export, features
 
-# body/body.v Sim.scene with the human held still.
+# The scene of body/world.v default_world with the human held still.
 SCENE = [
     {"id": "b1", "kind": "beacon", "pos": [3.0, 2.0], "r": 0.3},
     {"id": "o1", "kind": "obstacle", "pos": [0.0, -0.3], "r": 0.8},

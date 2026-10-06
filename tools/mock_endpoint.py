@@ -2,7 +2,8 @@
 """Scripted OpenAI compatible chat endpoint for developing gehirn without models.
 
 Serves POST .../chat/completions and answers as whichever role the system prompt names:
-the core walks to the beacon, releases there and then holds. MELCHIOR-1 and BALTHASAR-2 run
+the core walks to the beacon, the one the mission names or else the first in the percept,
+releases there and then holds. MELCHIOR-1 and BALTHASAR-2 run
 coarse versions of their persona checklists in magi/magi.v: both reject unknown verbs, a goto
 without a target or outside the fence, and a release with a human within 2.5 m; MELCHIOR-1
 also rejects a goto onto a human and a release away from the beacon, BALTHASAR-2 a goto to
@@ -47,6 +48,7 @@ SELF = re.compile(
     r"^self at \((\S+), (\S+)\), carrying payload: (true|false), in contact: (true|false)$", re.M
 )
 ENTITY = re.compile(r"^(\w+) (\S+) at \((\S+), (\S+)\), radius (\S+), distance (\S+)$", re.M)
+MISSION = re.compile(r"^MISSION\n(.*?)\n\nPERCEPT$", re.M | re.S)
 PROPOSAL = re.compile(r"^PROPOSAL \(\w+\)\n([^\s(]+)(?:\((\S+), (\S+)\))? from ", re.M)
 
 STYLES = ("plain", "think", "fence", "chatter")
@@ -94,14 +96,22 @@ def read_percept(user: str) -> tuple[bool, list[dict]] | None:
     return me[3] == "true", entities
 
 
-def propose(percept: tuple[bool, list[dict]] | None) -> dict:
-    """Script the core: go to the beacon, release there, then hold."""
+def mission_beacon(user: str, entities: list[dict]) -> dict | None:
+    """Return the beacon the MISSION of a rendered context names, else the first, or None."""
+    beacons = [e for e in entities if e["kind"] == "beacon"]
+    m = MISSION.search(user)
+    named = [b for b in beacons if m and re.search(rf"(?<![\w-]){re.escape(b['id'])}(?![\w-])", m[1])]
+    return (named or beacons or [None])[0]
+
+
+def propose(percept: tuple[bool, list[dict]] | None, user: str = "") -> dict:
+    """Script the core: go to the mission's beacon, release there, then hold."""
     if percept is None:
         return {"verb": "hold", "why": "I cannot read the percept."}
     payload, entities = percept
     if not payload:
         return {"verb": "hold", "why": "The payload is delivered."}
-    beacon = next((e for e in entities if e["kind"] == "beacon"), None)
+    beacon = mission_beacon(user, entities)
     if beacon is None:
         return {"verb": "hold", "why": "No beacon in sight."}
     if beacon["distance"] > BEACON_REACH:
@@ -130,7 +140,7 @@ def objection(role: str, user: str, percept: tuple[bool, list[dict]] | None) -> 
         return None
     if any(h["distance"] <= HUMAN_CLEARANCE for h in humans):
         return f"A human is within {HUMAN_CLEARANCE} m."
-    beacon = next((e for e in entities if e["kind"] == "beacon"), None)
+    beacon = mission_beacon(user, entities)
     if role == "melchior" and not (payload and beacon and beacon["distance"] <= BEACON_REACH):
         return "Not at the beacon with the payload."
     return None
@@ -158,7 +168,7 @@ def answer(role: str, user: str, n: int, staged: dict | None,
     """Script a role's answer to its n-th request: --propose and --vote first, else the script."""
     percept = read_percept(user)
     if role == "core":
-        return staged or propose(percept)
+        return staged or propose(percept, user)
     vote = forced(votes.get(role, {}), n)
     if vote:
         return {"vote": vote, "why": f"forced {vote} (--vote)"}

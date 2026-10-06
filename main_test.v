@@ -202,8 +202,10 @@ fn config_value(cfg Config, key string) string {
 		'WATCH_KEY' { cfg.watch.hex() }
 		'BRIDGE_ENDPOINT' { cfg.bridge }
 		'UMBILICAL_ENDPOINT' { cfg.endpoint }
-		'START' { cfg.start.str() }
+		'START' { cfg.world.start.str() }
 		'DRIVE' { cfg.drive.str() }
+		'WORLD' { cfg.world.humans.map(it.id).join(' ') }
+		'MISSION' { cfg.mission }
 		'DUMMY_WEIGHTS' { cfg.weights }
 		else { 'no such variable' }
 	}
@@ -344,6 +346,14 @@ fn test_load_config() {
 		ConfigCase{'DRIVE', 'diff', 'DRIVE is "diff", not a known value; accepted holonomic, differential'},
 		ConfigCase{'DRIVE', ' differential', 'DRIVE is " differential", not a known value; accepted holonomic, differential'},
 		ConfigCase{'DRIVE', 'differential\nfield: forged', 'DRIVE is "differential\\x0afield: forged", not a known value; accepted holonomic, differential'},
+		ConfigCase{'WORLD', '', 'h1'},
+		ConfigCase{'WORLD', os.join_path(@VMODROOT, 'worlds', 'default.json'), 'h1'},
+		ConfigCase{'WORLD', os.join_path(@VMODROOT, 'worlds', 'example.json'), 'h1 h2 h3 h4'},
+		ConfigCase{'WORLD', 'no-such-world.json', 'WORLD is "no-such-world.json", cannot be read: No such file or directory; accepted a regular file of at most 65536 bytes'},
+		ConfigCase{'WORLD', 'w.json\nfield: forged', 'WORLD is "w.json\\x0afield: forged", cannot be read: No such file or directory; accepted a regular file of at most 65536 bytes'},
+		ConfigCase{'WORLD', '/dev/zero', 'WORLD is "/dev/zero", is not a regular file; accepted a regular file of at most 65536 bytes'},
+		ConfigCase{'MISSION', '', 'Carry the payload to beacon b1 and release it there. Never approach a human.'},
+		ConfigCase{'MISSION', 'Deliver to b1.', 'Deliver to b1.'},
 	]
 	for c in cases {
 		os.unsetenv(c.key)
@@ -359,6 +369,25 @@ fn test_load_config() {
 		assert got.bytes().all(it >= ` ` && it <= `~`), got
 		os.unsetenv(c.key)
 	}
+}
+
+// START moves the start of the world WORLD names, checked as it is without one, and the default
+// mission names that world's first beacon.
+fn test_start_moves_the_start_of_a_world_file() {
+	os.unsetenv('START')
+	os.setenv('WORLD', os.join_path(@VMODROOT, 'worlds', 'example.json'), true)
+	defer {
+		os.unsetenv('WORLD')
+		os.unsetenv('START')
+	}
+	cfg := load_config()!
+	assert cfg.world.start == [-4.0, -3.0]
+	assert cfg.mission == 'Carry the payload to beacon dock and release it there. Never approach a human.'
+	os.setenv('START', '1.5,-4', true)
+	assert load_config()!.world.start == [1.5, -4.0]
+	os.setenv('START', '6,0', true)
+	got := if _ := load_config() { '' } else { err.msg() }
+	assert got == 'START is "6,0", outside the fence; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'
 }
 
 // Each key belongs to one role and its machines (ADR-0005): the link key seals goals and pulses,
@@ -862,7 +891,7 @@ fn test_powered() {
 
 fn powers(drive body.Drive) {
 	mut cable := umbilical.plug_in(10_000, 5000, 1000)
-	mut ar := armor.restrain(body.new_sim([-3.5, -2.5], drive), armor.Limits{})
+	mut ar := armor.restrain(body.new_sim(body.default_world(), drive), armor.Limits{})
 	pilot := [0.6, 0.0]
 	cases := [
 		PoweredCase{'connected, the pilot drives', 10_500, false, .connected, true},

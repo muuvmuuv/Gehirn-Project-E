@@ -630,7 +630,10 @@ fn test_a_differential_sim_moves_as_the_armor_checked() {
 		},
 	]
 	for c in cases {
-		mut s := body.new_sim(sim_start, .differential)
+		mut s := body.new_sim(body.World{
+			...body.default_world()
+			start: sim_start
+		}, .differential)
 		mut a := restrain(s, Limits{})
 		start := a.sense()
 		p := lcl.Percept{

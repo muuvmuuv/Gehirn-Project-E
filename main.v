@@ -50,7 +50,7 @@ struct Config {
 	watch       []u8 // WATCH_KEY's 32 bytes, empty when unset
 	bridge      string
 	endpoint    string
-	start       []f64 // x, y in meters, where body.new_sim puts the body
+	world       body.World // what body.new_sim plays, its start moved to START when set
 	drive       body.Drive
 }
 
@@ -125,12 +125,31 @@ fn whole(name string, s string, min int, max int) !int {
 	return n
 }
 
-// start_pose reads START, where the simulated body starts, as x,y in meters inside fence, the
-// armor's xmin, ymin, xmax, ymax. Each part is an optional minus and ASCII digits with an optional
-// fraction, so a plus, a space, an exponent, inf or nan is not a position. tools/pilot.py START
-// and the self of tools/scenarios.json copy the default.
+// world reads WORLD, the file of the world the simulated body plays, for load_config, where unset
+// is body.default_world, and START, which moves the world's start when set.
+fn world(fence []f64) !body.World {
+	path := os.getenv('WORLD')
+	w := if path == '' {
+		body.default_world()
+	} else {
+		body.load_world(path, fence) or {
+			return error('WORLD is ${lcl.quoted(path)}, ${err.msg()}')
+		}
+	}
+	if os.getenv('START') == '' {
+		return w
+	}
+	return body.World{
+		...w
+		start: start_pose(fence)!
+	}
+}
+
+// start_pose reads START, set, as x,y in meters inside fence, the armor's xmin, ymin, xmax, ymax.
+// Each part is an optional minus and ASCII digits with an optional fraction, so a plus, a space,
+// an exponent, inf or nan is not a position.
 fn start_pose(fence []f64) ![]f64 {
-	val := env('START', '-3.5,-2.5')
+	val := os.getenv('START')
 	accepted := 'accepted x,y in meters, x from ${fence[0]} to ${fence[2]} and y from ${fence[1]} to ${fence[3]}'
 	parts := val.split(',')
 	if parts.len != 2 || !parts.all(is_decimal(it)) {
@@ -316,10 +335,11 @@ fn key_warning(units []magi.Unit) string {
 }
 
 // load_config reads every variable in the table of docs/configuration.md, and fails on the first
-// number, backend or drive set to a value it does not accept, on two MAGI units on one model, or
-// on one key set as two of UMBILICAL_KEY, PILOT_KEY and WATCH_KEY, so main refuses to start. The
-// default URL and chat model names are those of the llama.cpp preset tools/models.ini, which names
-// this function as its counterpart, and tools/mock_endpoint.py listens on the same address.
+// number, backend, drive or world file set to a value it does not accept, on two MAGI units on
+// one model, or on one key set as two of UMBILICAL_KEY, PILOT_KEY and WATCH_KEY, so main refuses
+// to start. The default URL and chat model names are those of the llama.cpp preset
+// tools/models.ini, which names this function as its counterpart, and tools/mock_endpoint.py
+// listens on the same address.
 // core/cl1.v new_cl1 names CL1_SPIKES and CL1_SIDECAR in its errors.
 fn load_config() !Config {
 	pilot := env('PILOT_ID', 'shinji') // gamepad/main.v main repeats the default
@@ -362,9 +382,10 @@ fn load_config() !Config {
 	if pilot_key.len > 0 && pilot_key == watch {
 		return error('PILOT_KEY is the same as WATCH_KEY, and the bridge must never hold the key that steers or ejects; generate its own with `openssl rand -hex 32`')
 	}
+	w := world(fence)!
 	return Config{
 		mission:     env('MISSION',
-			'Carry the payload to beacon b1 and release it there. Never approach a human.')
+			'Carry the payload to beacon ${w.beacons[0].id} and release it there. Never approach a human.')
 		pilot_id:    pilot
 		plug_at:     env('PLUG_LISTEN', '0.0.0.0:7777') // gamepad/main.v plug_addr dials the port
 		journal:     env('CORE_JOURNAL', 'core.${pilot}.jsonl')
@@ -387,7 +408,7 @@ fn load_config() !Config {
 		watch:       watch
 		bridge:      env('BRIDGE_ENDPOINT', 'tcp/127.0.0.1:7448') // bridge/main.v main repeats the default
 		endpoint:    env('UMBILICAL_ENDPOINT', 'tcp/127.0.0.1:7447')
-		start:       start_pose(fence)!
+		world:       w
 		drive:       if env_choice('DRIVE', 'holonomic', ['holonomic', 'differential'])! == 'differential' {
 			body.Drive.differential
 		} else {
@@ -630,7 +651,7 @@ fn main() {
 
 	// The body is made once the dummy plug has loaded: the nearest neighbor one replays the whole
 	// recorder, seconds for a long one, and the walking human's clock starts with the simulated body.
-	mut ar := armor.restrain(body.new_sim(cfg.start, cfg.drive), armor.Limits{})
+	mut ar := armor.restrain(body.new_sim(cfg.world, cfg.drive), armor.Limits{})
 	mut rec := plug.open_recorder(cfg.recorder) or { panic(err) }
 	mut cable := umbilical.plug_in(lcl.now_ms(), cfg.budget_ms, cfg.grace_ms)
 

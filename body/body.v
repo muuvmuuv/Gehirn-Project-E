@@ -18,34 +18,40 @@ mut:
 	halt()
 }
 
-// Sim is a planar point body with a payload, the Body main.v builds with new_sim, on either Drive.
-// It integrates whenever it is sensed and, like any real motor controller, zeroes its velocity by
-// itself when commands go stale.
+// Sim is a planar point body with a payload in a World, the Body main.v builds with new_sim, on
+// either Drive. It integrates whenever it is sensed and, like any real motor controller, zeroes
+// its velocity by itself when commands go stale. The world's humans walk on at each sense too.
 pub struct Sim {
+	world World
 	drive Drive
 mut:
-	pose    []f64
-	heading f64 // rad, counterclockwise from +x
-	aim     f64 // rad, the heading a differential body turns toward
-	vel     []f64 = [0.0, 0.0]
-	payload bool  = true
-	contact bool
-	t0_ms   i64
-	last_ms i64
-	cmd_ms  i64
+	pose      []f64
+	heading   f64 // rad, counterclockwise from +x
+	aim       f64 // rad, the heading a differential body turns toward
+	vel       []f64 = [0.0, 0.0]
+	payload   bool  = true
+	contact   bool
+	t0_ms     i64
+	last_ms   i64
+	cmd_ms    i64
+	walkers   []Walker // one per human of world, in its order
+	walked_ms i64
 }
 
-// new_sim puts a fresh body on drive at start, x and y in meters, payload aboard. main.v reads
-// start from START, which defaults to the west end of the scene, and drive from DRIVE. It faces
-// +x, east, the zero heading of a planar robot and the one a holonomic body keeps, which from
-// START's default lies 35 degrees off the beacon.
-pub fn new_sim(start []f64, drive Drive) &Sim {
+// new_sim puts a fresh body on drive at the start of world w, payload aboard, and starts the
+// world's clock. main.v hands it default_world or the world WORLD names, with the start START
+// sets, and drive from DRIVE. It faces +x, east, the zero heading of a planar robot and the one a
+// holonomic body keeps, which from the default world's start lies 35 degrees off the beacon.
+pub fn new_sim(w World, drive Drive) &Sim {
 	now := lcl.now_ms()
 	return &Sim{
-		drive:   drive
-		pose:    start.clone()
-		t0_ms:   now
-		last_ms: now
+		world:     w
+		drive:     drive
+		pose:      w.start.clone()
+		t0_ms:     now
+		last_ms:   now
+		walkers:   w.humans.map(Walker{ at: it.path(0) })
+		walked_ms: now
 	}
 }
 
@@ -76,7 +82,7 @@ pub fn (mut s Sim) sense() lcl.Percept {
 	scene := s.scene(now)
 	s.contact = false
 	for e in scene {
-		if e.kind != 'beacon' && lcl.dist(next, e.pos) < e.r + 0.25 {
+		if e.kind != 'beacon' && touches(next, e.pos, e.r) {
 			s.contact = true
 		}
 	}
@@ -142,28 +148,40 @@ pub fn (mut s Sim) halt() {
 	s.aim = s.heading
 }
 
-// scene is a beacon to deliver to, a pillar across the direct route and a human walking a loop
-// that passes close to both. tools/scenarios.json copies it with the human standing still.
-fn (s &Sim) scene(now i64) []lcl.Entity {
-	a := f64(now - s.t0_ms) / 1000.0 * 0.3
-	return [
-		lcl.Entity{
-			id:   'b1'
+// scene is the world at now: its beacons, obstacles and humans in that order, each kind in the
+// world's order, with every human walked on to now. On default_world it is beacon b1, pillar o1
+// and human h1 on its loop at every time.
+fn (mut s Sim) scene(now i64) []lcl.Entity {
+	// lcl.now_ms reads the wall clock, which can step back.
+	dt_ms := math.max(i64(0), now - s.walked_ms)
+	for i, h in s.world.humans {
+		s.walkers[i].step(h, now - s.t0_ms, dt_ms, s.pose)
+	}
+	s.walked_ms = now
+	mut scene := []lcl.Entity{cap: s.world.beacons.len + s.world.obstacles.len + s.walkers.len}
+	for b in s.world.beacons {
+		scene << lcl.Entity{
+			id:   b.id
 			kind: 'beacon'
-			pos:  [3.0, 2.0]
-			r:    0.3
-		},
-		lcl.Entity{
-			id:   'o1'
+			pos:  b.pos.clone()
+			r:    b.r
+		}
+	}
+	for o in s.world.obstacles {
+		scene << lcl.Entity{
+			id:   o.id
 			kind: 'obstacle'
-			pos:  [0.0, -0.3]
-			r:    0.8
-		},
-		lcl.Entity{
-			id:   'h1'
+			pos:  o.pos.clone()
+			r:    o.r
+		}
+	}
+	for i, h in s.world.humans {
+		scene << lcl.Entity{
+			id:   h.id
 			kind: 'human'
-			pos:  [0.8 + 1.8 * math.cos(a), 1.2 + 1.2 * math.sin(a)]
-			r:    0.3
-		},
-	]
+			pos:  s.walkers[i].at.clone()
+			r:    h.r
+		}
+	}
+	return scene
 }

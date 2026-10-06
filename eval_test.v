@@ -37,12 +37,25 @@ fn test_scenario_file_loads() {
 	assert suite.scene.map(it.kind) == ['beacon', 'obstacle', 'human']
 }
 
+// tools/scenarios.json copies the default world, its human wherever a scenario puts it, and S1
+// starts where that world does.
+fn test_the_scenarios_copy_the_default_world() {
+	suite := load_suite(os.join_path(@VMODROOT, 'tools', 'scenarios.json'))!
+	w := body.default_world()
+	mut a := armor.restrain(body.new_sim(w, .holonomic), armor.Limits{})
+	scene := a.sense().scene
+	assert suite.scene.map('${it.id} ${it.kind} ${it.r}') == scene.map('${it.id} ${it.kind} ${it.r}')
+	assert suite.scene.filter(it.kind != 'human') == scene.filter(it.kind != 'human')
+	s1 := suite.scenarios.filter(it.id == 'S1')
+	assert s1.len == 1 && s1[0].pose == w.start
+}
+
 // S13 and S14 are S11 and S10 with the journal holding the line hq journals when the armor refuses
 // a release with a human inside release_keep. No unit reads the journal, so they send the units
 // the same requests as S11 and S10, and a new why copied into S11 has to reach S13 too.
 fn test_s13_and_s14_are_s11_and_s10_after_an_armor_refusal() {
 	suite := load_suite(os.join_path(@VMODROOT, 'tools', 'scenarios.json'))!
-	a := armor.restrain(body.new_sim([3.0, 2.0], .holonomic), armor.Limits{})
+	a := armor.restrain(body.new_sim(body.default_world(), .holonomic), armor.Limits{})
 	near := lcl.Percept{
 		pose:  [3.0, 2.0]
 		scene: [lcl.Entity{
