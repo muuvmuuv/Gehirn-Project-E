@@ -268,26 +268,6 @@ fn (f WorldFile) world(fence []f64) !World {
 			return error('falling object ${o.id} lands ${o.lands} s after the world begins; accepted above 0 and at most ${lands_max}')
 		}
 	}
-	for o in obstacles {
-		if touches(f.start, o.pos, o.r) {
-			return error('start touches obstacle ${o.id}; accepted a start more than ${body_radius} m from every solid rim')
-		}
-	}
-	for h in humans {
-		if touches(f.start, h.path(0), h.r) {
-			return error('start touches human ${h.id} where it starts; accepted a start more than ${body_radius} m from every solid rim')
-		}
-	}
-	for o in moving {
-		if touches(f.start, o.path(0), o.r) {
-			return error('start touches obstacle ${o.id} where it starts; accepted a start more than ${body_radius} m from every solid rim')
-		}
-	}
-	for d in f.ditches {
-		if touches(f.start, d.pos, d.r) {
-			return error('start touches ditch ${d.id}; accepted a start more than ${body_radius} m from every solid rim')
-		}
-	}
 	w := World{
 		start:     f.start
 		beacons:   f.beacons
@@ -298,22 +278,43 @@ fn (f WorldFile) world(fence []f64) !World {
 		ground:    f.ground
 		falling:   f.falling
 	}
-	if id := w.lands_at(f.start) {
-		return error('start touches where falling object ${id} lands; accepted a start more than ${body_radius} m from every landing zone')
-	}
+	w.start_clear(f.start) or { return error('start ${err.msg()}') }
 	return w
 }
 
-// lands_at is the falling object whose landing zone a body at at touches by Sim's rule of contact,
-// for load_world's check of a world's start and main.v world's of START, so no body starts under
-// one.
-pub fn (w World) lands_at(at []f64) ?string {
-	for f in w.falling {
-		if touches(at, f.pos, f.r) {
-			return f.id
+// start_clear refuses a start at at that touches, by Sim's rule of contact, a standing obstacle,
+// a human or an obstacle that moves where its walk starts, a ditch or a falling object's landing
+// zone, for load_world's check of a world's start and main.v world's of START: Sim would hold a
+// body that starts inside a solid for good, MuJoCo's contact would throw the base out, and nothing
+// moves a body out from under a falling object. Each error says what it touches and what a start
+// accepts.
+pub fn (w World) start_clear(at []f64) ! {
+	rim := 'accepted a start more than ${body_radius} m from every solid rim'
+	for o in w.obstacles {
+		if touches(at, o.pos, o.r) {
+			return error('touches obstacle ${o.id}; ${rim}')
 		}
 	}
-	return none
+	for h in w.humans {
+		if touches(at, h.path(0), h.r) {
+			return error('touches human ${h.id} where it starts; ${rim}')
+		}
+	}
+	for o in w.moving {
+		if touches(at, o.path(0), o.r) {
+			return error('touches obstacle ${o.id} where it starts; ${rim}')
+		}
+	}
+	for d in w.ditches {
+		if touches(at, d.pos, d.r) {
+			return error('touches ditch ${d.id}; ${rim}')
+		}
+	}
+	for f in w.falling {
+		if touches(at, f.pos, f.r) {
+			return error('touches where falling object ${f.id} lands; accepted a start more than ${body_radius} m from every landing zone')
+		}
+	}
 }
 
 // spot checks a beacon, a standing obstacle or a ditch and adds its id to ids.

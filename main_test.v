@@ -338,7 +338,7 @@ fn test_load_config() {
 		ConfigCase{'START', '', '[-3.5, -2.5]'},
 		ConfigCase{'START', '1.5,-4', '[1.5, -4.0]'},
 		ConfigCase{'START', '-5,5', '[-5.0, 5.0]'},
-		ConfigCase{'START', '0.25,-0.125', '[0.25, -0.125]'},
+		ConfigCase{'START', '2.25,-4.125', '[2.25, -4.125]'},
 		ConfigCase{'START', '5.01,0', 'START is "5.01,0", outside the fence; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'},
 		ConfigCase{'START', '0,-5.5', 'START is "0,-5.5", outside the fence; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'},
 		ConfigCase{'START', '-99999999999999999999,0', 'START is "-99999999999999999999,0", outside the fence; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'},
@@ -419,23 +419,32 @@ fn test_start_moves_the_start_of_a_world_file() {
 	assert got == 'START is "6,0", outside the fence; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'
 }
 
-// START may not put the body where a falling object of the world lands, by Sim's rule of contact,
-// since the armor keeps the body out of a landing zone but never moves it out of one; elsewhere it
-// moves the start as before.
-fn test_start_never_lies_where_an_object_falls() {
+// START may not put the body where the world's own start may not lie, by Sim's rule of contact:
+// touching a standing obstacle, a ditch, a human or an obstacle that moves where it starts, or a
+// falling object's landing zone, since the armor keeps the body out of each but never moves it out
+// of one; elsewhere it moves the start as before.
+fn test_start_never_touches_a_solid_or_where_an_object_falls() {
 	path := os.join_path(os.vtmp_dir(), 'gehirn_falling_${os.getpid()}.json')
 	os.write_file(path,
-		'{"start": [-4, -4], "beacons": [{"id": "b1", "pos": [3, 2], "r": 0.3}], "falling": [{"id": "rock", "pos": [-2.2, -0.6], "r": 0.5, "lands": 30}]}')!
+		'{"start": [-4, -4], "beacons": [{"id": "b1", "pos": [3, 2], "r": 0.3}], "obstacles": [{"id": "o1", "pos": [0, -0.3], "r": 0.8}, {"id": "boat", "r": 0.35, "behavior": "loop", "center": [1.8, 0.9], "radii": [0.9, 0.9], "rate": 0.4, "phase": 0, "reaction": "stop", "keep": 0.6}], "humans": [{"id": "h1", "r": 0.3, "behavior": "stand", "pos": [-3, 3], "reaction": "aside", "keep": 1}], "ditches": [{"id": "trench", "pos": [-0.7, -2.75], "r": 0.5}], "falling": [{"id": "rock", "pos": [-2.2, -0.6], "r": 0.5, "lands": 30}]}')!
 	os.setenv('WORLD', path, true)
 	defer {
 		os.unsetenv('WORLD')
 		os.unsetenv('START')
 		os.rm(path) or {}
 	}
+	rim := 'accepted a start more than 0.25 m from every solid rim'
 	for start, want in {
-		'-2.2,-0.6':  'START is "-2.2,-0.6", where falling object rock lands; accepted a start clear of every landing zone'
-		'-2.2,-1.34': 'START is "-2.2,-1.34", where falling object rock lands; accepted a start clear of every landing zone'
+		'-2.2,-0.6':  'START is "-2.2,-0.6", which touches where falling object rock lands; accepted a start more than 0.25 m from every landing zone'
+		'-2.2,-1.34': 'START is "-2.2,-1.34", which touches where falling object rock lands; accepted a start more than 0.25 m from every landing zone'
 		'-2.2,-1.36': 'ok'
+		'0,-0.3':     'START is "0,-0.3", which touches obstacle o1; ${rim}'
+		'-0.7,-2.75': 'START is "-0.7,-2.75", which touches ditch trench; ${rim}'
+		'-0.7,-3.49': 'START is "-0.7,-3.49", which touches ditch trench; ${rim}'
+		'-0.7,-3.51': 'ok'
+		'2.7,0.9':    'START is "2.7,0.9", which touches obstacle boat where it starts; ${rim}'
+		'-3,3':       'START is "-3,3", which touches human h1 where it starts; ${rim}'
+		'-3.5,-2.5':  'ok'
 	} {
 		os.setenv('START', start, true)
 		got := if _ := load_config() { 'ok' } else { err.msg() }

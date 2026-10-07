@@ -141,7 +141,7 @@ gehirn reads `WORLD` at startup with the other variables and refuses to start, w
 - a patch of ground whose `factor` lies outside 0.1 to 0.9, a missing one included;
 - a falling object that `lands` at 0 s or before, a missing time included, or after 600 s, or whose landing zone the start touches.
 
-`START`, when set, moves the world's start and is checked as before, two decimals inside the fence, and refused where it touches a falling object's landing zone.
+`START`, when set, moves the world's start and is checked as before, two decimals inside the fence, and refused where the world's own start would be: touching an obstacle or a ditch, a human or an obstacle that moves where it starts, or a falling object's landing zone.
 
 ## Flying a world
 
