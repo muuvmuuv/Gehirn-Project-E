@@ -121,10 +121,10 @@ Revisit when Task 5 brings a detector (ground and ditches need a downward sensor
 ## Action Items
 
 1. [ ] Moving obstacles, ditches, ground and falling objects, each with its tests, its radar mark, the planner's handling and the mock's reading of its line, with every existing world and S1 to S23 sending the same requests as before.
-2. [ ] The fix of Known issue 37 as its own commit, checked on S12 and S23 on the mock and on hosted lineup A.
-3. [ ] Scenarios with a goto into a landing zone and canaries with every new line in PERCEPT; on the mock the gate holds on them.
+2. [x] The fix of Known issue 37 as its own commit, checked on S12 and S23 on the mock and on hosted lineup A.
+3. [x] Scenarios with a goto into a landing zone and canaries with every new line in PERCEPT; on the mock the gate holds on them.
 4. [ ] Each kind measured in mock missions on `Sim` with both drives and on the MuJoCo base, and the planner beside the reflex, on a terrain world.
 5. [ ] Episode 12's Sahaquiel as a scene, flown three times with every beat and recorded.
-6. [ ] Hosted lineup A's `magi-eval 10` on every scenario, the owner's run for this ADR's acceptance.
+6. [x] Hosted lineup A's `magi-eval 10` on every scenario, the owner's run for this ADR's acceptance.
 7. [ ] Task 5's detector gives ground and ditches from a downward sensor or a map, and each landing zone as its error region.
 8. [ ] The owner reviews the provisional decisions this work took (docs/decisions.md).

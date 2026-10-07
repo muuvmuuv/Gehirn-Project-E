@@ -273,7 +273,7 @@ struct BallotEntry {
 	why        string
 	latency_ms i64
 	percept_ms i64 // t_ms of the percept the ballot judged, on the field unit's clock
-	course     string @[omitempty] // the fact magi.crossing gave every unit, a walking human's course or a falling object's landing, empty when none
+	course     string @[omitempty] // the fact every unit read under COURSE, a walking human's course or a falling object's landing (magi.Crossing.course), empty when none
 }
 
 // FaultEntry is one core fault as a journal line, written for every fault while HQ prints only a
@@ -578,7 +578,7 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqM
 				votes:    [shown(b)]
 			})
 		})
-		course := if c := magi.crossing(judged.percept, proposal.target) { c.fact() } else { '' }
+		course := if c := magi.crossing(judged.percept, proposal.target) { c.course() } else { '' }
 		for b in verdict.ballots {
 			journal.log(BallotEntry{
 				t_ms:       lcl.now_ms()

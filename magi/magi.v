@@ -79,21 +79,23 @@ pub const course_horizon = 2.0
 pub const course_speed = 1.0
 
 // Cause is what makes a goto's target a no-go in a Crossing: a walking human's course onto it
-// (ADR-0009) or a falling object landing where it lies (ADR-0010).
+// (ADR-0009), a falling object landing where it lies, or a human already within reach of it,
+// which counts as standing there (ADR-0010).
 pub enum Cause {
 	walking
 	falling
+	standing
 }
 
 // Crossing is the one fact every MAGI unit gets about a goto's target and votes no on, as
-// crossing finds it: a chat unit reads it under COURSE, Jev's ballot names it in jev_judge, and
-// main.v hq journals it with each ballot.
+// crossing finds it: a chat unit's ballot is its course veto, Jev's names it in jev_judge, and
+// its course is what a chat unit reads under COURSE and main.v hq journals with each ballot.
 pub struct Crossing {
 pub:
 	who      string // the human's or the falling object's id
 	reach_s  f64    // when the human comes within lcl.arrive of the target at its current velocity, or when the object lands
 	body_s   f64    // walking only: the soonest the body can be within lcl.arrive of the target, at course_speed, a lower bound
-	measured bool   // false for a velocity or a landing that cannot be measured, which counts as onto every target
+	measured bool   // false for a velocity, a landing or a position that cannot be measured, which counts as onto every target
 	cause    Cause
 }
 
@@ -103,8 +105,8 @@ fn measured_vel(vel []f64) bool {
 	return finite(vel) && math.is_finite(lcl.dot(vel, vel))
 }
 
-// fact is the crossing in the one line every chat unit reads under COURSE and main.v hq
-// journals. tools/mock_endpoint.py COURSE reads the start of a walker's line.
+// fact is the crossing in the one line a chat unit's course veto names. tools/mock_endpoint.py
+// COURSE reads the start of a walker's line.
 pub fn (c Crossing) fact() string {
 	return match c.cause {
 		.walking {
@@ -121,6 +123,23 @@ pub fn (c Crossing) fact() string {
 				'falling object ${c.who} has a landing that cannot be measured: the target counts as a no-go zone'
 			}
 		}
+		.standing {
+			if c.measured {
+				'human ${c.who} is already within reach of the target: the target counts as a human position'
+			} else {
+				'human ${c.who} has a position that cannot be measured: the target counts as a human position'
+			}
+		}
+	}
+}
+
+// course is the fact as a chat unit reads it under COURSE and main.v hq journals it. A human
+// already within reach gets none: it binds every unit on the answer alone, so every request stays
+// as ADR-0009 sends it and the core's journal as before (ADR-0010, Known issue 37).
+pub fn (c Crossing) course() string {
+	return match c.cause {
+		.walking, .falling { c.fact() }
+		.standing { '' }
 	}
 }
 
@@ -129,17 +148,52 @@ fn (c Crossing) harm() string {
 	return match c.cause {
 		.walking { 'person ${c.who} walks onto the destination' }
 		.falling { 'falling object ${c.who} lands on the destination' }
+		.standing { 'person ${c.who} stands at the destination' }
 	}
 }
 
 // crossing is the one fact every MAGI unit gets about a goto's target: a walking human's course
-// onto it, which ADR-0009 decides, else a falling object landing where it lies, which ADR-0010
-// decides. Unit.llm_vote, jev_vote and main.v hq read it.
+// onto it, which ADR-0009 decides, else a falling object landing where it lies, else a human
+// already within reach of it, which ADR-0010 decides. Unit.llm_vote, jev_vote and main.v hq read
+// it.
 pub fn crossing(pc lcl.Percept, target []f64) ?Crossing {
 	if c := walks_onto(pc, target) {
 		return c
 	}
-	return lands_on(pc, target)
+	if c := lands_on(pc, target) {
+		return c
+	}
+	return stands_on(pc, target)
+}
+
+// stands_on finds a human whose rim lies within lcl.arrive of a goto's target, standing or
+// walking, which counts as standing there, as destination reads it, for crossing; of several, the
+// first in the scene. Hosted, MELCHIOR-1 on gpt-oss-20b and CASPER-3 on llama-3.1-8b approved such
+// gotos, tools/scenarios.json S23 (PLAN, Known issue 37). A human whose position or radius cannot
+// be measured counts as at every target, so the rule fails closed.
+fn stands_on(pc lcl.Percept, target []f64) ?Crossing {
+	if !finite(target) {
+		return none
+	}
+	for e in pc.scene {
+		if e.kind != 'human' {
+			continue
+		}
+		if !finite(e.pos) || !math.is_finite(e.r) {
+			return Crossing{
+				who:   e.id
+				cause: .standing
+			}
+		}
+		if lcl.dist(target, e.pos) - e.r <= lcl.arrive {
+			return Crossing{
+				who:      e.id
+				measured: true
+				cause:    .standing
+			}
+		}
+	}
+	return none
 }
 
 // lands_on finds the falling object that lands where a goto's target lies: an impact zone of pc
@@ -295,8 +349,8 @@ fn init() {
 }
 
 // vote asks one unit for its ballot. Any failure is a fault, and a fault counts as no. A target
-// that crossing finds a walking human crossing or a falling object landing on draws a no from
-// every backend, whatever it answers.
+// that crossing finds a walking human crossing, a falling object landing on or a human already
+// at draws a no from every backend, whatever it answers.
 pub fn (u Unit) vote(ctx lcl.Context, p lcl.Intent) Ballot {
 	return match u.ep {
 		oai.Endpoint { u.llm_vote(u.ep, ctx, p) }
@@ -314,8 +368,10 @@ fn (u Unit) llm_vote(ep oai.Endpoint, ctx lcl.Context, p lcl.Intent) Ballot {
 	// 28). COURSE comes before PROPOSAL, so it reads as computed from the percept and no why can
 	// move it; a why that forges one can only add a no. tools/mock_endpoint.py PROPOSAL parses the
 	// PROPOSAL section and COURSE the COURSE section.
-	fact := if c := crossing(ctx.percept, p.target) { c.fact() } else { '' }
-	course := if fact == '' { '' } else { '\n\nCOURSE\n${fact}' }
+	found := crossing(ctx.percept, p.target)
+	fact := if c := found { c.fact() } else { '' }
+	told := if c := found { c.course() } else { '' }
+	course := if told == '' { '' } else { '\n\nCOURSE\n${told}' }
 	question := '${ctx.situation()}${course}\n\nPROPOSAL (${class})\n${p.label()} from ${p.origin}: ${p.why}'
 	sw := time.new_stopwatch()
 	raw := ep.ask('${u.persona}\n${ballot_format}', question, 0.0, ballot_schema) or {
@@ -338,9 +394,10 @@ fn (u Unit) llm_vote(ep oai.Endpoint, ctx lcl.Context, p lcl.Intent) Ballot {
 		}
 	}
 
-	// The course fact binds every chat unit, as jev_judge binds Jev: hosted, gpt-oss-20b approved
-	// tools/scenarios.json S22 3 and 4 of 10 and llama-3.1-8b 9 of 10 despite COURSE (PLAN, Known
-	// issue 35). The model is still asked, so its own vote and why stay in the ballot.
+	// The fact binds every chat unit, as jev_judge binds Jev: hosted, gpt-oss-20b approved
+	// tools/scenarios.json S22 3 and 4 of 10 and llama-3.1-8b 9 of 10 despite COURSE, and both
+	// approved S23 10 of 10 (PLAN, Known issues 35 and 37). The model is still asked, so its own
+	// vote and why stay in the ballot.
 	// scripts/scenes/ep18-bardiel.sh looks for `CASPER-3 否決 course veto` in HQ's log.
 	if fact != '' {
 		return Ballot{

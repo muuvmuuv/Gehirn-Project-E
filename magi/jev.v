@@ -165,7 +165,8 @@ fn jev_judge(r jev.Reply, verb string, harm string) !(bool, string) {
 	// with the walker heading away (PLAN, State, 2026-10-06), never the limit, so code rejects
 	// that course whatever Jev reads, as it rejects an unknown verb. Jev's state has no words for
 	// a falling object's landing zone, which destination reads as open floor, so code rejects that
-	// too (ADR-0010).
+	// too, and a target a person already stands at, which jev-1.13.0 read at 0.84 to 0.97 in a
+	// hunt of tools/worldgen.py, gets the same no in code as every other unit's (ADR-0010).
 	if harm != '' {
 		return false, 'harm: ${harm}, highest ${hazards[0]} < ${limit:.2f}, ${class}'
 	}

@@ -756,7 +756,8 @@ struct JudgedCase {
 
 // MAGI judge the newest snapshot HQ holds when the vote starts, not the one the core proposed
 // from, the same goal check reads that snapshot's goal, and the journal records which percept
-// each ballot judged and the course of a walking human or the landing it was told of. BALTHASAR-2 on Jev without
+// each ballot judged and the course of a walking human or the landing it was told of, and no
+// course for a human already at the target, which no unit is told of. BALTHASAR-2 on Jev without
 // a key tells the two percepts apart: it faults on a NaN pose for that, and on a finite one for
 // the missing key.
 fn test_magi_judge_the_snapshot_that_arrived_during_the_core_latency() {
@@ -840,6 +841,28 @@ fn test_magi_judge_the_snapshot_that_arrived_during_the_core_latency() {
 			proposal: to_beacon
 			why:      'no API key'
 			course:   'falling object sahaquiel lands where the target lies in 10.0 s: the target counts as a no-go zone'
+		},
+		JudgedCase{
+			name:     'a goto onto a human already at the target journals no course'
+			held:     lcl.Percept{
+				t_ms: 1000
+				pose: [math.nan(), 0.5]
+			}
+			newer:    lcl.Context{
+				percept: lcl.Percept{
+					t_ms:  1001
+					pose:  [1.2, 2.0]
+					scene: [lcl.Entity{
+						id:   'h1'
+						kind: 'human'
+						pos:  [3.0, 1.4]
+						r:    0.3
+						vel:  [0.0, 1.2]
+					}]
+				}
+			}
+			proposal: to_beacon
+			why:      'no API key'
 		},
 	]
 	for i, c in cases {
@@ -968,7 +991,9 @@ fn test_course_speed_is_the_armor_top_speed() {
 
 // A chat unit reads COURSE between the situation and the proposal when a walking human heads onto
 // the goto's target, as in tools/scenarios.json S19, or a falling object lands where it lies, as
-// in S24, and reads the situation and the proposal alone when the human walks away, as in S20.
+// in S24, and reads the situation and the proposal alone when the human walks away, as in S20,
+// and when a human is already within reach of the target, as in S23, whose veto acts on the
+// answer alone.
 fn test_a_unit_reads_a_course_only_when_crossing_finds_one() {
 	mut l := net.listen_tcp(.ip, '127.0.0.1:0')!
 	defer {
@@ -986,9 +1011,9 @@ fn test_a_unit_reads_a_course_only_when_crossing_finds_one() {
 			timeout: 2 * time.second
 		}
 	}
-	requests := chan string{cap: 3}
+	requests := chan string{cap: 4}
 	spawn fn [mut l, requests] () {
-		for _ in 0 .. 3 {
+		for _ in 0 .. 4 {
 			requests <- asked(mut l)
 		}
 	}()
@@ -1022,6 +1047,15 @@ fn test_a_unit_reads_a_course_only_when_crossing_finds_one() {
 		[
 			zone,
 		],
+		[
+			lcl.Entity{
+				id:   'h1'
+				kind: 'human'
+				pos:  [3.0, 1.4]
+				r:    0.3
+				vel:  [0.0, 1.2]
+			},
+		],
 	] {
 		unit.vote(lcl.Context{
 			percept: lcl.Percept{
@@ -1039,6 +1073,8 @@ fn test_a_unit_reads_a_course_only_when_crossing_finds_one() {
 	assert !got[1].contains('\\n\\nCOURSE\\n'), got[1]
 	assert got[2].contains('PERCEPT\\nself at (2.00, 0.50), carrying payload: false, in contact: false\\nimpact sahaquiel at (3.20, 2.40), radius 0.80, distance 2.25\\n\\nACTIVE GOAL'), got[2]
 	assert got[2].contains('SYNC 0%\\n\\nCOURSE\\nfalling object sahaquiel lands where the target lies in 10.0 s: the target counts as a no-go zone\\n\\nPROPOSAL (reversible)\\ngoto(3.00, 2.00) from'), got[2]
+	assert got[3].contains('SYNC 0%\\n\\nPROPOSAL (reversible)\\ngoto(3.00, 2.00) from'), got[3]
+	assert !got[3].contains('\\n\\nCOURSE\\n'), got[3]
 }
 
 struct NewestCase {

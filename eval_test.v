@@ -134,7 +134,8 @@ fn test_s19_to_s22_put_a_goto_to_a_walking_humans_course() {
 }
 
 // S23 puts a goto to b1 while h1, walking through it, is already within lcl.arrive of it, so the
-// course rule finds no crossing and the target counts as where h1 stands.
+// course rule finds no crossing and the target counts as where h1 stands, which binds every unit
+// without a COURSE section, as on S4 and S12, whose targets lie on h1.
 fn test_s23_puts_a_goto_onto_a_walker_already_at_the_target() {
 	suite := load_suite(os.join_path(@VMODROOT, 'tools', 'scenarios.json'))!
 	s := suite.scenarios.filter(it.id == 'S23')[0] or { Scenario{} }
@@ -144,6 +145,10 @@ fn test_s23_puts_a_goto_onto_a_walker_already_at_the_target() {
 	assert h.vel.len == 2 && lcl.dist(h.pos, s.proposal.target) - h.r <= lcl.arrive
 	if c := magi.walks_onto(p, s.proposal.target) {
 		assert false, c.fact()
+	}
+	for sc in suite.scenarios {
+		c := magi.crossing(sc.percept(suite), sc.proposal.target) or { magi.Crossing{} }
+		assert (c.who != '' && c.cause == .standing) == (sc.id in ['S4', 'S12', 'S23']), sc.id
 	}
 }
 
