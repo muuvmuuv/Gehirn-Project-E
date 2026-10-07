@@ -204,6 +204,25 @@ PLANNER=local WORLD=$PWD/worlds/pocket.json python3 tools/trials.py --runs 10 --
 
 PLAN's State holds how both fared on the mock.
 
+## The terrain world
+
+[worlds/terrain.json](../worlds/terrain.json) puts one of each kind of [ADR-0010](adr/0010-terrain-on-the-plane.md), and a second patch of ground, on the default world's start, beacon b1 and pillar o1, so a mission meets each kind on its way and its recorder shows what the body, the armor and either planner do with it (PLAN, Phase 3 Task 8). It holds no human. In the order the body meets them:
+
+- mud, ground that leaves the body 40% of its top speed, 0.5 m in radius, its rim 0.58 m from the start, across the straight line to b1;
+- rock, a falling object 0.5 m in radius that lands 20 s after the world begins, its rim 0.32 m north of that line and 0.92 m from the pillar's;
+- trench, a ditch 0.5 m in radius south of the way past the pillar, its rim 1.25 m from the pillar's;
+- lake, ground that leaves 50%, 1.4 m in radius, across the way from the pillar to b1, which lies 0.23 m outside its rim;
+- boat, an obstacle 0.35 m in radius that loops inside the lake at 0.36 m/s, once in 15.7 s, and stops 0.6 m from the body.
+
+The body crosses both patches, so the armor slows it in each and lets it speed up again as it leaves the mud. Each solid lies within 1.2 m of the way, the reach in which the reflex pushes the body off a solid, on `Sim` with either drive and on the MuJoCo base, under the reflex and the local planner, as one flight of each showed before any measured run. The boat's phase puts it across the body's way in the lake, so it stops for the body there, and rock lands before the body reaches b1, so its crater shows in every mission. Fly it as any world:
+
+```sh
+just build
+WORLD=$PWD/worlds/terrain.json python3 tools/trials.py --runs 10 --jobs 3
+```
+
+PLAN's State holds what each kind did on the mock.
+
 ## Generating worlds
 
 `tools/worldgen.py` hunts for worlds on which the stack fails, a test tool outside the runtime (PLAN, Phase 3 Task 7). Each round it asks a hosted model for worlds in this format, writes each under a name of its own, and asks gehirn whether `body.load_world` accepts it: `gehirn magi-eval 0` with `WORLD` set refuses a bad file with its one line and exit 2, for each reason [What gehirn refuses](#what-gehirn-refuses) lists, and otherwise refuses only the 0, so nothing flies and no journal grows. On every world gehirn accepts, it flies missions of the configuration under test and of a reference through `tools/trials.py`, against a mock it starts itself, audits every run, and puts the last rounds' worlds into the next prompt with what happened: gehirn's refusal line, how each run ended and moved, as the course line of `tools/trials.py` measures it, and each failure with its evidence from the journal and the recorder.

@@ -1,0 +1,21 @@
+{
+  "start": [-3.5, -2.5],
+  "beacons": [
+    {"id": "b1", "pos": [3.0, 2.0], "r": 0.3}
+  ],
+  "obstacles": [
+    {"id": "o1", "pos": [0.0, -0.3], "r": 0.8},
+    {"id": "boat", "r": 0.35, "behavior": "loop", "center": [1.8, 0.9], "radii": [0.9, 0.9], "rate": 0.4, "phase": 2.5,
+     "reaction": "stop", "keep": 0.6}
+  ],
+  "ditches": [
+    {"id": "trench", "pos": [-0.7, -2.75], "r": 0.5}
+  ],
+  "ground": [
+    {"id": "mud", "pos": [-2.5, -2.1], "r": 0.5, "factor": 0.4},
+    {"id": "lake", "pos": [1.8, 0.9], "r": 1.4, "factor": 0.5}
+  ],
+  "falling": [
+    {"id": "rock", "pos": [-2.2, -0.6], "r": 0.5, "lands": 20.0}
+  ]
+}
