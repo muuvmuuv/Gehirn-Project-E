@@ -170,10 +170,14 @@ fn test_example_json_loads() {
 // Every world in worlds/ loads, the scenes' among them, so a world the loader stops accepting
 // fails the checks rather than a scene at its start.
 fn test_every_world_file_loads() {
-	paths := os.glob(os.join_path(@VMODROOT, 'worlds', '*.json'))!
-	assert paths.len > 2
-	for path in paths {
-		got := if _ := load_world(path, fence) { 'ok' } else { err.msg() }
-		assert got == 'ok', os.base(path)
+	// V 0.5.2's os.glob also returns a directory whose name repeats the next step of the pattern,
+	// as GitHub's checkout /work/Gehirn-Project-E/Gehirn-Project-E does, so the files are listed
+	// with os.ls; back to os.glob once a V upgrade fixes os_nix.c.v glob_match.
+	dir := os.join_path(@VMODROOT, 'worlds')
+	names := os.ls(dir)!.filter(it.ends_with('.json'))
+	assert names.len > 2
+	for name in names {
+		got := if _ := load_world(os.join_path(dir, name), fence) { 'ok' } else { err.msg() }
+		assert got == 'ok', name
 	}
 }
