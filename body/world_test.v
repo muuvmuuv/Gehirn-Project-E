@@ -18,6 +18,11 @@ const base = '{"start": [-3, -3], "beacons": [{"id": "b1", "pos": [3, 2], "r": 0
 
 const walker = '"behavior": "loop", "center": [0.8, 1.2], "radii": [1.8, 1.2], "rate": 0.3'
 
+// boat is an obstacle that walks, which the cases of test_load_world add to base's obstacles.
+const boat = '{"id": "boat", "r": 0.35, "behavior": "loop", "center": [-2, 3], "radii": [0.9, 0.9], "rate": 0.4, "reaction": "stop", "keep": 0.6}'
+
+const accepted_mover = 'accepted reaction stop with keep 0.5 to 3.0'
+
 // load is what load_world makes of a world file holding text: ok, or its refusal.
 fn load(text string) string {
 	path := os.join_path(os.vtmp_dir(), 'gehirn_world_${os.getpid()}.json')
@@ -27,6 +32,11 @@ fn load(text string) string {
 	}
 	load_world(path, fence) or { return err.msg() }
 	return 'ok'
+}
+
+// with_boat is base with obstacle o after its pillar.
+fn with_boat(o string) string {
+	return base.replace('"r": 0.8}]', '"r": 0.8}, ${o}]')
 }
 
 struct LoadCase {
@@ -112,6 +122,24 @@ fn test_load_world() {
 		LoadCase{'a stop human keeping too much', base.replace('"keep": 1.0', '"keep": 3.5'), 'human h1 keeps 3.5 m from the body; accepted 0.3 to 3.0'},
 		LoadCase{'a human walking through needs no keep', base.replace('"stop", "keep": 1.0',
 			'"through"'), 'ok'},
+		LoadCase{'an obstacle that walks', with_boat(boat), 'ok'},
+		LoadCase{'an obstacle that walks at the least keep', with_boat(boat.replace('0.6}', '0.5}')), 'ok'},
+		LoadCase{'an obstacle that walks at the most keep', with_boat(boat.replace('0.6}', '3}')), 'ok'},
+		LoadCase{'an obstacle with an unknown behavior', with_boat(boat.replace('"loop"', '"fly"')), 'obstacle boat has behavior "fly", not a known value; accepted loop, waypoints, stand, toward'},
+		LoadCase{'an obstacle that walks through the body', with_boat(boat.replace('"stop", "keep": 0.6',
+			'"through"')), 'obstacle boat reacts through with keep 0.0 m; ${accepted_mover}'},
+		LoadCase{'an obstacle that steps aside', with_boat(boat.replace('"stop"', '"aside"')), 'obstacle boat reacts aside with keep 0.6 m; ${accepted_mover}'},
+		LoadCase{'an obstacle that keeps a human keep', with_boat(boat.replace('0.6}', '0.4}')), 'obstacle boat reacts stop with keep 0.4 m; ${accepted_mover}'},
+		LoadCase{'an obstacle that keeps too much', with_boat(boat.replace('0.6}', '3.1}')), 'obstacle boat reacts stop with keep 3.1 m; ${accepted_mover}'},
+		LoadCase{'an obstacle that walks too fast', with_boat(boat.replace('0.4,', '3.4,')), 'obstacle boat walks at 3.06 m/s; accepted 0.1 to 2.0'},
+		LoadCase{'an obstacle whose loop reaches past the fence', with_boat(boat.replace('[-2, 3]',
+			'[-4.5, 3]')), 'obstacle boat loop lies outside the fence; ${accepted_fence}'},
+		LoadCase{'an obstacle that walks and a human with one id', with_boat(boat.replace('"boat"',
+			'"h1"')), 'human has id h1, which another entity has; accepted an id per entity'},
+		LoadCase{'a start touching an obstacle where its walk starts', with_boat(boat).replace('[-3, -3]',
+			'[-1.1, 3.55]'), 'start touches obstacle boat where it starts; ${accepted_rim}'},
+		LoadCase{'a start clear of an obstacle where its walk starts', with_boat(boat).replace('[-3, -3]',
+			'[-1.1, 3.65]'), 'ok'},
 		LoadCase{'every behavior and reaction', base.replace('"humans": [',
 			'"humans": [{"id": "h2", "r": 0.3, "behavior": "waypoints", "points": [[-4, 4], [-1, 4]], "speed": 0.5, "cycle": true, "reaction": "aside", "keep": 0.5}, {"id": "h3", "r": 0.3, "behavior": "stand", "pos": [4, -4], "reaction": "through"}, {"id": "h4", "r": 0.3, "behavior": "toward", "pos": [-4, 0], "speed": 0.4, "reaction": "aside", "keep": 2}, '), 'ok'},
 	]

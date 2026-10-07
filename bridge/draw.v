@@ -962,6 +962,14 @@ fn draw_scene(ctx &gg.Context, s State, unit string, x f32, y f32, w f32, h f32)
 			'obstacle' {
 				ctx.draw_circle_filled(ex, ey, r, rock)
 				ctx.draw_circle_empty(ex, ey, r, ember)
+
+				// A moving one's velocity runs a second's travel on from its rim, since from its
+				// center it would end inside the disc at a walking speed.
+				speed := lcl.norm(e.vel)
+				if e.vel.len == 2 && speed > 0.0 {
+					rx, ry := e.pos[0] + e.vel[0] * e.r / speed, e.pos[1] + e.vel[1] * e.r / speed
+					ctx.draw_line(m.px(rx), m.py(ry), m.px(rx + e.vel[0]), m.py(ry + e.vel[1]), dim)
+				}
 			}
 			'beacon' {
 				ctx.draw_circle_filled(ex, ey, r, fade(cyan, 0.25))

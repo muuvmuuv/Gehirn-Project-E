@@ -13,8 +13,9 @@ import lcl
 // personas repeat some in prose, magi/magi.v course_speed v_max, tools/mock_endpoint.py FENCE and
 // HUMAN_CLEARANCE, tools/trials.py HUMAN_STOP, planner/planner_test.v solid_keep, human_stop and
 // top and tools/worldgen.py the speeds, a_max and the keeps in code, tools/scenarios.json S13 and
-// S14 release_keep in the words of Armor.refusal, and bridge/draw.v human_stop and release_keep as
-// the scene's rings, so change them together: v_max is 1 m/s, bounds the -5 to 5 m fence,
+// S14 release_keep in the words of Armor.refusal, bridge/draw.v human_stop and release_keep as
+// the scene's rings, and body/world.v mover_keep_min v_max and a_max through the MuJoCo base's
+// braking, so change them together: v_max is 1 m/s, bounds the -5 to 5 m fence,
 // human_stop 0.7 m, human_slow 2 m, release_keep 2 m and, as center distance, 2.5 m (plus a 0.3 m
 // human radius and a 0.2 m margin, so MAGI's release line sits outside the armor's; MAGI's percept
 // is as old as the slowest ballot once their verdict lands, so the armor can refuse a release MAGI

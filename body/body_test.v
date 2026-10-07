@@ -314,28 +314,124 @@ fn test_sim_walks_humans_by_the_time_between_senses() {
 	assert s.walkers.map(it.at) == before
 }
 
-// Sim holds the body still while it touches a human, as it does for any solid, whoever moves.
-fn test_sim_counts_contact_with_a_human() {
+// standing is a human or an obstacle of a world that stands at pos with radius 0.3 and reacts by
+// reaction with keep.
+fn standing(id string, pos []f64, reaction Reaction, keep f64) Human {
+	return Human{
+		id:       id
+		r:        0.3
+		behavior: .stand
+		reaction: reaction
+		pos:      pos
+		keep:     keep
+	}
+}
+
+struct ContactCase {
+	name  string
+	world World
+	want  bool
+}
+
+// Sim holds the body still while it touches anything solid, a human, a standing obstacle or a
+// moving one, whoever moves, but not a beacon, which the body delivers to.
+fn test_sim_counts_contact() {
+	b1 := Spot{
+		id:  'b1'
+		pos: [4.0, 4.0]
+		r:   0.3
+	}
+	near := [0.5, 0.0] // its rim 0.2 m from the body's center, inside body_radius
+	cases := [
+		ContactCase{'a human', World{
+			beacons: [b1]
+			humans:  [standing('h1', near, .through, 0.0)]
+		}, true},
+		ContactCase{'a standing obstacle', World{
+			beacons:   [b1]
+			obstacles: [Spot{'o1', near, 0.3}]
+		}, true},
+		ContactCase{'a moving obstacle', World{
+			beacons: [b1]
+			moving:  [standing('boat', near, .stop, 0.5)]
+		}, true},
+		ContactCase{'a beacon', World{
+			beacons: [b1, Spot{'b2', near, 0.3}]
+		}, false},
+	]
+	for c in cases {
+		mut s := new_sim(World{
+			...c.world
+			start: [0.0, 0.0]
+		}, .holonomic)
+		s.actuate([0.5, 0.0])!
+		p := sensed(mut s, 100)
+		assert p.contact == c.want, c.name
+		assert (p.pose == [0.0, 0.0]) == c.want, '${c.name}: ${p.pose}'
+	}
+}
+
+// Sim's scene lists the beacons, then the standing obstacles, then the humans, then the moving
+// obstacles, each kind in the world's order, a moving one with the velocity of its last step.
+fn test_scene_lists_every_kind_in_order() {
+	w := World{
+		start:     [-4.0, -4.0]
+		beacons:   [Spot{'b1', [4.0, 4.0], 0.3}, Spot{'b2', [4.0, -4.0], 0.3}]
+		obstacles: [Spot{'o1', [0.0, 0.0], 0.8}, Spot{'o2', [2.0, -2.0], 0.5}]
+		humans:    [standing('h1', [-2.0, 2.0], .stop, 1.0)]
+		moving:    [
+			Human{
+				id:       'boat'
+				r:        0.35
+				behavior: .loop
+				reaction: .stop
+				center:   [2.0, 2.0]
+				radii:    [0.9, 0.9]
+				rate:     0.4
+				keep:     0.6
+			},
+			standing('raft', [-2.0, -1.0], .stop, 0.5),
+		]
+	}
+	mut s := new_sim(w, .holonomic)
+	scene := s.scene(s.t0_ms + 20)
+	assert scene.map('${it.kind} ${it.id}') == ['beacon b1', 'beacon b2', 'obstacle o1',
+		'obstacle o2', 'human h1', 'obstacle boat', 'obstacle raft']
+	assert scene[5].pos == w.moving[0].path(20)
+	assert scene[5].vel == lcl.scale(lcl.sub(scene[5].pos, w.moving[0].path(0)), 1000.0 / 20.0)
+	assert scene.filter(it.id != 'boat').all(it.vel.len == 0)
+}
+
+// An obstacle that walks walks as a human of its behavior walks, and with stop it stands while the
+// body is within its keep and walks on from where it stood once the body has gone, so its rim
+// never comes within keep of the body's center.
+fn test_an_obstacle_walks_and_stops_for_the_body() {
+	boat := Human{
+		id:       'boat'
+		r:        0.35
+		behavior: .waypoints
+		reaction: .stop
+		points:   [[-3.0, 0.0], [3.0, 0.0]]
+		speed:    1.0
+		keep:     0.6
+	}
 	mut s := new_sim(World{
 		start:   [0.0, 0.0]
-		beacons: [Spot{
-			id:  'b1'
-			pos: [4.0, 4.0]
-			r:   0.3
-		}]
-		humans:  [
-			Human{
-				id:       'h1'
-				r:        0.3
-				behavior: .stand
-				reaction: .through
-				pos:      [0.5, 0.0]
-			},
-		]
+		beacons: [Spot{'b1', [4.0, 4.0], 0.3}]
+		moving:  [boat]
 	}, .holonomic)
-	p := s.sense()
-	assert p.contact
-	assert p.scene.map(it.id) == ['b1', 'h1']
+	mut closest := math.inf(1)
+	for t := i64(20); t <= 6000; t += 20 {
+		e := s.scene(s.t0_ms + t)[1]
+		closest = math.min(closest, lcl.dist(e.pos, s.pose) - boat.r)
+	}
+	assert closest >= 0.6 && closest < 0.6 + 0.021, '${closest}'
+	stood := s.walkers[0].at.clone()
+	assert s.walkers[0].waited_ms > 3000 && s.walkers[0].vel == []
+	s.pose = [0.0, 3.0]
+	e := s.scene(s.t0_ms + 7000)[1]
+	assert close(e.pos, [stood[0] + 1.0, 0.0]), '${e.pos}'
+	assert close(e.vel, [1.0, 0.0]), '${e.vel}'
 }
 
 // sensed is s's percept dt_ms after its last one, as if that much time had passed.

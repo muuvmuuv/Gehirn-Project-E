@@ -29,16 +29,16 @@ pub const arrive = 0.35
 pub const beacon_reach = 0.5
 
 // Entity is one thing in a percept's scene: an obstacle, a beacon or a human, with its position
-// and radius in meters and, for a walking human, its velocity. body.Sim reports them, and the
-// armor, the reflex, the local planner and MAGI read them; only magi.walks_onto and the planner
-// read the velocity.
+// and radius in meters and, for a walking human or a moving obstacle, its velocity. body.Sim
+// reports them, and the armor, the reflex, the local planner and MAGI read them; the planner
+// reads every velocity, magi.walks_onto a human's, and the bridge draws an obstacle's.
 pub struct Entity {
 pub:
 	id   string
 	kind string // obstacle, beacon, human
 	pos  []f64
 	r    f64
-	vel  []f64 @[omitempty] // m/s, a walking human's; empty for anything that stands, a stopped human included, never [0, 0]
+	vel  []f64 @[omitempty] // m/s, a walking human's or a moving obstacle's; empty for anything that stands, a stopped one included, never [0, 0]
 }
 
 // Percept is one reading of the body: pose, velocity, scene, payload, contact and heading.
@@ -191,10 +191,10 @@ pub fn (i Intent) label() string {
 	return i.verb
 }
 
-// describe renders a percept as text for language backends. It leaves out a human's velocity,
-// which only magi.walks_onto and the local planner read, so a model reads the same text whether a
-// human walks or stands. tools/mock_endpoint.py parses this layout, and tools/worldgen.py shown
-// rounds a distance as it does.
+// describe renders a percept as text for language backends. It leaves out every velocity, which
+// only magi.walks_onto, the local planner and the bridge read, so a model reads the same text
+// whether a human or an obstacle walks or stands. tools/mock_endpoint.py parses this layout, and
+// tools/worldgen.py shown rounds a distance as it does.
 pub fn (p Percept) describe() string {
 	mut lines := [
 		'self at (${p.pose[0]:.2f}, ${p.pose[1]:.2f}), carrying payload: ${p.payload}, in contact: ${p.contact}',

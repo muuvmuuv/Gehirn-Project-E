@@ -32,18 +32,26 @@ const max_radius = 5.0
 const keep_min = 0.3
 const keep_max = 3.0
 
-// World is a stage Sim plays: where the body starts, the beacons to deliver to, the obstacles and
-// the humans. main.v's load_config takes default_world, or the file WORLD names through
-// load_world, and new_sim plays it. docs/worlds.md describes the file.
+// mover_keep_min is the least keep of an obstacle that walks, in meters. It stops for the body
+// and never steps within its keep of the body's center, while the MuJoCo base, braking along a
+// motion the armor just took out, closes by up to its stopping distance from armor.Limits v_max
+// sped up by a_max for a tick, 0.117 m from 1.03 m/s, so 0.5 m still leaves more than body_radius
+// and the two never touch; a human's keep_min would leave 0.18 m. armor.Limits names it back.
+const mover_keep_min = 0.5
+
+// World is a stage Sim plays: where the body starts, the beacons to deliver to, the obstacles,
+// standing and moving, and the humans. main.v's load_config takes default_world, or the file WORLD
+// names through load_world, and new_sim plays it. docs/worlds.md describes the file.
 pub struct World {
 pub:
 	start     []f64 // x, y in meters
 	beacons   []Spot
-	obstacles []Spot
+	obstacles []Spot // that stand
 	humans    []Human
+	moving    []Human // obstacles that walk as a human walks, each with reaction stop
 }
 
-// Spot is a beacon or an obstacle of a World, a circle that never moves.
+// Spot is a beacon or a standing obstacle of a World, a circle that never moves.
 pub struct Spot {
 pub:
 	id  string
@@ -66,8 +74,9 @@ pub enum Reaction {
 	aside   // it steps around the body, keeping keep from it
 }
 
-// Human is a person of a World, a circle that walks by its Behavior and meets the body by its
-// Reaction. Its distance to the body is the armor's measure, from the body's center to its rim.
+// Human is a person of a World, or an obstacle that walks, a circle that walks by its Behavior
+// and meets the body by its Reaction. Its distance to the body is the armor's measure, from the
+// body's center to its rim.
 pub struct Human {
 pub:
 	id       string
@@ -90,11 +99,11 @@ pub:
 struct WorldFile {
 	start     []f64
 	beacons   []Spot
-	obstacles []Spot
+	obstacles []HumanFile // one without a behavior stands
 	humans    []HumanFile
 }
 
-// HumanFile is one human of a WorldFile, with its behavior and reaction still text.
+// HumanFile is one human or obstacle of a WorldFile, with its behavior and reaction still text.
 struct HumanFile {
 	id       string
 	r        f64
@@ -187,14 +196,26 @@ fn (f WorldFile) world(fence []f64) !World {
 	for b in f.beacons {
 		spot('beacon', b, fence, mut ids)!
 	}
+	mut obstacles := []Spot{}
+	mut moving := []Human{}
 	for o in f.obstacles {
-		spot('obstacle', o, fence, mut ids)!
+		if o.behavior == '' {
+			s := Spot{
+				id:  o.id
+				pos: o.pos
+				r:   o.r
+			}
+			spot('obstacle', s, fence, mut ids)!
+			obstacles << s
+		} else {
+			moving << o.human('obstacle', fence, mut ids)!
+		}
 	}
 	mut humans := []Human{}
 	for h in f.humans {
-		humans << h.human(fence, mut ids)!
+		humans << h.human('human', fence, mut ids)!
 	}
-	for o in f.obstacles {
+	for o in obstacles {
 		if touches(f.start, o.pos, o.r) {
 			return error('start touches obstacle ${o.id}; accepted a start more than ${body_radius} m from every solid rim')
 		}
@@ -204,11 +225,17 @@ fn (f WorldFile) world(fence []f64) !World {
 			return error('start touches human ${h.id} where it starts; accepted a start more than ${body_radius} m from every solid rim')
 		}
 	}
+	for o in moving {
+		if touches(f.start, o.path(0), o.r) {
+			return error('start touches obstacle ${o.id} where it starts; accepted a start more than ${body_radius} m from every solid rim')
+		}
+	}
 	return World{
 		start:     f.start
 		beacons:   f.beacons
-		obstacles: f.obstacles
+		obstacles: obstacles
 		humans:    humans
+		moving:    moving
 	}
 }
 
@@ -219,10 +246,13 @@ fn spot(kind string, s Spot, fence []f64, mut ids []string) ! {
 	radius('${kind} ${s.id}', s.r)!
 }
 
-// human checks one human of a world file and adds its id to ids.
-fn (f HumanFile) human(fence []f64, mut ids []string) !Human {
-	identify('human', f.id, mut ids)!
-	what := 'human ${f.id}'
+// human checks one human, or one obstacle that walks, of a world file, kind naming which in its
+// errors, and adds its id to ids. An obstacle that walks reacts stop only, with a keep from
+// mover_keep_min: through would ram a body the armor cannot move away, and aside lets the body
+// push it past the fence.
+fn (f HumanFile) human(kind string, fence []f64, mut ids []string) !Human {
+	identify(kind, f.id, mut ids)!
+	what := '${kind} ${f.id}'
 	radius(what, f.r)!
 	if ![f.rate, f.phase, f.speed, f.keep].all(math.is_finite(it)) {
 		return error('${what} has a number that is not finite; accepted finite numbers')
@@ -267,6 +297,9 @@ fn (f HumanFile) human(fence []f64, mut ids []string) !Human {
 		}
 	}
 
+	if kind == 'obstacle' && (reaction != .stop || f.keep < mover_keep_min || f.keep > keep_max) {
+		return error('${what} reacts ${reaction} with keep ${f.keep} m; accepted reaction stop with keep ${mover_keep_min} to ${keep_max}')
+	}
 	match reaction {
 		.through {}
 		.stop, .aside {
@@ -395,8 +428,8 @@ fn route(points [][]f64, cycle bool) [][]f64 {
 	return line
 }
 
-// Walker is where one human of Sim's world is, how fast it last walked and how long it has stood
-// waiting for the body.
+// Walker is where one human or moving obstacle of Sim's world is, how fast it last walked and how
+// long it has stood waiting for the body.
 struct Walker {
 mut:
 	at        []f64

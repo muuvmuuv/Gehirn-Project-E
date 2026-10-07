@@ -217,6 +217,23 @@ fn test_a_mujoco_body_reports_its_world_like_sim() {
 		assert p.scene[0].vel.len == 0 && p.scene[1].vel.len == 0
 		assert p.payload
 		assert !p.contact
+
+		w := World{
+			...far()
+			moving: [boat([-2.0, 3.0])]
+		}
+		mut bw := new_mujoco(w)!
+		mut sw := new_sim(w, .differential)
+		mut q := bw.sense()
+		for _ in 0 .. 25 {
+			bw.t0_ms -= 40
+			q = bw.sense()
+		}
+		assert q.scene.map('${it.id} ${it.kind} ${it.r}') == sw.sense().scene.map('${it.id} ${it.kind} ${it.r}')
+		assert q.scene[3].pos == w.moving[0].path(bw.steps * step_ms)
+		before := w.moving[0].path((bw.steps - 1) * step_ms)
+		assert q.scene[3].vel == lcl.scale(lcl.sub(q.scene[3].pos, before), 1000.0 / f64(step_ms))
+
 		b.effect('goto')!
 		b.effect('release')!
 		assert !b.sense().payload
@@ -303,6 +320,58 @@ fn test_a_mujoco_body_holds_while_a_human_touches_it() {
 	}
 }
 
+// A MuJoCo body holds still while a moving obstacle touches it by Sim's rule, as for a human,
+// whatever it is commanded, and is moved nowhere, since the obstacle's mocap body takes part in
+// no contact; once the obstacle has walked off, the body drives again. Here the obstacle starts
+// touching the base and walks off south; no world lets an obstacle that walks come this close,
+// since it stops at mover_keep_min.
+fn test_a_mujoco_body_holds_while_a_moving_obstacle_touches_it() {
+	$if mujoco ? {
+		w := World{
+			start:   [0.0, 0.0]
+			beacons: [Spot{
+				id:  'b1'
+				pos: [3.0, 2.0]
+				r:   0.3
+			}]
+			moving:  [
+				Human{
+					id:       'raft'
+					r:        0.35
+					behavior: .waypoints
+					reaction: .through
+					points:   [[0.4, 0.3], [0.4, -4.0]]
+					speed:    1.0
+				},
+			]
+		}
+		mut b := new_mujoco(w)!
+		mut p := b.sense()
+		mut held := 0
+		for _ in 0 .. 50 {
+			b.actuate([0.5, 0.0])!
+			b.t0_ms -= 40
+			p = b.sense()
+			if p.contact {
+				held++
+				assert p.pose == w.start && lcl.norm(p.vel) == 0.0, '${p.pose} ${p.vel}'
+			}
+		}
+		assert held > 10, '${held}'
+		assert !p.contact && p.pose[0] > 0.1, '${p.pose}'
+	}
+}
+
+// An obstacle that walks keeps mover_keep_min from the base's center, and the base, braking from
+// the fastest the armor lets it reach in a tick, armor.Limits v_max sped up by a_max for 20 ms,
+// still stands clear of its rim by more than body_radius, so the two never touch.
+fn test_mover_keep_outlasts_the_base_braking() {
+	$if mujoco ? {
+		b := new_mujoco(far())!
+		assert mover_keep_min - b.stopping(1.0 + 1.5 * 0.02) > body_radius
+	}
+}
+
 // A bad number in a step ends the run with one line before sense builds a percept, so no NaN
 // reaches the armor, the recorder or HQ.
 fn test_a_bad_step_ends_the_run_before_a_percept() {
@@ -317,9 +386,37 @@ fn test_a_bad_step_ends_the_run_before_a_percept() {
 	}
 }
 
-// mjcf writes every obstacle and human of a world with its radius, and no beacon.
+// default_mjcf is mjcf of default_world as it was before worlds held moving obstacles, so every
+// measurement on the MuJoCo base stays comparable.
+const default_mjcf = '<mujoco model="gehirn"><compiler usethread="false"/><option timestep="0.002"><flag autoreset="disable"/></option><worldbody><body name="base" pos="-3.5 -2.5 0.2"><joint name="x" type="slide" axis="1 0 0"/><joint name="y" type="slide" axis="0 1 0"/><joint name="yaw" type="hinge" axis="0 0 1"/><geom name="base" type="cylinder" size="0.25 0.2" mass="20.0"/></body><geom type="cylinder" pos="0.0 -0.3 0.2" size="0.8 0.2"/><body mocap="true" pos="2.6 1.2 0.2"><geom type="capsule" size="0.3 0.2" contype="0" conaffinity="0"/></body></worldbody><actuator><velocity joint="x" kv="400.0" forcerange="-200.0 200.0"/><velocity joint="y" kv="400.0" forcerange="-200.0 200.0"/><velocity joint="yaw" kv="62.5" forcerange="-100 100"/></actuator></mujoco>'
+
+// boat is an obstacle that walks a loop around center, stopping for the body at 0.6 m.
+fn boat(center []f64) Human {
+	return Human{
+		id:       'boat'
+		r:        0.35
+		behavior: .loop
+		reaction: .stop
+		center:   center
+		radii:    [0.9, 0.9]
+		rate:     0.4
+		keep:     0.6
+	}
+}
+
+// mjcf writes every obstacle and human of a world with its radius, and no beacon: a standing
+// obstacle as a static cylinder, a human as a mocap capsule and a moving obstacle as a mocap
+// cylinder after the humans, both without contacts. The default world's model is as it was.
 fn test_mjcf() {
 	$if mujoco ? {
+		assert mjcf(default_world()) == default_mjcf
+		with_boat := mjcf(World{
+			...default_world()
+			moving: [boat([-2.0, 3.0])]
+		})
+		assert with_boat.ends_with('<body mocap="true" pos="-1.1 3.0 0.2"><geom type="cylinder" size="0.35 0.2" contype="0" conaffinity="0"/></body></worldbody>${default_mjcf.all_after('</worldbody>')}')
+		assert with_boat.count('mocap="true"') == 2
+		assert with_boat.index('type="capsule"')? < with_boat.index('size="0.35 0.2"')?
 		w := World{
 			...default_world()
 			obstacles: [Spot{

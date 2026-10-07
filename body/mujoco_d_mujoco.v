@@ -34,18 +34,19 @@ const slide_force = 200.0
 // the slides move it along the world's axes whatever its heading. The armor steers it as it
 // steers a differential Sim: actuate sets the slides to the Course's speed along the heading of
 // the percept the armor checked, held until the next actuate, and the hinge toward the Course's
-// heading at turn_rate. The world's humans are mocap bodies that walk as Sim moves them, on the
-// model's clock, and touch the base by Sim's rule, which holds the base while one touches it.
+// heading at turn_rate. The world's humans and moving obstacles are mocap bodies that walk as Sim
+// moves them, on the model's clock, and touch the base by Sim's rule, which holds the base while
+// one touches it.
 pub struct Mujoco {
 	world World
 mut:
 	model   &mujoco.Model
 	base    int      // the base's geom
-	walkers []Walker // one per human of world, in its order
+	walkers []Walker // one per human of world and then per moving obstacle, each in its order
 	heading f64      // rad, of the last percept, which armor.Armor.drive checked
 	aim     f64      // rad, the heading the hinge turns toward
 	motion  []f64 = [0.0, 0.0] // m/s, the slides' command until the next actuate
-	held    bool // a human touched the base at the last step
+	held    bool // a human or a moving obstacle touched the base at the last step
 	payload bool = true
 	contact bool
 	t0_ms   i64
@@ -63,7 +64,7 @@ pub fn new_mujoco(w World) !&Mujoco {
 		world:   w
 		model:   model
 		base:    model.geom('base')
-		walkers: w.humans.map(Walker{ at: it.path(0) })
+		walkers: w.walkers()
 		t0_ms:   lcl.now_ms()
 	}
 }
@@ -163,9 +164,10 @@ fn (b &Mujoco) pose() []f64 {
 	return [b.world.start[0] + q[0], b.world.start[1] + q[1]]
 }
 
-// walk moves every human one step on, to the model's clock after the next step, and sets the
-// controls for it: the slides' to motion, or to zero while a human touches the base by Sim's rule,
-// as Sim holds its body, and the hinge's toward aim.
+// walk moves every human and moving obstacle one step on, to the model's clock after the next
+// step, and sets the controls for it: the slides' to motion, or to zero while one of them touches
+// the base by Sim's rule, as Sim holds its body, and the hinge's toward aim. Their mocap bodies
+// are in World.walkers' order.
 fn (mut b Mujoco) walk() {
 	pose := b.pose()
 	b.held = false
@@ -174,6 +176,12 @@ fn (mut b Mujoco) walk() {
 		b.model.set_mocap(i, b.walkers[i].at[0], b.walkers[i].at[1])
 		b.held = b.held || touches(pose, b.walkers[i].at, h.r)
 	}
+	for j, o in b.world.moving {
+		k := b.world.humans.len + j
+		b.walkers[k].step(o, (b.steps + 1) * step_ms, step_ms, pose)
+		b.model.set_mocap(k, b.walkers[k].at[0], b.walkers[k].at[1])
+		b.held = b.held || touches(pose, b.walkers[k].at, o.r)
+	}
 	m := if b.held { [0.0, 0.0] } else { b.motion }
 	b.model.set_ctrl(0, m[0])
 	b.model.set_ctrl(1, m[1])
@@ -181,14 +189,15 @@ fn (mut b Mujoco) walk() {
 	b.model.set_ctrl(2, math.max(-turn_rate, math.min(turn_rate, off / settle)))
 }
 
-// mjcf is the model of world w: the base at its start, every obstacle a static cylinder of its
-// radius and every human a mocap capsule of its radius where its walk starts, all at one height,
-// with no thread, plugin or floor, and autoreset off. A beacon is no geom, since nothing touches
-// it, and a human's capsule takes part in no contact: a mocap body pushes with no limit on its
-// force, so a human walking through a base beside a pillar would squeeze the base into the pillar
-// and fling it out at about 8 m/s. The base weighs base_mass, so slide_gain gives the slides a
-// time constant of 0.05 s, and the hinge's gain of 62.5 one of 0.01 s on the cylinder's
-// 0.625 kg m²; force limits of slide_force and 100 N m cap the push as a motor's saturation does.
+// mjcf is the model of world w: the base at its start, every standing obstacle a static cylinder
+// of its radius, every human a mocap capsule and every moving obstacle a mocap cylinder of its
+// radius where its walk starts, all at one height, with no thread, plugin or floor, and autoreset
+// off. A beacon is no geom, since nothing touches it, and a mocap body takes part in no contact: it
+// pushes with no limit on its force, so a human walking through a base beside a pillar would
+// squeeze the base into the pillar and fling it out at about 8 m/s. The base weighs base_mass, so
+// slide_gain gives the slides a time constant of 0.05 s, and the hinge's gain of 62.5 one of
+// 0.01 s on the cylinder's 0.625 kg m²; force limits of slide_force and 100 N m cap the push as a
+// motor's saturation does.
 // ponytail: planar joints, not wheels, as ADR-0008 decides; wheels on a floor, with slip and a
 // caster, once Open question 1 names the first real base.
 fn mjcf(w World) string {
@@ -205,6 +214,10 @@ fn mjcf(w World) string {
 	for h in w.humans {
 		at := h.path(0)
 		x.write_string('<body mocap="true" pos="${at[0]} ${at[1]} ${z}"><geom type="capsule" size="${h.r} ${z}" contype="0" conaffinity="0"/></body>')
+	}
+	for o in w.moving {
+		at := o.path(0)
+		x.write_string('<body mocap="true" pos="${at[0]} ${at[1]} ${z}"><geom type="cylinder" size="${o.r} ${z}" contype="0" conaffinity="0"/></body>')
 	}
 	x.write_string('</worldbody><actuator>')
 	for joint in ['x', 'y'] {

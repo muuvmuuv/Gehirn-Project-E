@@ -270,6 +270,31 @@ fn test_a_walker_heading_at_the_body_is_stepped_around() {
 	}
 }
 
+// boat is an obstacle of radius 0.35 m at x, y walking at vel.
+fn boat(x f64, y f64, vel []f64) lcl.Entity {
+	return lcl.Entity{
+		id:   'boat'
+		kind: 'obstacle'
+		pos:  [x, y]
+		r:    0.35
+		vel:  vel
+	}
+}
+
+// An obstacle that walks is followed along its straight course, as a walker is, and kept outside
+// solid_keep of its rim within the 3 cm the cost of pressing it allows, whether it crosses the way
+// ahead, heads straight at the body or comes from the far side; seen standing where it is each
+// tick, it came to 0.003 m and once overlapped the body.
+fn test_an_obstacle_that_walks_is_kept_off_along_its_course() {
+	for b in [boat(1.5, -1.2, [0.0, 0.5]), boat(2.0, -3.0, [0.0, 0.5]),
+		boat(3.5, 0.0, [-0.5, 0.0]), boat(2.0, 2.4, [0.0, -0.4]),
+		boat(1.5, -1.0, [0.0, 0.3])] {
+		f := fly([0.0, 0.0], [4.5, 0.0], [b], 40.0)
+		assert f.arrived([4.5, 0.0]), '${b.pos} ${b.vel}'
+		assert f.nearest('obstacle') >= solid_keep - 0.03, '${b.pos} ${b.vel}: ${f.nearest('obstacle')}'
+	}
+}
+
 // Inside a human's berth a step toward that human pays wall per m/s, so with one human near, whether
 // it stands between the body and the goal or walks past, the body steps toward them in none of
 // these cases; it is a cost, not a rule, and with two humans near it may step toward one to clear

@@ -1,9 +1,9 @@
 // The local planner: System 1 with a map. Where main.v's reflex only pulls the body toward the
 // approved goal and pushes it off whatever is near, the planner finds the shortest way to the goal
 // around the solids and, each tick, picks the velocity that gains most on that way while it keeps
-// clear of where each walking human is heading. main.v's field loop flies it under PLANNER=local in
-// place of the reflex, and the armor restrains its command like any other. Deterministic code with
-// no model in it, planned for the holonomic body.
+// clear of where each walking human and moving obstacle is heading. main.v's field loop flies it
+// under PLANNER=local in place of the reflex, and the armor restrains its command like any other.
+// Deterministic code with no model in it, planned for the holonomic body.
 module planner
 
 import math
@@ -68,7 +68,7 @@ pub:
 	bounds     []f64 // m, xmin, ymin, xmax, ymax, armor.Limits bounds
 mut:
 	last  []f64 = [0.0, 0.0] // m/s, the command next returned last
-	stood map[string]int // by id, ticks each human walked since it last stood, under settle
+	stood map[string]int // by id, ticks each one walked since it last stood, under settle
 }
 
 // Circle is a solid as the planner sees it, a center and a radius in meters.
@@ -78,8 +78,8 @@ struct Circle {
 	r f64
 }
 
-// Mover is a human as the planner sees it, with the velocity it walks at, zero for one that
-// stands or whose velocity cannot be measured.
+// Mover is a human or an obstacle as the planner sees it, with the velocity it walks at, zero for
+// one that stands or whose velocity cannot be measured.
 struct Mover {
 	x     f64
 	y     f64
@@ -102,7 +102,7 @@ struct Ahead {
 	last_leg  bool
 	top       f64 // m/s
 	humans    []Mover
-	obstacles []Circle
+	obstacles []Mover
 }
 
 // next is the core's command for the body at p toward goal, a planar velocity in m/s, for
@@ -110,12 +110,13 @@ struct Ahead {
 // fastest the armor lets the body move at p (armor.Armor.top_speed). It heads along the shortest
 // way to the target around every solid and standing human, each widened by the armor's keep and
 // the planner's own margin, and of a fixed set of headings and speeds takes the one that gains
-// most on that way against how close it would bring the body over the next 2 s to each human,
-// walkers followed in a straight line, and to each solid. Inside a human's berth a step toward
+// most on that way against how close it would bring the body over the next 2 s to each human and
+// each solid, walkers and moving obstacles followed in a straight line. Inside a human's berth a
+// step toward
 // that human costs it, though with several humans near it may step toward one to clear another.
 // It closes on the target as the reflex does, at 1.5 times the distance, and gives zero on it. A
-// percept or goal it cannot measure gives zero; a human whose velocity it cannot measure counts
-// as standing.
+// percept or goal it cannot measure gives zero; a human or an obstacle whose velocity it cannot
+// measure counts as standing.
 pub fn (mut pl Planner) next(p lcl.Percept, goal lcl.Intent, top f64) []f64 {
 	if p.pose.len != 2 {
 		return []f64{len: p.pose.len}
@@ -126,12 +127,13 @@ pub fn (mut pl Planner) next(p lcl.Percept, goal lcl.Intent, top f64) []f64 {
 	return u
 }
 
-// track counts, by id, the ticks each human of p has walked since it last stood, as long as that
-// stays under settle, for choose to keep it in the way.
+// track counts, by id, the ticks each human and obstacle of p has walked since it last stood, as
+// long as that stays under settle, for choose to keep it in the way. An obstacle that never walks
+// stays at 0.
 fn (mut pl Planner) track(p lcl.Percept) {
 	mut stood := map[string]int{}
 	for e in p.scene {
-		if e.kind != 'human' {
+		if e.kind == 'beacon' {
 			continue
 		}
 		if !walks(e.vel) {
@@ -158,7 +160,7 @@ fn (pl Planner) choose(p lcl.Percept, goal lcl.Intent, top f64) []f64 {
 		return [0.0, 0.0]
 	}
 	mut solids := []Circle{}
-	mut obstacles := []Circle{}
+	mut obstacles := []Mover{}
 	mut humans := []Mover{}
 	for e in p.scene {
 		if e.kind == 'beacon' || e.pos.len != 2 || !finite(e.pos) || !(e.r >= 0.0)
@@ -173,8 +175,11 @@ fn (pl Planner) choose(p lcl.Percept, goal lcl.Intent, top f64) []f64 {
 			}
 			continue
 		}
-		obstacles << Circle{e.pos[0], e.pos[1], e.r}
-		solids << widened(e.pos[0], e.pos[1], e.r + pl.solid_keep + margin, x, y, tx, ty)
+		o := mover(e)
+		obstacles << o
+		if !o.walks || e.id in pl.stood {
+			solids << widened(o.x, o.y, e.r + pl.solid_keep + margin, x, y, tx, ty)
+		}
 	}
 	dx, dy, length, last_leg := pl.way(x, y, tx, ty, solids.filter(it.r > 0.0))
 	a := Ahead{
@@ -217,8 +222,8 @@ fn (pl Planner) choose(p lcl.Percept, goal lcl.Intent, top f64) []f64 {
 	return [bx, by]
 }
 
-// mover is human e as the planner follows it: walking at its velocity when walks reads it so,
-// and standing otherwise.
+// mover is human or obstacle e as the planner follows it: walking at its velocity when walks
+// reads it so, and standing otherwise.
 fn mover(e lcl.Entity) Mover {
 	w := walks(e.vel)
 	return Mover{
@@ -231,8 +236,8 @@ fn mover(e lcl.Entity) Mover {
 	}
 }
 
-// walks reports whether a human with velocity vel walks: vel is two finite numbers whose squared
-// length is finite too, at walking or faster.
+// walks reports whether a human or an obstacle with velocity vel walks: vel is two finite numbers
+// whose squared length is finite too, at walking or faster.
 fn walks(vel []f64) bool {
 	return vel.len == 2 && math.is_finite(vel[0] * vel[0] + vel[1] * vel[1])
 		&& hyp(vel[0], vel[1]) >= walking
@@ -376,12 +381,13 @@ fn (pl Planner) score(a Ahead, vx f64, vy f64) f64 {
 		}
 	}
 
-	// Solids stand still, so they count only until the body could have covered the way: an
-	// approach that ends at a target beside a pillar slows before it.
+	// A solid that stands counts only until the body could have covered the way, so an approach
+	// that ends at a target beside a pillar slows before it; one that walks, over the horizon.
 	speed := hyp(vx, vy)
 	until := if speed * horizon > a.length { a.length / speed } else { horizon }
 	for o in a.obstacles {
-		cx, cy := closest(a.x - o.x, a.y - o.y, vx, vy, until)
+		over := if o.walks { horizon } else { until }
+		cx, cy := closest(a.x - o.x, a.y - o.y, vx - o.wx, vy - o.wy, over)
 		gap := hyp(cx, cy) - o.r
 		if gap < pl.solid_keep {
 			cost += press * a.top * (pl.solid_keep - gap)

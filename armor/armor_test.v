@@ -56,6 +56,15 @@ fn ent(kind string, pos []f64, r f64) lcl.Entity {
 	}
 }
 
+// boat is an obstacle that walks, with radius 1 m, at pos with velocity vel, which the armor keeps
+// off where it is now.
+fn boat(pos []f64, vel []f64) lcl.Entity {
+	return lcl.Entity{
+		...ent('obstacle', pos, 1.0)
+		vel: vel
+	}
+}
+
 // at is a percept with the body at pose and the given scene.
 fn at(pose []f64, scene ...lcl.Entity) lcl.Percept {
 	return lcl.Percept{
@@ -666,6 +675,27 @@ fn test_drive_widens_the_keeps_and_the_fence_by_the_stopping_distance() {
 			want:  ne
 		},
 		CoastCase{
+			name:  'a holonomic body slides along a moving obstacle within the margin, where it is'
+			scene: [boat([1.4, 0.0], [-0.5, 0.0])]
+			last:  ne
+			u:     ne
+			want:  [0.0, 0.8]
+		},
+		CoastCase{
+			name:  'a holonomic body slides as much along a moving obstacle walking away'
+			scene: [boat([1.4, 0.0], [0.5, 0.0])]
+			last:  ne
+			u:     ne
+			want:  [0.0, 0.8]
+		},
+		CoastCase{
+			name:  'a holonomic body moves nothing toward a moving obstacle head on within the margin'
+			scene: [boat([1.4, 0.0], [-0.5, 0.0])]
+			last:  [1.0, 0.0]
+			u:     [1.0, 0.0]
+			want:  [0.0, 0.0]
+		},
+		CoastCase{
 			name:  'past the margin a solid does not deflect a holonomic body'
 			scene: far
 			last:  ne
@@ -685,6 +715,13 @@ fn test_drive_widens_the_keeps_and_the_fence_by_the_stopping_distance() {
 			coast: 0.0
 			scene: [ent('obstacle', [1.45, 0.0], 1.0)]
 			want:  [1.0, 0.0]
+		},
+		CoastCase{
+			name:  'a differential body turns in place before a moving obstacle within the margin'
+			base:  .differential
+			scene: [boat([1.45, 0.0], [-0.5, 0.0])]
+			want:  [0.0, 0.0]
+			sent:  [0.0, 0.0]
 		},
 		CoastCase{
 			name:  'a differential body turns in place before a human within the margin'

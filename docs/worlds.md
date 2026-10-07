@@ -35,13 +35,13 @@ A world is one JSON object. [worlds/example.json](../worlds/example.json) is a s
 }
 ```
 
-Positions are `[x, y]` in meters, radii and distances in meters, speeds in meters a second, angles in radians. Every position, waypoint and loop lies inside the armor's fence, -5 to 5 m on each axis. Every entity is a circle, as the percept shows it, and the percept lists the beacons, then the obstacles, then the humans, each in the file's order. The core and MAGI read every one of them each time they judge, and the recorder writes them 50 times a second.
+Positions are `[x, y]` in meters, radii and distances in meters, speeds in meters a second, angles in radians. Every position, waypoint and loop lies inside the armor's fence, -5 to 5 m on each axis. Every entity is a circle, as the percept shows it, and the percept lists the beacons, then the obstacles that stand, then the humans, then the obstacles that move, each in the file's order. The core and MAGI read every one of them each time they judge, and the recorder writes them 50 times a second.
 
 | Field | Holds |
 | --- | --- |
 | `start` | Where the body starts. `START` moves it ([Configuration](configuration.md)) |
 | `beacons` | At least one beacon to deliver to, each an `id`, a `pos` and a radius `r`. A release counts on target at any of them, and the mission gehirn sets by default names the first |
-| `obstacles` | Solid circles that never move, each an `id`, a `pos` and an `r`; may be empty |
+| `obstacles` | Solid circles, each an `id`, a `pos` and an `r`, that stand, or walk as a human does when they have a `behavior` ([Obstacles that move](#obstacles-that-move)); may be empty |
 | `humans` | People, each an `id`, an `r`, a `behavior`, a `reaction` and the fields those take; may be empty |
 
 An `id` is 1 to 16 lowercase letters, digits and hyphens, one per entity, since ids reach status lines and every prompt. A world holds at most 16 beacons, obstacles and humans in all. Fields a behavior or reaction does not take are ignored.
@@ -69,11 +69,22 @@ A walking speed lies from 0.1 to 2 m/s; a loop's is its rate times its larger ra
 
 The simulator keeps its rules for every world: the body stands still while it touches anything solid, humans included, by a distance from its center under the solid's radius plus 0.25 m, and a velocity command lapses after 200 ms. The armor keeps its own ([Safety](safety.md)), whatever a human does, and a stop or aside human never steps within its `keep` of the body, so it never walks into it. Between two solids the body needs more room than twice the armor's 0.35 m: a gap of exactly 0.70 m between their rims lets the default holonomic body through with 0.35 m to each, but stops for good the differential `Sim`, whose slide starts early, and the MuJoCo base, whose keeps the armor widens by its stopping distance, while one of 0.74 m let all three through (PLAN, Known issue 33).
 
-Under `BODY=mujoco` the MuJoCo base plays the same world ([Safety](safety.md#how-the-body-moves)): every obstacle is a static cylinder of its radius and every human a walking capsule of its radius, which moves by the same rules on the model's clock, starting at the base's first sense and pausing with the model after a stall. There a solid stops the base through MuJoCo's contact, a human who walks through the base touches it by `Sim`'s rule and holds it still while they touch, as in `Sim`, and a beacon is nothing the base can touch.
+Under `BODY=mujoco` the MuJoCo base plays the same world ([Safety](safety.md#how-the-body-moves)): every obstacle that stands is a static cylinder of its radius, every human a walking capsule and every obstacle that moves a walking cylinder of its radius, which move by the same rules on the model's clock, starting at the base's first sense and pausing with the model after a stall. There a standing solid stops the base through MuJoCo's contact, a human who walks through the base touches it by `Sim`'s rule and holds it still while they touch, as in `Sim`, as would an obstacle that moves, though it stops for the base before it touches, and a beacon is nothing the base can touch.
+
+### Obstacles that move
+
+An obstacle with a `behavior` walks as a human does, a boat on its course or a cart on its round, by the same behaviors and their fields, and reacts `stop` with a `keep` of 0.5 to 3 m:
+
+```json
+{"id": "boat", "r": 0.35, "behavior": "loop", "center": [1.8, 0.9], "radii": [0.9, 0.9], "rate": 0.4, "phase": 0.0,
+ "reaction": "stop", "keep": 0.6}
+```
+
+It stands while the body's center is within its keep of its rim, or would be after its next step, and walks on once the body is clear, so it never comes closer. The percept lists it as an obstacle, after the humans, with the velocity of its last step while it walks. The armor keeps the body off it where it is, as off any solid, the local planner of `PLANNER=local` follows its straight course at that velocity ([Safety](safety.md#how-the-body-moves)), and the text the models read shows it as an obstacle without its velocity, so no MAGI rule judges its course ([ADR-0010](adr/0010-terrain-on-the-plane.md)). The keep of at least 0.5 m outlasts the MuJoCo base's braking, up to 11.7 cm from the speed the armor allows it, so it never touches the body on either body. One that walked through the body would ram a body the armor cannot move away, and one that stepped aside could be pushed past the fence, so gehirn takes neither. Like a human, it walks through other obstacles, so lay its way clear of them.
 
 ### A walking human's velocity
 
-The percept carries each walking human's velocity, the step it took since the last sense over that time, in m/s, and none for a human that stands, stopped or waiting included. The recorder writes it with the scene, and the text the models read leaves it out. Under `PLANNER=local` the local planner steers around each walker's course by it ([Safety](safety.md#how-the-body-moves)), and MAGI judge a goto by it ([MAGI](magi.md#a-goto-toward-a-walking-human)), but only a goto the body could reach within 2 s, from within 2.35 m of its target. A goto from farther than that never draws it: in the default world every start the tools fly lies at least 2.50 m from the beacon, so the mission's first goto never does, while a re-goto from near the beacon may. Of the scenes, only `ep18-bardiel` proposes a goto from that close, and a flight of it checks that MAGI refuse the one onto Toji's way. [The crossing world](#the-crossing-world) and [the sweep world](#the-sweep-world) start the body that close to their beacons, so the rule judges the mission's first goto. A sense in the millisecond the simulator starts carries no velocity, since no time has passed for a step, so a goto judged on it draws no course, as the mock's first goto can be (PLAN, Known issue 34).
+The percept carries each walking human's velocity, the step it took since the last sense over that time, in m/s, and none for a human that stands, stopped or waiting included, and an obstacle that moves carries its own the same way. The recorder writes it with the scene, and the text the models read leaves it out. Under `PLANNER=local` the local planner steers around each walker's course by it, a moving obstacle's included ([Safety](safety.md#how-the-body-moves)), and MAGI judge a goto by it ([MAGI](magi.md#a-goto-toward-a-walking-human)), but only a goto the body could reach within 2 s, from within 2.35 m of its target. A goto from farther than that never draws it: in the default world every start the tools fly lies at least 2.50 m from the beacon, so the mission's first goto never does, while a re-goto from near the beacon may. Of the scenes, only `ep18-bardiel` proposes a goto from that close, and a flight of it checks that MAGI refuse the one onto Toji's way. [The crossing world](#the-crossing-world) and [the sweep world](#the-sweep-world) start the body that close to their beacons, so the rule judges the mission's first goto. A sense in the millisecond the simulator starts carries no velocity, since no time has passed for a step, so a goto judged on it draws no course, as the mock's first goto can be (PLAN, Known issue 34).
 
 ## What gehirn refuses
 
@@ -83,10 +94,11 @@ gehirn reads `WORLD` at startup with the other variables and refuses to start, w
 - an unknown `behavior` or `reaction`, which includes a missing one;
 - a position, center, radii or waypoint that is not one x and one y, a number that is not finite, and a radius at or below 0 or above 5 m;
 - a position, waypoint or loop outside the fence;
-- a start that touches an obstacle, or a human where it starts, by the simulator's rule of contact;
+- a start that touches an obstacle, or a human or an obstacle that moves where it starts, by the simulator's rule of contact;
 - an `id` that is not 1 to 16 lowercase letters, digits and hyphens, or that two entities share;
 - no beacon, or more than 16 entities;
-- a walking speed outside 0.1 to 2 m/s, a `keep` outside 0.3 to 3 m for `stop` or `aside`, fewer than 2 waypoints or waypoints all in one place, and a human walking `toward` the body and `through` it.
+- a walking speed outside 0.1 to 2 m/s, a `keep` outside 0.3 to 3 m for `stop` or `aside`, fewer than 2 waypoints or waypoints all in one place, and a human walking `toward` the body and `through` it;
+- an obstacle with a `behavior` that reacts other than `stop`, or keeps less than 0.5 m or more than 3 m from the body.
 
 `START`, when set, moves the world's start and is checked as before: two decimals inside the fence.
 
