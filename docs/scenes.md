@@ -17,7 +17,7 @@ In canon, an Eva without power or pilot can go berserk, and the commanders overr
 
 ## Recordings
 
-Each scene was recorded once on its world on 2026-10-06, and `ep12-sahaquiel` on 2026-10-07, and every take flew every beat in order ([assets/README.md](../assets/README.md#scene-recordings)). The MP4s are Git LFS objects, and the website's landing page plays every scene but `ep12-sahaquiel` from copies in `website/public/media`.
+Each scene was recorded once on its world on 2026-10-06, and `ep12-sahaquiel` on 2026-10-07, and every take flew every beat in order ([assets/README.md](../assets/README.md#scene-recordings)). The MP4s are Git LFS objects, and the website's landing page plays every scene from copies in `website/public/media`.
 
 | Scene | MP4 | MAGI GIF |
 | --- | --- | --- |

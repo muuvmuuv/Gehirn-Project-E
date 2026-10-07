@@ -6,7 +6,7 @@ import { useEffect, useRef } from 'react'
  * with several clips downloads the one in view. Under reduced motion it stays on its poster. Its
  * controls let a viewer stop it, which WCAG asks of motion that plays longer than 5 s, and a clip
  * the viewer paused stays paused when it scrolls back into view. Every clip on the site is 1280
- * by 800 or, for the MAGI block, 800 by 448.
+ * by 800, or 800 by 448 for the MAGI block and 1016 by 704 for the radar.
  */
 export function Clip({
 	src,

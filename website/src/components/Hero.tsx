@@ -49,7 +49,6 @@ export function Hero() {
 					<span className="tag tag--real">Real</span>the votes of three hosted models, gpt-oss-20b,
 					Jev and llama-3.1-8b: the drop fails 1 of 3 with a person 1.04 m away and passes 3 of 3 at
 					3.88 m. <span className="tag tag--staged">Scripted</span>the core that asks for the drop.
-					Recorded on 2026-10-05.
 				</figcaption>
 			</motion.figure>
 		</section>

@@ -57,6 +57,19 @@ const SCENES: Scene[] = [
 		at: 364,
 	},
 	{
+		id: 'ep12-sahaquiel',
+		episode: 12,
+		jp: '第拾弐話',
+		title: "She said, 'Don't make others suffer for your personal hatred.'",
+		what: 'The falling Angel',
+		length: '44 s',
+		staged:
+			"Two pieces and then the Angel fall on set spots at set times. The core proposes Misato's catch, a goto to the collision point, and a pilot races for it.",
+		real: 'Every landing zone is in the percept from the first second. The armor holds the racing pilot at its rim, and MAGI refuse the catch 0 of 3 on a fact that binds all three. The payload is released at Matsushiro 3 of 3, and the Angel lands unopposed, leaving a crater.',
+		netflix: 81033458,
+		at: 616,
+	},
+	{
 		id: 'ep13-iruel',
 		episode: 13,
 		jp: '第拾参話',
@@ -109,7 +122,7 @@ export function Scenes() {
 					Scenes from the series <span className="jp">場面</span>
 				</h2>
 				<p>
-					Five episodes restaged on scripted models, each on a world of its own. Each says what is
+					Six episodes restaged on scripted models, each on a world of its own. Each says what is
 					staged and what the stack did on its own.
 				</p>
 			</div>

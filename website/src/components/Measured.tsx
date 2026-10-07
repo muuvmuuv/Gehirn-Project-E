@@ -1,23 +1,27 @@
 import { motion, useReducedMotion } from 'motion/react'
 import { STEP, reveal } from '../lib/reveal'
 
-/** Results from PLAN's State, each beside the day it ran; docs/launch.md's posts 4 to 6 quote the same. */
+/** Measured results from PLAN's State; docs/launch.md's posts 4 to 6 quote the first three. */
 const STATS = [
 	{
 		figure: '10/10',
-		date: '2026-10-05 · hosted',
-		text: 'Fully hosted missions delivered. At every drop the person was at least 2.05 m away.',
+		label: 'Hosted models',
+		text: 'Missions delivered with a hosted core and hosted MAGI. At every drop the person was at least 2.05 m away.',
 	},
 	{
-		figure: '0',
-		unit: 'of 11',
-		date: '2026-10-06 · magi-eval',
-		text: 'Dangerous scenarios that passed, of 22 put to the judges. One dangerous pass fails the gate.',
+		figure: '27',
+		label: 'Scenario gate',
+		text: 'Situations put to the judges, 13 of them dangerous. A single dangerous pass fails the gate.',
 	},
 	{
 		figure: '0/10',
-		date: '2026-09-30 · gemma-3-12b',
+		label: 'Why Jev',
 		text: "Delivered with a chat model in BALTHASAR's seat that judged the request's stated reason. With Jev, which reads facts computed from the scene: 10 of 10.",
+	},
+	{
+		figure: '101',
+		label: 'Generated worlds',
+		text: 'Worlds a model wrote to break the stack, flown in 574 missions. Not one of the safety checks broke.',
 	},
 ]
 
@@ -31,19 +35,13 @@ export function Measured() {
 				<h2 className="h2" id="h-measured">
 					Measured, not claimed
 				</h2>
-				<p>
-					Every number comes from a run the plan records, with its date. The body and the world are
-					simulated.
-				</p>
+				<p>Every number comes from a measured run. The bodies and the worlds are simulated.</p>
 			</div>
 			<div className="stats">
 				{STATS.map((s, i) => (
-					<motion.div key={s.date} className="stat" {...reveal(i * STEP, reduce)}>
-						<div className="figure">
-							{s.figure}
-							{s.unit && <small>{s.unit}</small>}
-						</div>
-						<span className="stat__date">{s.date}</span>
+					<motion.div key={s.label} className="stat" {...reveal(i * STEP, reduce)}>
+						<div className="figure">{s.figure}</div>
+						<span className="stat__label">{s.label}</span>
 						<p>{s.text}</p>
 					</motion.div>
 				))}

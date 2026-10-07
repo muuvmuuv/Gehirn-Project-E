@@ -28,6 +28,9 @@ export function Nav() {
 				<Link to="/" hash="how">
 					How it works
 				</Link>
+				<Link to="/" hash="terrain">
+					Worlds
+				</Link>
 				<Link to="/" hash="scenes">
 					Scenes
 				</Link>

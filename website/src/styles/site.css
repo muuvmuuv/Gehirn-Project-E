@@ -923,14 +923,16 @@ main:focus {
 	color: var(--dim);
 }
 
+/* Squeezed to 78%, the title wraps as if the line were 1 / 0.78 as wide, so a long one fills the card. */
 .card__title {
 	display: block;
+	width: calc(100% / 0.78);
 	font-family: var(--jp);
 	font-weight: 900;
 	font-size: clamp(1.9rem, 3.6vw, 2.8rem);
-	line-height: 1;
+	line-height: 1.05;
 	text-transform: uppercase;
-	white-space: nowrap;
+	text-wrap: balance;
 	transform: scaleX(0.78);
 	transform-origin: left center;
 }
@@ -1008,9 +1010,114 @@ main:focus {
 	white-space: nowrap;
 }
 
-.stats {
+.terrain {
+	display: grid;
+	grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+	gap: 32px;
+	align-items: start;
+}
+
+.terrain__media {
+	margin: 0;
+}
+
+.terrain__kinds {
+	display: grid;
+	gap: 22px;
+}
+
+.kinds {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	display: grid;
+	gap: 18px;
+}
+
+.kinds li {
+	display: grid;
+	grid-template-columns: 4.6em minmax(0, 1fr);
+	gap: 2px 14px;
+	align-items: baseline;
+	padding-bottom: 16px;
+	border-bottom: 1px solid var(--line);
+}
+
+.kinds__jp {
+	grid-row: 1 / span 2;
+	font-weight: 900;
+	font-size: 18px;
+	color: var(--orange);
+	white-space: nowrap;
+}
+
+.kinds h3 {
+	margin: 0;
+	font-family: var(--display);
+	font-weight: 700;
+	font-size: 19px;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.kinds p {
+	margin: 0;
+	font-size: 15px;
+	line-height: 1.45;
+	color: var(--dim);
+}
+
+.lab {
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 28px;
+}
+
+.lab > div,
+.lab-card {
+	height: 100%;
+}
+
+.lab-card__body {
+	display: grid;
+	gap: 12px;
+	align-content: start;
+	padding: 20px 22px 24px;
+}
+
+.lab-card h3 {
+	margin: 0;
+	font-family: var(--display);
+	font-weight: 800;
+	font-size: 24px;
+	line-height: 1.05;
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+}
+
+.lab-card p {
+	margin: 0;
+	font-size: 15px;
+	line-height: 1.5;
+}
+
+.lab-card__fact {
+	padding-inline-start: 12px;
+	border-inline-start: 2px solid var(--orange);
+	color: var(--dim);
+}
+
+.lab-card__run {
+	justify-self: start;
+	padding: 4px 10px;
+	border: 1px solid var(--line);
+	font-size: 14px;
+	color: var(--orange);
+}
+
+.stats {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
 	gap: 28px;
 }
 
@@ -1022,9 +1129,12 @@ main:focus {
 	border-top: 2px solid var(--orange);
 }
 
-.stat__date {
-	font-family: var(--mono);
-	font-size: 13px;
+.stat__label {
+	font-family: var(--display);
+	font-weight: 700;
+	font-size: 14px;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
 	color: var(--dim);
 }
 
@@ -1070,7 +1180,8 @@ main:focus {
 @media (max-width: 960px) {
 	.hero,
 	.runit,
-	.scenes {
+	.scenes,
+	.terrain {
 		grid-template-columns: minmax(0, 1fr);
 	}
 
@@ -1079,8 +1190,12 @@ main:focus {
 	}
 
 	.rules,
-	.stats {
+	.lab {
 		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.stats {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 
 	.parts {
@@ -1121,7 +1236,8 @@ main:focus {
 	}
 
 	.parts,
-	.viewer__meta {
+	.viewer__meta,
+	.stats {
 		grid-template-columns: minmax(0, 1fr);
 	}
 }
@@ -1461,8 +1577,9 @@ main:focus {
 	}
 
 	.links {
-		gap: 6px 16px;
-		font-size: 14px;
+		gap: 6px 12px;
+		font-size: 13px;
+		letter-spacing: 0.05em;
 	}
 
 	.legend,

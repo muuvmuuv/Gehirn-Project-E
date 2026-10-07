@@ -224,7 +224,7 @@ WORLD=$PWD/worlds/terrain.json python3 tools/trials.py --runs 10 --jobs 3
 
 PLAN's State holds what each kind did on the mock.
 
-`just scene=terrain demo` flies the same mission with HQ, the field unit and the bridge apart and narrates it, as the scenes of [Scenes](scenes.md) do, and `just scene=terrain demo-record` records it. It is a tour of this world rather than a scene from the series: no pilot sits down, and nothing but the world is set. Its take, [assets/media/terrain.mp4](../assets/media/terrain.mp4), shows every kind on the bridge's radar.
+`just scene=terrain demo` flies the same mission with HQ, the field unit and the bridge apart and narrates it, as the scenes of [Scenes](scenes.md) do, and `just scene=terrain demo-record` records it. It is a tour of this world rather than a scene from the series: no pilot sits down, and nothing but the world is set. Its take, [assets/media/terrain.mp4](../assets/media/terrain.mp4), shows every kind on the bridge's radar, and the website plays the radar cut from it.
 
 ## Generating worlds
 

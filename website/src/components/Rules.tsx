@@ -38,10 +38,7 @@ export function Rules() {
 				<h2 className="h2" id="h-rules">
 					Three rules <span className="jp">規則</span>
 				</h2>
-				<p>
-					They hold after every change. The plan lists eleven such invariants, and a commit that
-					touches one says why it still holds.
-				</p>
+				<p>They live in code, not in a prompt, so whatever a model answers, they hold.</p>
 			</div>
 			<div className="rules">
 				{RULES.map((r, i) => (

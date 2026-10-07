@@ -37,6 +37,7 @@ The series streams on Netflix as title 81033445, and not on Crunchyroll, in Germ
 | --- | --- | --- | --- | --- |
 | `ep03-cable` | 3 | 81033449 | 16:26 | Shamshel cuts the cable; at 16:53 the battery shows 4:53 left, and Unit-01 stops at 20:10 |
 | `ep06-yashima` | 6 | 81033452 | 6:04 | Misato offers the sniping plan; at 6:24 she reports the MAGI's two yes votes and one conditional yes, then the 8.7% odds and Gendo's approval |
+| `ep12-sahaquiel` | 12 | 81033458 | 10:16 | Sahaquiel's first two drops miss as it learns its aim; at 10:59 the MAGI unanimously recommend evacuation, and from 11:54 Misato defends catching it anyway |
 | `ep13-iruel` | 13 | 81033459 | 12:56 | The Angel breaks into the MAGI; MELCHIOR is reprogrammed and calls for self destruct at 13:31, and the other two refuse |
 | `ep18-bardiel` | 18 | 81033464 | 16:40 | Shinji refuses to fight with a pilot inside; at 17:12 Gendo has his sync cut and the dummy plug take over |
 | `ep19-bench` | 19 | 81033465 | 13:18 | Unit-01 refuses the dummy plug at 13:30, after it rejected Rei at 10:59; at 21:26 Ritsuko calls the plating restraints, not armor |

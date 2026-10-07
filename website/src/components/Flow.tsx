@@ -7,7 +7,11 @@ const STAGES = [
 	{ jp: '決議', name: 'MAGI', text: 'Three judges from three model families vote on it.' },
 	{ jp: 'シンクロ率', name: 'Seat', text: 'A pilot steers, or the dummy plug cloned from one.' },
 	{ jp: '拘束具', name: 'Armor', text: 'Plain code restrains every command, 50 times a second.' },
-	{ jp: '本体', name: 'Body', text: 'Simulated today. Hardware replaces it below the armor.' },
+	{
+		jp: '本体',
+		name: 'Body',
+		text: 'Simulated today, planar or with MuJoCo physics. Hardware replaces it below the armor.',
+	},
 ]
 
 /**
