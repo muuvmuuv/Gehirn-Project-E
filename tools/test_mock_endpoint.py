@@ -72,6 +72,13 @@ GOTOS = {5: A, 6: B}
 assert [answer("core", USER, n, None, {}, GOTOS) for n in (4, 5, 6, 7)] == [
     propose(read_percept(USER), USER), A, B, B]
 assert answer("core", USER, 5, STAGED, {}, GOTOS) == STAGED
+# off@N returns the core to its script from its N-th request, so a goto staged at 2 stands once.
+for bad in ("of", "off@0", "off@", "offf", "off,1"):
+    assert refused(goto_arg, bad), bad
+assert goto_arg("off@3") == (3, None) and goto_arg("off") == (1, None)
+ONCE = dict([goto_arg("3.54,2.84@2"), goto_arg("off@3")])
+assert [answer("core", USER, n, None, {}, ONCE) for n in (1, 2, 3, 4)] == [
+    propose(read_percept(USER), USER), A, propose(read_percept(USER), USER), propose(read_percept(USER), USER)]
 assert answer("melchior", USER, 5, None, {}, GOTOS) == judge("melchior", USER, read_percept(USER))
 
 # Without any flag every role answers as scripted.

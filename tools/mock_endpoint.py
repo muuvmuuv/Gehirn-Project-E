@@ -21,11 +21,13 @@ A scene stages what three model families would not do alike: --vote forces a uni
 the chat route from that unit's N-th request on, and --propose makes the core propose one verb
 on every request, whether or not the schema's verb enum lists it, as a server without schema
 support would. --goto makes the core propose a goto to a given target from its N-th request
-on. --garbage wins over all three, and --propose over --goto.
+on, and --goto off@N returns it to its script from its N-th request. --garbage wins over all
+three, and --propose over --goto.
 
     python3 tools/mock_endpoint.py --slow balthasar=12000 --garbage casper
     python3 tools/mock_endpoint.py --propose self_destruct --vote casper=reject --vote casper=approve@3
     python3 tools/mock_endpoint.py --goto 3.54,2.84@5 --goto 1.0,2.5@6
+    python3 tools/mock_endpoint.py --goto 0.6,0.4@2 --goto off@3
 """
 
 import argparse
@@ -67,7 +69,7 @@ COURSE = re.compile(r"^COURSE\nhuman ([^\s,]+)", re.M)
 
 STYLES = ("plain", "think", "fence", "chatter")
 VOTE = re.compile(rf"({'|'.join(UNITS.values())})=(approve|reject)(?:@([1-9][0-9]*))?")
-GOTO = re.compile(r"(-?[0-9]+(?:\.[0-9]+)?),(-?[0-9]+(?:\.[0-9]+)?)(?:@([1-9][0-9]*))?")
+GOTO = re.compile(r"(?:off|(-?[0-9]+(?:\.[0-9]+)?),(-?[0-9]+(?:\.[0-9]+)?))(?:@([1-9][0-9]*))?")
 GARBAGE = "I would rather talk about the weather than answer in that format."
 VERBS = ("goto", "hold", "release")  # lcl.known_verbs
 # armor/armor.v Limits: bounds, and release_keep as center distance the way the prompts state it.
@@ -187,7 +189,7 @@ def forced(staged: dict[int, T], n: int) -> T | None:
 
 
 def answer(role: str, user: str, n: int, staged: dict | None,
-           votes: dict[str, dict[int, str]], gotos: dict[int, dict] | None = None) -> dict:
+           votes: dict[str, dict[int, str]], gotos: dict[int, dict | None] | None = None) -> dict:
     """Script a role's answer to its n-th request: --propose, --goto and --vote first, else the
     script."""
     percept = read_percept(user)
@@ -298,7 +300,7 @@ class Handler(BaseHTTPRequestHandler):
     # ponytail: --vote forces the chat route only, since no scene forces Jev; systemone would
     # need the same counter and forced() once one does.
     votes: dict[str, dict[int, str]] = {}
-    gotos: dict[int, dict] = {}
+    gotos: dict[int, dict | None] = {}
     quiet = False
 
     def do_POST(self) -> None:
@@ -454,11 +456,14 @@ def vote_arg(value: str) -> tuple[str, int, str]:
     return m[1], int(m[3] or 1), m[2]
 
 
-def goto_arg(value: str) -> tuple[int, dict]:
-    """Parse X,Y[@N] into (N, the core's staged goto); N counts the core's requests from 1."""
+def goto_arg(value: str) -> tuple[int, dict | None]:
+    """Parse X,Y[@N] into (N, the core's staged goto), or off[@N] into (N, None), which forced
+    returns and answer passes over to the script; N counts the core's requests from 1."""
     m = GOTO.fullmatch(value)
     if not m:
-        raise argparse.ArgumentTypeError("expected X,Y[@N], X and Y in meters, N from 1")
+        raise argparse.ArgumentTypeError("expected X,Y[@N] or off[@N], X and Y in meters, N from 1")
+    if m[1] is None:
+        return int(m[3] or 1), None
     return int(m[3] or 1), {"verb": "goto", "target": [float(m[1]), float(m[2])],
                             "why": "Staged by --goto."}
 
@@ -485,7 +490,8 @@ def main() -> None:
     ap.add_argument("--propose", type=propose_arg, metavar="VERB[:WHY]",
                     help="make the core propose VERB, never goto, on every request")
     ap.add_argument("--goto", type=goto_arg, action="append", default=[], metavar="X,Y[@N]",
-                    help="make the core propose goto(X, Y) from its N-th request on")
+                    help="make the core propose goto(X, Y) from its N-th request on, or with off "
+                         "return it to its script")
     ap.add_argument("--quiet", action="store_true", help="no log line per request")
     args = ap.parse_args()
 
