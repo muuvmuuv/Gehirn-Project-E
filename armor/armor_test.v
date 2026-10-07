@@ -795,6 +795,36 @@ fn test_a_sim_body_stands_before_its_keeps_and_the_fence_a_tick_ahead() {
 	}
 }
 
+struct TopCase {
+	name   string
+	p      lcl.Percept
+	manned bool
+	want   f64
+}
+
+// top_speed is the cap drive clamps a command to, which main.v hands the local planner: v_max
+// seated, v_unmanned otherwise, slowed by separation from human_slow down to a fifth at
+// human_stop, and nothing on a percept the armor cannot measure.
+fn test_top_speed() {
+	o := [0.0, 0.0]
+	cases := [
+		TopCase{'seated, nobody around', at(o), true, 1.0},
+		TopCase{'unmanned, nobody around', at(o), false, 0.4},
+		TopCase{'a human rim at human_slow', at(o, ent('human', [2.3, 0.0], 0.3)), true, 1.0},
+		TopCase{'a human rim halfway in', at(o, ent('human', [1.65, 0.0], 0.3)), true, 0.5},
+		TopCase{'a human rim at human_stop', at(o, ent('human', [1.0, 0.0], 0.3)), true, 0.2},
+		TopCase{'a human rim at human_stop, unmanned', at(o, ent('human', [1.0, 0.0], 0.3)), false, 0.08},
+		TopCase{'an obstacle is no human', at(o, ent('obstacle', [0.5, 0.0], 0.3)), true, 1.0},
+		TopCase{'a percept it cannot measure', at([math.nan(), 0.0]), true, 0.0},
+	]
+	for c in cases {
+		mut f := &Fake{}
+		a := restrain(f, Limits{})
+		got := a.top_speed(c.p, c.manned)
+		assert math.abs(got - c.want) < 1e-9, '${c.name}: ${got}'
+	}
+}
+
 struct AllowsCase {
 	name   string
 	pose   []f64
