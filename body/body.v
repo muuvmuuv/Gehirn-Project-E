@@ -26,8 +26,8 @@ mut:
 
 // stride_s is the most time, in seconds, one sense moves and turns Sim: main.v tick, the field
 // loop's 20 ms, and the 10 ms by which its sleep wakes late on the Mac, so an ordinary tick moves
-// the body all of it, while a longer one, a stall's or a loaded host's, leaves it standing for
-// the rest, as body.Mujoco's catch_up does.
+// the body all of it, while a longer one, a stall's or a loaded host's, leaves the body standing
+// for the rest while its humans walk on, where body.Mujoco's catch_up pauses the humans too.
 const stride_s = 0.03
 
 // Sim is a planar point body with a payload in a World, the Body main.v builds with new_sim, on
