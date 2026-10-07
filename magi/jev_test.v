@@ -667,7 +667,7 @@ fn test_jev_unit_rejects_a_goto_onto_a_walkers_course() {
 
 // A Jev unit rejects a goto into a falling object's landing zone, tools/scenarios.json S24, where
 // Jev reads b1 as a beacon and no hazard near the limit, and passes the same goto with the zone
-// 1.7 m off b1's rim, S25.
+// 1.4 m off b1's rim, S25.
 fn test_jev_unit_rejects_a_goto_into_a_landing_zone() {
 	u := jev_answering(0.25)!
 	to_b1 := lcl.Intent{
