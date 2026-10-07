@@ -112,8 +112,8 @@ struct Ahead {
 // the planner's own margin, and of a fixed set of headings and speeds takes the one that gains
 // most on that way against how close it would bring the body over the next 2 s to each human and
 // each solid, walkers and moving obstacles followed in a straight line. Inside a human's berth a
-// step toward
-// that human costs it, though with several humans near it may step toward one to clear another.
+// step toward that human costs it, though with several humans near it may step toward one to
+// clear another.
 // It closes on the target as the reflex does, at 1.5 times the distance, and gives zero on it. A
 // percept or goal it cannot measure gives zero; a human or an obstacle whose velocity it cannot
 // measure counts as standing.
