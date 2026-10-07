@@ -1053,7 +1053,7 @@ fn compared(u_seat []f64, steering Steering, top f64) []f64 {
 
 // reflex is System 1: fast, local and dumb. Pull toward the approved goal, push away from
 // anything solid, plus a sideways term so the body slides around a pillar instead of stalling
-// in front of it.
+// in front of it. planner/planner.v lead repeats the 1.5 it closes on the goal at.
 fn reflex(p lcl.Percept, goal lcl.Intent) []f64 {
 	mut u := []f64{len: p.pose.len}
 	if goal.verb != 'goto' || goal.target.len != p.pose.len {
