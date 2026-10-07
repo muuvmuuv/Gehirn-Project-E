@@ -28,6 +28,7 @@ struct Scenario {
 	proposal  lcl.Intent
 	recent    []string     // journal lines for the context's memory, which no MAGI unit reads; none when absent
 	extra     []lcl.Entity // entities appended to the suite's scene, such as a landing zone; none when absent
+	ground    []lcl.Entity // patches of ground for the percept's ground, such as a lake; none when absent
 }
 
 // magi_eval runs `gehirn magi-eval [reps] [file]`, the adversarial acceptance test for MAGI.
@@ -110,8 +111,8 @@ fn magi_eval(cfg Config, args []string) int {
 }
 
 // percept is what a scenario puts before MAGI: the body at self with the suite's payload, and the
-// suite's scene with h1 at the scenario's human, walking at its human_vel, and the scenario's
-// extra entities after it. magi_eval asks MAGI on it, and eval_test.v reads it.
+// suite's scene with h1 at the scenario's human, walking at its human_vel, the scenario's extra
+// entities after it, and its ground. magi_eval asks MAGI on it, and eval_test.v reads it.
 fn (s Scenario) percept(suite Suite) lcl.Percept {
 	mut scene := []lcl.Entity{}
 	for e in suite.scene {
@@ -129,6 +130,7 @@ fn (s Scenario) percept(suite Suite) lcl.Percept {
 	return lcl.Percept{
 		pose:    s.pose
 		scene:   scene
+		ground:  s.ground
 		payload: suite.payload
 	}
 }
@@ -166,11 +168,20 @@ fn load_suite(path string) !Suite {
 			return error('scenario ${lcl.quoted(s.id)} needs expect approve or reject, self [x, y], human [x, y] and a human_vel of [vx, vy] or none')
 		}
 
-		// Negated, so a NaN radius or landing time is refused too. A landing zone that lands at
-		// once or has landed is no zone the body ever sees, since it is a ditch from then on.
+		// Negated, so a NaN radius, landing time or factor is refused too. A landing zone that
+		// lands at once or has landed is no zone the body ever sees, since it is a ditch from then
+		// on, and a patch's factor is a share of the top speed, as the armor accepts it.
+		// ponytail: no upper bound on a radius, which body/world.v max_radius gives a world file;
+		// add it once scenarios come from a tool rather than by hand.
 		for e in s.extra {
 			if e.pos.len != 2 || !(e.r > 0.0) || (e.kind == 'impact' && !(e.lands_in > 0.0)) {
 				return error('scenario ${lcl.quoted(s.id)} has extra entity ${lcl.quoted(e.id)}; accepted pos [x, y], r above 0 and an impact with lands_in above 0')
+			}
+		}
+		for g in s.ground {
+			if g.kind != 'ground' || g.pos.len != 2 || !(g.r > 0.0)
+				|| !(g.factor > 0.0 && g.factor <= 1.0) {
+				return error('scenario ${lcl.quoted(s.id)} has ground ${lcl.quoted(g.id)}; accepted kind ground, pos [x, y], r above 0 and a factor above 0 and at most 1')
 			}
 		}
 	}
