@@ -512,7 +512,7 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqM
 			soul.feedback(o)
 
 			// tools/trials.py and tools/worldgen.py read this prefix, and
-			// scripts/scenes/ep19-bench.sh fails on `outcome: contact`.
+			// scripts/scenes/ep19-bench.sh and ep12-sahaquiel.sh fail on `outcome: contact`.
 			journal.add('outcome: ${o.kind}')
 		}
 		snapshot := <-inbox

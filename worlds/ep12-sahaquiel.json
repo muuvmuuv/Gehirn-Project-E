@@ -1,0 +1,11 @@
+{
+  "start": [2.5, -3.5],
+  "beacons": [
+    {"id": "matsushiro", "pos": [-3.0, 2.5], "r": 0.3}
+  ],
+  "falling": [
+    {"id": "shard-1", "pos": [4.3, 4.3], "r": 0.5, "lands": 6.5},
+    {"id": "shard-2", "pos": [2.6, 1.9], "r": 0.5, "lands": 16.0},
+    {"id": "sahaquiel", "pos": [0.6, 0.4], "r": 1.6, "lands": 44.0}
+  ]
+}

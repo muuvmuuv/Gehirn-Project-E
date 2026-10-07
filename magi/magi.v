@@ -398,7 +398,8 @@ fn (u Unit) llm_vote(ep oai.Endpoint, ctx lcl.Context, p lcl.Intent) Ballot {
 	// tools/scenarios.json S22 3 and 4 of 10 and llama-3.1-8b 9 of 10 despite COURSE, and both
 	// approved S23 10 of 10 (PLAN, Known issues 35 and 37). The model is still asked, so its own
 	// vote and why stay in the ballot.
-	// scripts/scenes/ep18-bardiel.sh looks for `CASPER-3 否決 course veto` in HQ's log.
+	// scripts/scenes/ep18-bardiel.sh and ep12-sahaquiel.sh look for `CASPER-3 否決 course veto` in
+	// HQ's log.
 	if fact != '' {
 		return Ballot{
 			unit:       u.name

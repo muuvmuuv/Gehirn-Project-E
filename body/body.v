@@ -207,7 +207,8 @@ fn (w World) walkers() []Walker {
 // walker's velocity: its beacons, standing obstacles, humans, moving obstacles, ditches and falling
 // objects in that order, each kind in the world's order. A falling object is its landing zone, of
 // kind impact with the seconds until it lands, until clock_ms reaches its landing, and its crater,
-// a ditch, from then on.
+// a ditch, from then on. scripts/scenes/ep12-sahaquiel.sh waits on each crater's first recorder
+// line, as `"id":"shard-1","kind":"ditch"`.
 fn (w World) scene(walkers []Walker, clock_ms i64) []lcl.Entity {
 	mut scene := []lcl.Entity{cap: w.beacons.len + w.obstacles.len + walkers.len + w.ditches.len +
 		w.falling.len}
