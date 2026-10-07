@@ -15,7 +15,8 @@ const body_radius = 0.25
 const max_entities = 16
 
 // walk_min and walk_max bound a human's walking speed in meters per second, from a stroll to a
-// brisk walk; an aside human catches up with its path at walk_max.
+// brisk walk; an aside human catches up with its path at walk_max. planner/planner.v walking is
+// half of walk_min.
 const walk_min = 0.1
 const walk_max = 2.0
 

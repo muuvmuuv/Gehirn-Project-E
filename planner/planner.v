@@ -17,6 +17,15 @@ const margin = 0.15
 // berth is how far, in meters, the planner keeps a human's rim outside the armor's human_stop.
 const berth = 0.3
 
+// walking is the least speed, in m/s, at which the planner follows a human as walking: half of
+// body/world.v walk_min, the slowest walk a world allows, so a creep stays standing.
+const walking = 0.05
+
+// settle is how many ticks a human who stood must walk before the way stops going around it, 0.5 s
+// at the field loop's 50 Hz: one that stops for the body and steps on a tick at a time as the body
+// leaves its keep stays in the way, rather than turning the way back and forth each tick.
+const settle = 25
+
 // front is how much more berth, in meters, a walker gets where the body would pass in front of it
 // rather than behind it, scaled by how far ahead of the walker the body would be.
 const front = 0.3
@@ -42,9 +51,9 @@ const headings = 32
 const smooth = 0.3
 
 // crowd, press and wall weigh a candidate's costs against its gain on the way: crowd per square
-// meter a human's rim comes inside its berth, press per meter the body comes inside a solid's keep
-// and wall once a human's rim comes inside human_stop, each per m/s of the speed the armor allows,
-// and wall per m/s the body steps toward a human inside the berth.
+// meter a human's rim comes inside its berth, press per meter the body comes inside solid_keep of
+// a solid's rim and wall once a human's rim comes inside human_stop, each per m/s of the speed the
+// armor allows, and wall per m/s the body steps toward a human inside the berth.
 const crowd = 10.0
 const press = 20.0
 const wall = 10.0
@@ -58,7 +67,8 @@ pub:
 	human_stop f64   // m from the body's center to a human's rim, armor.Limits human_stop
 	bounds     []f64 // m, xmin, ymin, xmax, ymax, armor.Limits bounds
 mut:
-	last []f64 = [0.0, 0.0] // m/s, the command next returned last
+	last  []f64 = [0.0, 0.0] // m/s, the command next returned last
+	stood map[string]int // by id, ticks each human walked since it last stood, under settle
 }
 
 // Circle is a solid as the planner sees it, a center and a radius in meters.
@@ -101,17 +111,39 @@ struct Ahead {
 // way to the target around every solid and standing human, each widened by the armor's keep and
 // the planner's own margin, and of a fixed set of headings and speeds takes the one that gains
 // most on that way against how close it would bring the body over the next 2 s to each human,
-// walkers followed in a straight line, and to each solid. Inside a human's berth it never steps
-// toward that human. It closes on the target as the reflex does, at 1.5 times the distance, and
-// gives zero on it. A percept or goal it cannot measure gives zero; a human whose velocity it
-// cannot measure counts as standing.
+// walkers followed in a straight line, and to each solid. Inside a human's berth a step toward
+// that human costs it, though with several humans near it may step toward one to clear another.
+// It closes on the target as the reflex does, at 1.5 times the distance, and gives zero on it. A
+// percept or goal it cannot measure gives zero; a human whose velocity it cannot measure counts
+// as standing.
 pub fn (mut pl Planner) next(p lcl.Percept, goal lcl.Intent, top f64) []f64 {
 	if p.pose.len != 2 {
 		return []f64{len: p.pose.len}
 	}
+	pl.track(p)
 	u := pl.choose(p, goal, top)
 	pl.last = u.clone()
 	return u
+}
+
+// track counts, by id, the ticks each human of p has walked since it last stood, as long as that
+// stays under settle, for choose to keep it in the way.
+fn (mut pl Planner) track(p lcl.Percept) {
+	mut stood := map[string]int{}
+	for e in p.scene {
+		if e.kind != 'human' {
+			continue
+		}
+		if !walks(e.vel) {
+			stood[e.id] = 0
+		} else if e.id in pl.stood {
+			n := (pl.stood[e.id] or { 0 }) + 1
+			if n < settle {
+				stood[e.id] = n
+			}
+		}
+	}
+	pl.stood = stood.move()
 }
 
 // choose is next's command without the bookkeeping: zero on anything it cannot measure.
@@ -136,7 +168,7 @@ fn (pl Planner) choose(p lcl.Percept, goal lcl.Intent, top f64) []f64 {
 		if e.kind == 'human' {
 			m := mover(e)
 			humans << m
-			if !m.walks {
+			if !m.walks || e.id in pl.stood {
 				solids << widened(m.x, m.y, e.r + pl.human_stop + berth, x, y, tx, ty)
 			}
 			continue
@@ -185,37 +217,46 @@ fn (pl Planner) choose(p lcl.Percept, goal lcl.Intent, top f64) []f64 {
 	return [bx, by]
 }
 
-// mover is human e as the planner follows it: walking at its velocity when that is two finite
-// numbers, not both zero, whose squared length is finite too, and standing otherwise.
+// mover is human e as the planner follows it: walking at its velocity when walks reads it so,
+// and standing otherwise.
 fn mover(e lcl.Entity) Mover {
-	walks := e.vel.len == 2 && math.is_finite(e.vel[0] * e.vel[0] + e.vel[1] * e.vel[1])
-		&& (e.vel[0] != 0.0 || e.vel[1] != 0.0)
+	w := walks(e.vel)
 	return Mover{
 		x:     e.pos[0]
 		y:     e.pos[1]
 		r:     e.r
-		wx:    if walks { e.vel[0] } else { 0.0 }
-		wy:    if walks { e.vel[1] } else { 0.0 }
-		walks: walks
+		wx:    if w { e.vel[0] } else { 0.0 }
+		wy:    if w { e.vel[1] } else { 0.0 }
+		walks: w
 	}
 }
 
+// walks reports whether a human with velocity vel walks: vel is two finite numbers whose squared
+// length is finite too, at walking or faster.
+fn walks(vel []f64) bool {
+	return vel.len == 2 && math.is_finite(vel[0] * vel[0] + vel[1] * vel[1])
+		&& hyp(vel[0], vel[1]) >= walking
+}
+
 // widened is the circle of radius r around cx, cy that the way keeps out of, shrunk just enough to
-// leave out the pose x, y and the target tx, ty: a body that already stands inside it moves on at
-// the distance it has, and a target inside it stays reachable. Its radius is 0 or less when the
-// pose or the target lies on its center.
+// leave the pose x, y and the target tx, ty outside the polygon way draws around it: a body that
+// already stands inside it moves on along the polygon's edges, and a target inside it stays
+// reachable. Its radius is 0 or less when the pose or the target lies on its center.
 fn widened(cx f64, cy f64, r f64, x f64, y f64, tx f64, ty f64) Circle {
 	inside := 1e-6
-	return Circle{cx, cy, math.min(r, math.min(hyp(x - cx, y - cy), hyp(tx - cx, ty - cy)) - inside)}
+	near := math.min(hyp(x - cx, y - cy), hyp(tx - cx, ty - cy))
+	return Circle{cx, cy, math.min(r, near * math.cos(math.pi / sides) - inside)}
 }
 
 // way is the unit direction of the first leg of the shortest way from x, y to tx, ty that enters no
 // circle of solids, the whole way's length, and whether that first leg ends at the target. The way
 // runs over the corners of a polygon drawn around each circle, those within margin of the fence
 // left out, and A* finds it; no clear segment reaches a corner inside another circle.
-// ponytail: where no way leads around with the margins, as through a gap under twice margin plus
-// solid_keep, it heads straight for the target and the armor slides the body along what is in the
-// way; once a world needs such a gap, try again without the margins before heading straight.
+// ponytail: where the margins and berths close every way, as a gap under 2 * (solid_keep + margin),
+// 1 m, between solids or between a solid and the fence does, or standing humans' 1 m circles do on
+// ep13-iruel (PLAN, Known issue 38), it heads straight for the target, and score's press at
+// solid_keep and the armor slide the body along what is in the way. Once a world needs a way
+// around there, try again without the margins and berths before heading straight.
 fn (pl Planner) way(x f64, y f64, tx f64, ty f64, solids []Circle) (f64, f64, f64, bool) {
 	straight := hyp(tx - x, ty - y)
 	if clear(x, y, tx, ty, solids) {
@@ -326,9 +367,8 @@ fn (pl Planner) score(a Ahead, vx f64, vy f64) f64 {
 			cost += wall * a.top
 		}
 
-		// Inside the berth the body never steps toward the human, so a base that brakes along its
-		// last motion, as the MuJoCo base does, is not moving toward a human who walks inside
-		// human_stop.
+		// Inside the berth a step toward the human costs, so a base that brakes along its last
+		// motion, as the MuJoCo base does, seldom moves toward a human who walks inside human_stop.
 		near := hyp(rx, ry)
 		toward := -(vx * rx + vy * ry) / near
 		if near - h.r < want && toward > 0.0 {
@@ -340,12 +380,11 @@ fn (pl Planner) score(a Ahead, vx f64, vy f64) f64 {
 	// approach that ends at a target beside a pillar slows before it.
 	speed := hyp(vx, vy)
 	until := if speed * horizon > a.length { a.length / speed } else { horizon }
-	keep := pl.solid_keep + margin / 2.0
 	for o in a.obstacles {
 		cx, cy := closest(a.x - o.x, a.y - o.y, vx, vy, until)
 		gap := hyp(cx, cy) - o.r
-		if gap < keep {
-			cost += press * a.top * (keep - gap)
+		if gap < pl.solid_keep {
+			cost += press * a.top * (pl.solid_keep - gap)
 		}
 	}
 	return gain - cost
