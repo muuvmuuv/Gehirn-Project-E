@@ -10,7 +10,7 @@ import lcl
 // tools/worldgen.py BODY_R copies it.
 const body_radius = 0.25
 
-// max_entities caps a world's beacons, obstacles and humans together, since every one reaches the
+// max_entities caps a world's entities of every list together, since every one reaches the
 // percept a model reads at each deliberation and the recorder's line 50 times a second.
 const max_entities = 16
 
@@ -40,8 +40,8 @@ const keep_max = 3.0
 const mover_keep_min = 0.5
 
 // World is a stage Sim plays: where the body starts, the beacons to deliver to, the obstacles,
-// standing and moving, and the humans. main.v's load_config takes default_world, or the file WORLD
-// names through load_world, and new_sim plays it. docs/worlds.md describes the file.
+// standing and moving, the humans and the ditches. main.v's load_config takes default_world, or the
+// file WORLD names through load_world, and new_sim plays it. docs/worlds.md describes the file.
 pub struct World {
 pub:
 	start     []f64 // x, y in meters
@@ -49,9 +49,10 @@ pub:
 	obstacles []Spot // that stand
 	humans    []Human
 	moving    []Human // obstacles that walk as a human walks, each with reaction stop
+	ditches   []Spot  // ditches and cliffs, which the body is kept out of as off a solid
 }
 
-// Spot is a beacon or a standing obstacle of a World, a circle that never moves.
+// Spot is a beacon, a standing obstacle or a ditch of a World, a circle that never moves.
 pub struct Spot {
 pub:
 	id  string
@@ -101,6 +102,7 @@ struct WorldFile {
 	beacons   []Spot
 	obstacles []HumanFile // one without a behavior stands
 	humans    []HumanFile
+	ditches   []Spot
 }
 
 // HumanFile is one human or obstacle of a WorldFile, with its behavior and reaction still text.
@@ -184,9 +186,9 @@ pub fn load_world(path string, fence []f64) !World {
 
 // world checks f into a World.
 fn (f WorldFile) world(fence []f64) !World {
-	n := f.beacons.len + f.obstacles.len + f.humans.len
+	n := f.beacons.len + f.obstacles.len + f.humans.len + f.ditches.len
 	if n > max_entities {
-		return error('${n} entities; accepted at most ${max_entities} beacons, obstacles and humans in all')
+		return error('${n} entities; accepted at most ${max_entities} in all')
 	}
 	if f.beacons.len == 0 {
 		return error('no beacon; accepted at least one beacon to deliver to')
@@ -215,6 +217,9 @@ fn (f WorldFile) world(fence []f64) !World {
 	for h in f.humans {
 		humans << h.human('human', fence, mut ids)!
 	}
+	for d in f.ditches {
+		spot('ditch', d, fence, mut ids)!
+	}
 	for o in obstacles {
 		if touches(f.start, o.pos, o.r) {
 			return error('start touches obstacle ${o.id}; accepted a start more than ${body_radius} m from every solid rim')
@@ -230,16 +235,22 @@ fn (f WorldFile) world(fence []f64) !World {
 			return error('start touches obstacle ${o.id} where it starts; accepted a start more than ${body_radius} m from every solid rim')
 		}
 	}
+	for d in f.ditches {
+		if touches(f.start, d.pos, d.r) {
+			return error('start touches ditch ${d.id}; accepted a start more than ${body_radius} m from every solid rim')
+		}
+	}
 	return World{
 		start:     f.start
 		beacons:   f.beacons
 		obstacles: obstacles
 		humans:    humans
 		moving:    moving
+		ditches:   f.ditches
 	}
 }
 
-// spot checks a beacon or an obstacle and adds its id to ids.
+// spot checks a beacon, a standing obstacle or a ditch and adds its id to ids.
 fn spot(kind string, s Spot, fence []f64, mut ids []string) ! {
 	identify(kind, s.id, mut ids)!
 	place('${kind} ${s.id}', s.pos, fence)!

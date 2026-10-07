@@ -971,6 +971,10 @@ fn draw_scene(ctx &gg.Context, s State, unit string, x f32, y f32, w f32, h f32)
 					ctx.draw_line(m.px(rx), m.py(ry), m.px(rx + e.vel[0]), m.py(ry + e.vel[1]), dim)
 				}
 			}
+			'ditch' {
+				ctx.draw_circle_filled(ex, ey, r, ink)
+				ctx.draw_circle_empty(ex, ey, r, ember)
+			}
 			'beacon' {
 				ctx.draw_circle_filled(ex, ey, r, fade(cyan, 0.25))
 				ctx.draw_circle_empty(ex, ey, r, cyan)
@@ -1026,6 +1030,7 @@ fn draw_scene(ctx &gg.Context, s State, unit string, x f32, y f32, w f32, h f32)
 				'${e.kind} ${e.id}'.to_upper(), match e.kind {
 				'human' { alert }
 				'beacon' { cyan }
+				'ditch' { ember }
 				else { dim }
 			})
 		}

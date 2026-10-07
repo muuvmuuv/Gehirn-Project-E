@@ -28,14 +28,16 @@ pub const arrive = 0.35
 // counts a release on target 0.1 m further out, as magi/jev.v jev_delivery does.
 pub const beacon_reach = 0.5
 
-// Entity is one thing in a percept's scene: an obstacle, a beacon or a human, with its position
-// and radius in meters and, for a walking human or a moving obstacle, its velocity. body.Sim
-// reports them, and the armor, the reflex, the local planner and MAGI read them; the planner
-// reads every velocity, magi.walks_onto a human's, and the bridge draws an obstacle's.
+// Entity is one thing in a percept's scene: an obstacle, a beacon, a human or a ditch, with its
+// position and radius in meters and, for a walking human or a moving obstacle, its velocity.
+// body.Sim reports them, and the armor, the reflex, the local planner and MAGI read them; the
+// planner reads every velocity, magi.walks_onto a human's, and the bridge draws an obstacle's.
+// Every reader that keeps the body off something keeps it off every kind but a beacon, so a kind
+// no code names counts as solid.
 pub struct Entity {
 pub:
 	id   string
-	kind string // obstacle, beacon, human
+	kind string // obstacle, beacon, human or ditch
 	pos  []f64
 	r    f64
 	vel  []f64 @[omitempty] // m/s, a walking human's or a moving obstacle's; empty for anything that stands, a stopped one included, never [0, 0]

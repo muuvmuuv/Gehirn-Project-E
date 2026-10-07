@@ -220,7 +220,8 @@ fn test_a_mujoco_body_reports_its_world_like_sim() {
 
 		w := World{
 			...far()
-			moving: [boat([-2.0, 3.0])]
+			moving:  [boat([-2.0, 3.0])]
+			ditches: [Spot{'trench', [-1.6, -3.0], 0.5}]
 		}
 		mut bw := new_mujoco(w)!
 		mut sw := new_sim(w, .differential)
@@ -372,6 +373,40 @@ fn test_mover_keep_outlasts_the_base_braking() {
 	}
 }
 
+// A MuJoCo body driving at a ditch stops at its rim through MuJoCo's contact, as at a pillar, and
+// reports the contact, and it can back away from it, where a hold by Sim's rule would keep it there.
+fn test_a_mujoco_body_stands_at_a_ditch() {
+	$if mujoco ? {
+		w := World{
+			start:   [0.0, 0.0]
+			beacons: [Spot{'b1', [3.0, 2.0], 0.3}]
+			ditches: [Spot{'trench', [1.75, 0.0], 0.5}] // its rim 1 m ahead of the base's
+		}
+		mut b := new_mujoco(w)!
+		mut p := b.sense()
+		mut touched := false
+		for _ in 0 .. 100 {
+			b.actuate([0.5, 0.0])!
+			b.t0_ms -= 40
+			p = b.sense()
+			touched = touched || p.contact
+			assert lcl.dist(p.pose, [1.75, 0.0]) - 0.5 > body_radius - 0.01, '${p.pose}'
+		}
+		assert touched
+		assert p.pose[0] > 0.9, '${p.pose}'
+
+		// It turns in place first, as the armor steers a differential body.
+		for speed in [0.0, 0.5] {
+			for _ in 0 .. 50 {
+				b.actuate([speed, math.pi])!
+				b.t0_ms -= 40
+				p = b.sense()
+			}
+		}
+		assert p.pose[0] < 0.5 && !p.contact, '${p.pose}'
+	}
+}
+
 // A bad number in a step ends the run with one line before sense builds a percept, so no NaN
 // reaches the armor, the recorder or HQ.
 fn test_a_bad_step_ends_the_run_before_a_percept() {
@@ -404,9 +439,10 @@ fn boat(center []f64) Human {
 	}
 }
 
-// mjcf writes every obstacle and human of a world with its radius, and no beacon: a standing
-// obstacle as a static cylinder, a human as a mocap capsule and a moving obstacle as a mocap
-// cylinder after the humans, both without contacts. The default world's model is as it was.
+// mjcf writes every obstacle, human and ditch of a world with its radius, and no beacon: a standing
+// obstacle and then a ditch as a static cylinder, a human as a mocap capsule and a moving obstacle
+// as a mocap cylinder after the humans, both without contacts. The default world's model is as it
+// was.
 fn test_mjcf() {
 	$if mujoco ? {
 		assert mjcf(default_world()) == default_mjcf
@@ -417,6 +453,12 @@ fn test_mjcf() {
 		assert with_boat.ends_with('<body mocap="true" pos="-1.1 3.0 0.2"><geom type="cylinder" size="0.35 0.2" contype="0" conaffinity="0"/></body></worldbody>${default_mjcf.all_after('</worldbody>')}')
 		assert with_boat.count('mocap="true"') == 2
 		assert with_boat.index('type="capsule"')? < with_boat.index('size="0.35 0.2"')?
+		with_ditch := mjcf(World{
+			...default_world()
+			ditches: [Spot{'trench', [-1.6, 1.2], 0.5}]
+		})
+		assert with_ditch == default_mjcf.replace('<body mocap',
+			'<geom type="cylinder" pos="-1.6 1.2 0.2" size="0.5 0.2"/><body mocap')
 		w := World{
 			...default_world()
 			obstacles: [Spot{

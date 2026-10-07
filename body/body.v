@@ -201,9 +201,10 @@ fn (w World) walkers() []Walker {
 
 // scene is w as a percept's scene, with its humans and moving obstacles where walkers, in the
 // order World.walkers makes them, have them, each walking with its walker's velocity: its beacons,
-// standing obstacles, humans and moving obstacles in that order, each kind in the world's order.
+// standing obstacles, humans, moving obstacles and ditches in that order, each kind in the world's
+// order.
 fn (w World) scene(walkers []Walker) []lcl.Entity {
-	mut scene := []lcl.Entity{cap: w.beacons.len + w.obstacles.len + walkers.len}
+	mut scene := []lcl.Entity{cap: w.beacons.len + w.obstacles.len + walkers.len + w.ditches.len}
 	for b in w.beacons {
 		scene << lcl.Entity{
 			id:   b.id
@@ -237,6 +238,14 @@ fn (w World) scene(walkers []Walker) []lcl.Entity {
 			pos:  walkers[k].at.clone()
 			r:    o.r
 			vel:  walkers[k].vel.clone()
+		}
+	}
+	for d in w.ditches {
+		scene << lcl.Entity{
+			id:   d.id
+			kind: 'ditch'
+			pos:  d.pos.clone()
+			r:    d.r
 		}
 	}
 	return scene

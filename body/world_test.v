@@ -34,6 +34,14 @@ fn load(text string) string {
 	return 'ok'
 }
 
+// trench is a ditch, which the cases of test_load_world add to base.
+const trench = '{"id": "trench", "pos": [-1.6, 1.2], "r": 0.5}'
+
+// with_ditches is base with the ditches ds, a comma separated list.
+fn with_ditches(ds string) string {
+	return base.all_before_last('}') + ', "ditches": [${ds}]}'
+}
+
 // with_boat is base with obstacle o after its pillar.
 fn with_boat(o string) string {
 	return base.replace('"r": 0.8}]', '"r": 0.8}, ${o}]')
@@ -59,7 +67,21 @@ fn test_load_world() {
 		LoadCase{'a list where an object goes', base.replace('"beacons": [{"id": "b1", "pos": [3, 2], "r": 0.3}]',
 			'"beacons": {"id": "b1"}'), 'not a world in JSON; accepted an object of start, beacons, obstacles and humans'},
 		LoadCase{'no beacon', base.replace('[{"id": "b1", "pos": [3, 2], "r": 0.3}]', '[]'), 'no beacon; accepted at least one beacon to deliver to'},
-		LoadCase{'too many entities', base.replace('"obstacles": [', '"obstacles": [${many}'), '18 entities; accepted at most 16 beacons, obstacles and humans in all'},
+		LoadCase{'too many entities', base.replace('"obstacles": [', '"obstacles": [${many}'), '18 entities; accepted at most 16 in all'},
+		LoadCase{'17 entities over every list', with_ditches(
+			'{"id": "d1", "pos": [4, -4], "r": 0.1}, '.repeat(12) + trench).replace('"r": 0.8}]',
+			'"r": 0.8}, ${boat}]'), '17 entities; accepted at most 16 in all'},
+		LoadCase{'a ditch', with_ditches(trench), 'ok'},
+		LoadCase{'a cliff, the rim of a ditch of radius 5 at the fence', with_ditches('{"id": "cliff", "pos": [5, -5], "r": 5}'), 'ok'},
+		LoadCase{'a ditch outside the fence', with_ditches(trench.replace('-1.6', '-5.6')), 'ditch trench lies outside the fence; ${accepted_fence}'},
+		LoadCase{'a ditch of radius 0', with_ditches(trench.replace('0.5}', '0}')), 'ditch trench has radius 0.0; ${accepted_radius}'},
+		LoadCase{'a ditch above 5 m', with_ditches(trench.replace('0.5}', '5.5}')), 'ditch trench has radius 5.5; ${accepted_radius}'},
+		LoadCase{'a ditch of three numbers', with_ditches(trench.replace('1.2]', '1.2, 0]')), 'ditch trench is not one x and one y; accepted [x, y] in meters'},
+		LoadCase{'a ditch and a human with one id', with_ditches(trench.replace('"trench"', '"h1"')), 'ditch has id h1, which another entity has; accepted an id per entity'},
+		LoadCase{'a start touching a ditch', with_ditches(trench).replace('[-3, -3]',
+			'[-1.6, 0.46]'), 'start touches ditch trench; ${accepted_rim}'},
+		LoadCase{'a start clear of a ditch', with_ditches(trench).replace('[-3, -3]',
+			'[-1.6, 0.44]'), 'ok'},
 		LoadCase{'an unknown behavior', base.replace('"loop"', '"fly"'), 'human h1 has behavior "fly", not a known value; accepted loop, waypoints, stand, toward'},
 		LoadCase{'a behavior in capitals', base.replace('"loop"', '"Loop"'), 'human h1 has behavior "Loop", not a known value; accepted loop, waypoints, stand, toward'},
 		LoadCase{'an unknown reaction', base.replace('"stop"', '"run"'), 'human h1 has reaction "run", not a known value; accepted through, stop, aside'},

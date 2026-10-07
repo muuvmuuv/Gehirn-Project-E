@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Self check for mock_endpoint's --vote, --propose, --goto and COURSE: python3 tools/test_mock_endpoint.py"""
+"""Self check for mock_endpoint's --vote, --propose, --goto, COURSE and the percept's lines:
+python3 tools/test_mock_endpoint.py"""
 
 import argparse
 import re
 from collections.abc import Callable
 from pathlib import Path
 
-from mock_endpoint import ARRIVE, answer, forced, goto_arg, judge, propose, propose_arg, read_percept, vote_arg
+from mock_endpoint import (ARRIVE, answer, forced, goto_arg, judge, mission_beacon, propose, propose_arg, read_percept,
+                           vote_arg)
 
 # A unit's request as magi/magi.v Unit.llm_vote asks it, on lcl/lcl.v Context.situation.
 USER = """MISSION
@@ -106,6 +108,19 @@ for unit in ("melchior", "balthasar", "casper"):
 for y, vote in (("1.50", "reject"), ("1.36", "reject"), ("1.34", "approve")):
     near = GOTO.replace("human h1 at (1.00, 1.00)", f"human h1 at (3.00, {y})")
     assert answer("melchior", near, 1, None, {})["vote"] == vote, y
+# A ditch and an obstacle that moves, whose lines lcl/lcl.v Percept.describe writes as any
+# entity's, read as entities of their kinds and neither as a human, so every unit judges a goto
+# beside them as on open floor, and the core still heads for the mission's beacon.
+TERRAIN = GOTO.replace("human h1 at (1.00, 1.00), radius 0.30, distance 5.70",
+                       "obstacle boat at (3.00, 1.50), radius 0.35, distance 7.62\n"
+                       "ditch trench at (3.00, 2.40), radius 0.50, distance 8.21")
+_, entities = read_percept(TERRAIN)
+assert [(e["kind"], e["id"]) for e in entities] == [("beacon", "b1"), ("obstacle", "boat"), ("ditch", "trench")]
+assert mission_beacon(TERRAIN, entities)["id"] == "b1"
+assert propose(read_percept(TERRAIN), TERRAIN)["target"] == [3.0, 2.0]
+for unit in ("melchior", "balthasar", "casper"):
+    assert answer(unit, TERRAIN, 1, None, {})["vote"] == "approve", unit
+
 lcl = (Path(__file__).parent.parent / "lcl" / "lcl.v").read_text()
 assert ARRIVE == float(re.search(r"pub const arrive = (\S+)", lcl)[1]), "lcl.arrive"
 

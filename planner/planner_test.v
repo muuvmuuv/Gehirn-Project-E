@@ -26,6 +26,16 @@ fn solid(x f64, y f64, r f64) lcl.Entity {
 	}
 }
 
+// ditch is a ditch at x, y of radius r, which the planner keeps out of as a static solid, as every
+// kind but a beacon and a human.
+fn ditch(x f64, y f64, r f64) lcl.Entity {
+	return lcl.Entity{
+		...solid(x, y, r)
+		id:   'd${x}${y}'
+		kind: 'ditch'
+	}
+}
+
 fn person(x f64, y f64, vel []f64) lcl.Entity {
 	return lcl.Entity{
 		id:   'h'
@@ -163,11 +173,16 @@ fn test_way() {
 			solid(0.0, 4.0, 0.5)], 0.0, -1.0},
 		WayCase{'a standing human on the line', [-3.0, 0.0], [3.0, 0.3], [
 			person(0.0, 0.0, [])], 0.0, 1.0},
+		WayCase{'a ditch on the line, passed as a pillar', [-3.0, 0.0], [3.0, 0.3], [
+			ditch(0.0, 0.0, 0.8)], 0.0, 1.0},
+		WayCase{'a cliff, a ditch centered on the fence, across the line', [-3.0, 3.0], [
+			3.0, 3.0], [ditch(0.0, 5.0, 3.0)], 0.0, -1.0},
 	]
 	for c in cases {
 		f := fly(c.pose, c.target, c.scene, 60.0)
 		assert f.arrived(c.target), '${c.name}: ended at ${f.poses.last()}'
 		assert f.nearest('obstacle') >= solid_keep, c.name
+		assert f.nearest('ditch') >= solid_keep, c.name
 		assert f.nearest('human') >= human_stop + berth - 1e-6, c.name
 		assert f.poses.all(math.abs(it[0]) <= 5.0 && math.abs(it[1]) <= 5.0), c.name
 		y := f.crossing(c.at_x) - c.pose[1]

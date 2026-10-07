@@ -189,15 +189,16 @@ fn (mut b Mujoco) walk() {
 	b.model.set_ctrl(2, math.max(-turn_rate, math.min(turn_rate, off / settle)))
 }
 
-// mjcf is the model of world w: the base at its start, every standing obstacle a static cylinder
-// of its radius, every human a mocap capsule and every moving obstacle a mocap cylinder of its
-// radius where its walk starts, all at one height, with no thread, plugin or floor, and autoreset
-// off. A beacon is no geom, since nothing touches it, and a mocap body takes part in no contact: it
-// pushes with no limit on its force, so a human walking through a base beside a pillar would
-// squeeze the base into the pillar and fling it out at about 8 m/s. The base weighs base_mass, so
-// slide_gain gives the slides a time constant of 0.05 s, and the hinge's gain of 62.5 one of
-// 0.01 s on the cylinder's 0.625 kg m²; force limits of slide_force and 100 N m cap the push as a
-// motor's saturation does.
+// mjcf is the model of world w: the base at its start, every standing obstacle and every ditch a
+// static cylinder of its radius, so the base stops at a ditch's rim as at a pillar and may back
+// away, every human a mocap capsule and every moving obstacle a mocap cylinder of its radius where
+// its walk starts, all at one height, with no thread, plugin or floor, and autoreset off. A beacon
+// is no geom, since nothing touches it, and a mocap body takes part in no contact: it pushes with
+// no limit on its force, so a human walking through a base beside a pillar would squeeze the base
+// into the pillar and fling it out at about 8 m/s. The base weighs base_mass, so slide_gain gives
+// the slides a time constant of 0.05 s, and the hinge's gain of 62.5 one of 0.01 s on the
+// cylinder's 0.625 kg m²; force limits of slide_force and 100 N m cap the push as a motor's
+// saturation does.
 // ponytail: planar joints, not wheels, as ADR-0008 decides; wheels on a floor, with slip and a
 // caster, once Open question 1 names the first real base.
 fn mjcf(w World) string {
@@ -210,6 +211,9 @@ fn mjcf(w World) string {
 	x.write_string('<geom name="base" type="cylinder" size="${body_radius} ${z}" mass="${base_mass}"/></body>')
 	for o in w.obstacles {
 		x.write_string('<geom type="cylinder" pos="${o.pos[0]} ${o.pos[1]} ${z}" size="${o.r} ${z}"/>')
+	}
+	for d in w.ditches {
+		x.write_string('<geom type="cylinder" pos="${d.pos[0]} ${d.pos[1]} ${z}" size="${d.r} ${z}"/>')
 	}
 	for h in w.humans {
 		at := h.path(0)

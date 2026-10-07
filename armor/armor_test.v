@@ -577,6 +577,47 @@ fn test_a_differential_body_keeps_moving_past_a_walking_human() {
 	}
 }
 
+struct TowardCase {
+	name string
+	kind string
+	vel  []f64
+	gap  f64 // m from the body's center to the entity's rim
+	want bool
+}
+
+// toward gives the direction to every entity but a beacon whose rim lies within its keep, widened
+// by the margin: a human within human_stop, and anything else within solid_keep, an obstacle that
+// moves, a ditch and a kind no code names alike, so a new kind counts as solid and fails closed.
+fn test_toward() {
+	margin := 0.1
+	cases := [
+		TowardCase{'a beacon under the body', 'beacon', [], -0.5, false},
+		TowardCase{'a human inside human_stop and the margin', 'human', [], 0.79, true},
+		TowardCase{'a human past them', 'human', [], 0.81, false},
+		TowardCase{'an obstacle inside solid_keep and the margin', 'obstacle', [], 0.44, true},
+		TowardCase{'an obstacle past them', 'obstacle', [], 0.46, false},
+		TowardCase{'an obstacle that moves, inside', 'obstacle', [-0.5, 0.0], 0.44, true},
+		TowardCase{'an obstacle that moves away, inside', 'obstacle', [0.5, 0.0], 0.44, true},
+		TowardCase{'an obstacle that moves, past', 'obstacle', [-0.5, 0.0], 0.46, false},
+		TowardCase{'a ditch inside', 'ditch', [], 0.44, true},
+		TowardCase{'a ditch past', 'ditch', [], 0.46, false},
+		TowardCase{'a kind no code names, inside', 'lava', [], 0.44, true},
+		TowardCase{'a kind no code names, past', 'lava', [], 0.46, false},
+	]
+	a := restrain(&Fake{}, Limits{})
+	for c in cases {
+		e := lcl.Entity{
+			...ent(c.kind, [c.gap + 0.5, 0.0], 0.5)
+			vel: c.vel
+		}
+		got := a.toward(at([0.0, 0.0], e), margin)
+		assert (got.len == 1) == c.want, c.name
+		if c.want {
+			assert same(got[0], e.pos), '${c.name}: ${got}'
+		}
+	}
+}
+
 struct CoastCase {
 	name    string
 	base    body.Drive
@@ -696,6 +737,20 @@ fn test_drive_widens_the_keeps_and_the_fence_by_the_stopping_distance() {
 			want:  [0.0, 0.0]
 		},
 		CoastCase{
+			name:  'a holonomic body slides along a ditch within the margin'
+			scene: [ent('ditch', [1.4, 0.0], 1.0)]
+			last:  ne
+			u:     ne
+			want:  [0.0, 0.8]
+		},
+		CoastCase{
+			name:  'a holonomic body moves nothing into a ditch head on within the margin'
+			scene: [ent('ditch', [1.4, 0.0], 1.0)]
+			last:  [1.0, 0.0]
+			u:     [1.0, 0.0]
+			want:  [0.0, 0.0]
+		},
+		CoastCase{
 			name:  'past the margin a solid does not deflect a holonomic body'
 			scene: far
 			last:  ne
@@ -715,6 +770,13 @@ fn test_drive_widens_the_keeps_and_the_fence_by_the_stopping_distance() {
 			coast: 0.0
 			scene: [ent('obstacle', [1.45, 0.0], 1.0)]
 			want:  [1.0, 0.0]
+		},
+		CoastCase{
+			name:  'a differential body turns in place before a ditch within the margin'
+			base:  .differential
+			scene: [ent('ditch', [1.45, 0.0], 1.0)]
+			want:  [0.0, 0.0]
+			sent:  [0.0, 0.0]
 		},
 		CoastCase{
 			name:  'a differential body turns in place before a moving obstacle within the margin'

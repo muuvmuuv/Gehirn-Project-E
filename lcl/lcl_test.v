@@ -24,3 +24,36 @@ fn test_complete() {
 		assert complete(s) == want, s
 	}
 }
+
+// describe gives every entity of the scene one line in the scene's layout, a moving obstacle as an
+// obstacle and a ditch as any kind, and leaves out every velocity.
+fn test_describe() {
+	p := Percept{
+		pose:  [0.0, 0.0]
+		scene: [
+			Entity{
+				id:   'b1'
+				kind: 'beacon'
+				pos:  [3.0, 4.0]
+				r:    0.3
+			},
+			Entity{
+				id:   'boat'
+				kind: 'obstacle'
+				pos:  [0.0, -1.0]
+				r:    0.35
+				vel:  [0.4, 0.0]
+			},
+			Entity{
+				id:   'trench'
+				kind: 'ditch'
+				pos:  [-1.6, 1.2]
+				r:    0.5
+			},
+		]
+	}
+	assert p.describe() == 'self at (0.00, 0.00), carrying payload: false, in contact: false
+beacon b1 at (3.00, 4.00), radius 0.30, distance 5.00
+obstacle boat at (0.00, -1.00), radius 0.35, distance 1.00
+ditch trench at (-1.60, 1.20), radius 0.50, distance 2.00'
+}

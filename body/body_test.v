@@ -333,8 +333,9 @@ struct ContactCase {
 	want  bool
 }
 
-// Sim holds the body still while it touches anything solid, a human, a standing obstacle or a
-// moving one, whoever moves, but not a beacon, which the body delivers to.
+// Sim holds the body still while it touches anything solid, a human, a standing obstacle, a
+// moving one or a ditch, whoever moves, but not a beacon, which the body delivers to. At a ditch the
+// contact stands in for the fall the armor keeps the body from.
 fn test_sim_counts_contact() {
 	b1 := Spot{
 		id:  'b1'
@@ -355,6 +356,10 @@ fn test_sim_counts_contact() {
 			beacons: [b1]
 			moving:  [standing('boat', near, .stop, 0.5)]
 		}, true},
+		ContactCase{'a ditch, at its rim', World{
+			beacons: [b1]
+			ditches: [Spot{'trench', near, 0.3}]
+		}, true},
 		ContactCase{'a beacon', World{
 			beacons: [b1, Spot{'b2', near, 0.3}]
 		}, false},
@@ -372,7 +377,8 @@ fn test_sim_counts_contact() {
 }
 
 // Sim's scene lists the beacons, then the standing obstacles, then the humans, then the moving
-// obstacles, each kind in the world's order, a moving one with the velocity of its last step.
+// obstacles, then the ditches, each kind in the world's order, a moving one with the velocity of
+// its last step.
 fn test_scene_lists_every_kind_in_order() {
 	w := World{
 		start:     [-4.0, -4.0]
@@ -392,14 +398,16 @@ fn test_scene_lists_every_kind_in_order() {
 			},
 			standing('raft', [-2.0, -1.0], .stop, 0.5),
 		]
+		ditches:   [Spot{'trench', [-1.6, 1.2], 0.5}, Spot{'cliff', [5.0, 5.0], 1.0}]
 	}
 	mut s := new_sim(w, .holonomic)
 	scene := s.scene(s.t0_ms + 20)
 	assert scene.map('${it.kind} ${it.id}') == ['beacon b1', 'beacon b2', 'obstacle o1',
-		'obstacle o2', 'human h1', 'obstacle boat', 'obstacle raft']
+		'obstacle o2', 'human h1', 'obstacle boat', 'obstacle raft', 'ditch trench', 'ditch cliff']
 	assert scene[5].pos == w.moving[0].path(20)
 	assert scene[5].vel == lcl.scale(lcl.sub(scene[5].pos, w.moving[0].path(0)), 1000.0 / 20.0)
 	assert scene.filter(it.id != 'boat').all(it.vel.len == 0)
+	assert scene[7].pos == [-1.6, 1.2] && scene[7].r == 0.5
 }
 
 // An obstacle that walks walks as a human of its behavior walks, and with stop it stands while the
