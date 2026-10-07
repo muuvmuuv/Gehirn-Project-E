@@ -28,6 +28,7 @@ Everything here is gehirn's own work under the [EUPL 1.2](../LICENSE), except th
 | [assets/media/bridge/limit-internal.png](media/bridge/limit-internal.png) | The 活動限界 panel on internal power at 4:53 | bridge/README.md, Seven segment timer | As magi-refused.png | EUPL 1.2 |
 | [assets/media/bridge/scene.png](media/bridge/scene.png) | The radar: the body at beacon B1, a human within 2 m, an obstacle and the trail | bridge/README.md, Radar | As magi-refused.png, with the ffmpeg line in Recording frames | EUPL 1.2 |
 | [assets/media/bridge/harmonics.png](media/bridge/harmonics.png) | The harmonics panel at 57.9% sync with the dummy plug in the seat | bridge/README.md, Harmonics | As magi-refused.png | EUPL 1.2 |
+| [assets/media/terrain.mp4](media/terrain.mp4) | The whole bridge on the terrain world, worlds/terrain.json: the body crosses the mud and the lake, passes the pillar, the trench and the boat, and the rock lands beside the way, 43 s | docs/worlds.md, The terrain world; the source of website/public/media/terrain-radar.mp4 | `just scene=terrain demo-record` on 2026-10-07 on the mock, unchanged, a Git LFS object | EUPL 1.2 |
 
 ## Scene recordings
 

@@ -224,6 +224,8 @@ WORLD=$PWD/worlds/terrain.json python3 tools/trials.py --runs 10 --jobs 3
 
 PLAN's State holds what each kind did on the mock.
 
+`just scene=terrain demo` flies the same mission with HQ, the field unit and the bridge apart and narrates it, as the scenes of [Scenes](scenes.md) do, and `just scene=terrain demo-record` records it. It is a tour of this world rather than a scene from the series: no pilot sits down, and nothing but the world is set. Its take, [assets/media/terrain.mp4](../assets/media/terrain.mp4), shows every kind on the bridge's radar.
+
 ## Generating worlds
 
 `tools/worldgen.py` hunts for worlds on which the stack fails, a test tool outside the runtime (PLAN, Phase 3 Task 7). Each round it asks a hosted model for worlds in this format, writes each under a name of its own, and asks gehirn whether `body.load_world` accepts it: `gehirn magi-eval 0` with `WORLD` set refuses a bad file with its one line and exit 2, for each reason [What gehirn refuses](#what-gehirn-refuses) lists, and otherwise refuses only the 0, so nothing flies and no journal grows. On every world gehirn accepts, it flies missions of the configuration under test and of a reference through `tools/trials.py`, against a mock it starts itself, audits every run, and puts the last rounds' worlds into the next prompt with what happened: gehirn's refusal line, how each run ended and moved, as the course line of `tools/trials.py` measures it, and each failure with its evidence from the journal and the recorder.

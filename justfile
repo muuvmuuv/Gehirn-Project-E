@@ -88,8 +88,9 @@ missions runs="10" port="8081": build
 # `python3 tools/withenv.py .env just lineup=magi demo`.
 lineup := "mock"
 
-# Which story `just demo` and `just demo-record` fly: demo, the whole mission, or a canon scene,
-# the name of a script in scripts/scenes such as ep13-iruel, which docs/scenes.md describes.
+# Which story `just demo` and `just demo-record` fly: demo, the whole mission, a canon scene, the
+# name of a script in scripts/scenes such as ep13-iruel, which docs/scenes.md describes, or
+# terrain, the tour of worlds/terrain.json in docs/worlds.md.
 # Scenes are staged on the mock, so they fly on lineup=mock only: `just scene=ep13-iruel demo`.
 scene := "demo"
 
