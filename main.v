@@ -896,16 +896,17 @@ fn main() {
 		}
 
 		// The planner plans at the speed the armor allows, which a seat raises.
+		top := ar.top_speed(p, seat != 'empty')
 		u_core := match cfg.steering {
 			.reflex { reflex(p, goal) }
-			.local { way.next(p, goal, ar.top_speed(p, seat != 'empty')) }
+			.local { way.next(p, goal, top) }
 		}
 
 		mut authority := 1.0
 		if seat == 'pilot' {
-			authority = share(mut pilot_sync, u_seat, u_core)
+			authority = share(mut pilot_sync, compared(u_seat, cfg.steering, top), u_core)
 		} else if seat == 'dummy' {
-			authority = share(mut dummy_sync, u_seat, u_core)
+			authority = share(mut dummy_sync, compared(u_seat, cfg.steering, top), u_core)
 			if dummy_sync.ratio <= threshold {
 				// tools/eval_dummy.py BENCHED counts these lines, and scripts/scenes/ep19-bench.sh
 				// waits on `benched until the pilot is back`.
@@ -1037,6 +1038,17 @@ fn share(mut s plug.Sync, u_seat []f64, u_core []f64) f64 {
 	}
 	s.update(u_seat, u_core)
 	return s.authority(threshold, ceiling)
+}
+
+// compared is the seat's command u_seat as share holds it against the core's under steering: as
+// the seat sent it beside the reflex, and capped at top, the speed the local planner plans at,
+// beside the planner, since the armor caps both there, so a seat the armor slows near a human
+// keeps its sync.
+fn compared(u_seat []f64, steering Steering, top f64) []f64 {
+	return match steering {
+		.reflex { u_seat }
+		.local { lcl.clamp_norm(u_seat, top) }
+	}
 }
 
 // reflex is System 1: fast, local and dumb. Pull toward the approved goal, push away from

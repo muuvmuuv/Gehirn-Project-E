@@ -40,7 +40,7 @@ PILOT_KEY=<the field unit's key> ./gehirn-gamepad
 
 ## Sync ratio
 
-Sync is a moving average of how well the seat and the core agree, from the angle between their commands and how close their magnitudes are. It is the arbitration term of shared control, in the sense of Dragan and Srinivasa's policy blending. At or below 30% the core only advises. Above that its share grows with sync up to 80%, so a seated pilot keeps at least a fifth of the controls while the body has power. A core with nowhere to go takes no share.
+Sync is a moving average of how well the seat and the core agree, from the angle between their commands and how close their magnitudes are. It is the arbitration term of shared control, in the sense of Dragan and Srinivasa's policy blending. At or below 30% the core only advises. Above that its share grows with sync up to 80%, so a seated pilot keeps at least a fifth of the controls while the body has power. A core with nowhere to go takes no share. Under `PLANNER=local`, whose command is no faster than the armor lets the body move, the seat's command counts at that speed too, since the armor caps both there, so a seat the armor slows near a human keeps its sync ([Safety](safety.md#how-the-body-moves)).
 
 The dummy plug earns its own ratio. At 30% it is benched until the pilot is back, and the core drives alone under the unmanned speed limit. It imitates style, not intent: commands are stored relative to the approved goal, so without a goal it does nothing, and with one it has no memorized heading to run off with. In canon a sync ratio past 400% dissolves the pilot into LCL. The nearest thing here is a dummy plug good enough that nobody needs to sit down.
 

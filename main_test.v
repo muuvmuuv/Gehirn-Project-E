@@ -12,6 +12,7 @@ import lcl
 import magi
 import oai
 import planner
+import plug
 import umbilical
 
 // testsuite_begin clears BODY, which the justfile exports to every recipe, so `just body=mujoco
@@ -1068,6 +1069,48 @@ fn test_the_planner_brings_the_body_to_b1() {
 		time.sleep(20 * time.millisecond)
 	}
 	assert at < lcl.beacon_reach
+}
+
+struct ComparedCase {
+	name     string
+	steering Steering
+	u_seat   []f64
+	top      f64
+	want     []f64
+}
+
+// compared hands share the seat's command as the seat sent it beside the reflex, and capped at the
+// planner's top speed beside the local planner.
+fn test_compared() {
+	cases := [
+		ComparedCase{'the reflex takes the seat as sent', .reflex, [0.6, 0.8], 0.2, [0.6, 0.8]},
+		ComparedCase{'the planner caps a faster seat', .local, [0.6, 0.8], 0.2, [0.12, 0.16]},
+		ComparedCase{'the planner leaves a slower seat', .local, [0.06, 0.08], 0.2, [0.06, 0.08]},
+		ComparedCase{'an unmeasurable percept leaves nothing', .local, [0.6, 0.8], 0.0, [
+			0.0, 0.0]},
+	]
+	for c in cases {
+		got := compared(c.u_seat, c.steering, c.top)
+		assert lcl.dist(got, c.want) < 1e-12, '${c.name}: ${got}'
+	}
+}
+
+// Under the local planner a dummy plug that heads where the planner does keeps its sync though the
+// armor slows the body near a human, as on ep18-bardiel after goto(1.00, 2.50), where Toji's rim
+// stood about 1 m off and the planner planned at 0.23 m/s against the dummy plug's 0.60 m/s: held
+// against the planner as sent, that seat fell to the bench at 30%, and capped as the armor caps
+// it, it agrees at about 0.72.
+fn test_a_dummy_plug_the_armor_slows_keeps_its_sync_beside_the_planner() {
+	u_seat := [-0.28, 0.53]
+	u_core := [-0.20, 0.04]
+	mut capped := plug.Sync{}
+	mut sent := plug.Sync{}
+	for _ in 0 .. 200 {
+		capped.update(compared(u_seat, .local, 0.23), u_core)
+		sent.update(u_seat, u_core)
+	}
+	assert capped.ratio > threshold, '${capped.ratio}'
+	assert sent.ratio <= threshold, '${sent.ratio}'
 }
 
 struct PaceCase {
