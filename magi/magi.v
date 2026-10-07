@@ -67,7 +67,7 @@ const ballot_schema = oai.Schema{
 // line. Within it the default world's walker, who turns at 0.3 rad/s, strays at most 0.32 m from
 // that line, about one person's radius; within 3 s it strays 0.71 m, so a longer horizon predicts
 // nothing honest (docs/adr/0009). tools/test_eval_dummy.py COURSE_REACH repeats
-// course_horizon * course_speed + lcl.arrive.
+// course_horizon * course_speed + lcl.arrive, and tools/worldgen.py COURSE_HORIZON copies it.
 pub const course_horizon = 2.0
 
 // course_speed is armor.Limits v_max in m/s, the fastest the body drives, from which walks_onto

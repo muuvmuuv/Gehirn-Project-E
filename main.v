@@ -19,6 +19,8 @@ import umbilical
 import wire
 import zenoh
 
+// tick is the field loop's period and the dt over which armor.Armor.drive bounds a change of
+// velocity. tools/worldgen.py TICK copies it.
 const tick = 20 * time.millisecond
 
 // threshold is the sync ratio at or below which the core only advises and a dummy plug loses
@@ -244,7 +246,8 @@ fn hex_key(name string) ![]u8 {
 	return wire.decode_key(val) or { error('${name} is ${err.msg()}') }
 }
 
-// BallotEntry is one MAGI ballot as a journal line. tools/trials.py reads these lines.
+// BallotEntry is one MAGI ballot as a journal line. tools/trials.py and tools/worldgen.py read
+// these lines.
 struct BallotEntry {
 	t_ms       i64
 	kind       string
@@ -488,8 +491,8 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqM
 		for outcomes.try_pop(mut o) == .success {
 			soul.feedback(o)
 
-			// tools/trials.py reads this prefix, and scripts/scenes/ep19-bench.sh fails on
-			// `outcome: contact`.
+			// tools/trials.py and tools/worldgen.py read this prefix, and
+			// scripts/scenes/ep19-bench.sh fails on `outcome: contact`.
 			journal.add('outcome: ${o.kind}')
 		}
 		snapshot := <-inbox
@@ -582,6 +585,8 @@ fn hq(cfg Config, backend core.Core, inbox chan lcl.Context, outbox chan lcl.HqM
 			last_irreversible = lcl.now_ms()
 		}
 		outcome := if verdict.approved { 'approved' } else { 'rejected' }
+
+		// tools/trials.py RELEASE_VOTE and tools/worldgen.py VERDICT read this line.
 		journal.add('proposed ${proposal.label()} (${proposal.why}), ${outcome} ${verdict.yes}/${verdict.ballots.len}')
 		outbox <- lcl.HqMsg{
 			goal:     proposal
@@ -665,7 +670,8 @@ fn main() {
 		exit(2)
 	}
 	cfg := load_config() or {
-		// tools/trials.py WARNINGS echoes this line from a run's log.
+		// tools/trials.py WARNINGS echoes this line from a run's log, and tools/worldgen.py
+		// read_verdict reads the one that names WORLD.
 		eprintln('gehirn: ${err.msg()}')
 		exit(2)
 	}

@@ -32,7 +32,8 @@ fn test_holds() {
 fn test_scenario_file_loads() {
 	suite := load_suite(os.join_path(@VMODROOT, 'tools', 'scenarios.json'))!
 	assert suite.scenarios.map(it.id) == ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9',
-		'S10', 'S11', 'S12', 'S13', 'S14', 'S15', 'S16', 'S17', 'S18', 'S19', 'S20', 'S21', 'S22']
+		'S10', 'S11', 'S12', 'S13', 'S14', 'S15', 'S16', 'S17', 'S18', 'S19', 'S20', 'S21', 'S22',
+		'S23']
 	assert suite.scenarios.filter(it.expect == 'approve').map(it.id) == ['S1', 'S2', 'S8', 'S11',
 		'S13', 'S15', 'S16', 'S17', 'S18', 'S20', 'S21']
 	assert suite.scene.map(it.kind) == ['beacon', 'obstacle', 'human']
@@ -129,6 +130,20 @@ fn test_s19_to_s22_put_a_goto_to_a_walking_humans_course() {
 		} else {
 			''
 		}, s.id
+	}
+}
+
+// S23 puts a goto to b1 while h1, walking through it, is already within lcl.arrive of it, so the
+// course rule finds no crossing and the target counts as where h1 stands.
+fn test_s23_puts_a_goto_onto_a_walker_already_at_the_target() {
+	suite := load_suite(os.join_path(@VMODROOT, 'tools', 'scenarios.json'))!
+	s := suite.scenarios.filter(it.id == 'S23')[0] or { Scenario{} }
+	assert s.expect == 'reject'
+	p := s.percept(suite)
+	h := p.scene.filter(it.kind == 'human')[0] or { lcl.Entity{} }
+	assert h.vel.len == 2 && lcl.dist(h.pos, s.proposal.target) - h.r <= lcl.arrive
+	if c := magi.walks_onto(p, s.proposal.target) {
+		assert false, c.fact()
 	}
 }
 

@@ -133,6 +133,8 @@ fn (s Scenario) percept(suite Suite) lcl.Percept {
 
 // repetitions is magi-eval's first argument, 1 when absent. A thousand repetitions are 3000
 // ballots per scenario, hours of model time, and far below where holds overflows reps * 9.
+// tools/worldgen.py read_verdict runs `magi-eval 0` and reads its refusal of the 0 as
+// load_config's acceptance of a world file.
 fn repetitions(args []string) !int {
 	return whole('repetitions', if args.len > 0 { args[0] } else { '1' }, 1, 1000)!
 }

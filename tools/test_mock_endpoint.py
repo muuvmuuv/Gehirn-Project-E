@@ -2,9 +2,11 @@
 """Self check for mock_endpoint's --vote, --propose, --goto and COURSE: python3 tools/test_mock_endpoint.py"""
 
 import argparse
+import re
 from collections.abc import Callable
+from pathlib import Path
 
-from mock_endpoint import answer, forced, goto_arg, judge, propose, propose_arg, read_percept, vote_arg
+from mock_endpoint import ARRIVE, answer, forced, goto_arg, judge, propose, propose_arg, read_percept, vote_arg
 
 # A unit's request as magi/magi.v Unit.llm_vote asks it, on lcl/lcl.v Context.situation.
 USER = """MISSION
@@ -98,5 +100,13 @@ for fact in FACTS:
     assert answer("casper", course, 1, None, {})["vote"] == "approve"
 for unit in ("melchior", "balthasar", "casper"):
     assert answer(unit, GOTO, 1, None, {})["vote"] == "approve", unit
+
+# MELCHIOR-1 counts a target within lcl.arrive of a human's rim as the human's position, as
+# magi/jev.v destination does: h1's rim 0.20 and 0.34 m from goto(3.00, 2.00) draw a no, 0.36 m none.
+for y, vote in (("1.50", "reject"), ("1.36", "reject"), ("1.34", "approve")):
+    near = GOTO.replace("human h1 at (1.00, 1.00)", f"human h1 at (3.00, {y})")
+    assert answer("melchior", near, 1, None, {})["vote"] == vote, y
+lcl = (Path(__file__).parent.parent / "lcl" / "lcl.v").read_text()
+assert ARRIVE == float(re.search(r"pub const arrive = (\S+)", lcl)[1]), "lcl.arrive"
 
 print("mock_endpoint: ok")

@@ -5,7 +5,7 @@ One document per topic, each for one reader. The [README](../README.md) introduc
 - [running.md](running.md): for someone running gehirn, from the demo in detail to hosted and local models, two machines and prebuilt binaries.
 - [scenes.md](scenes.md): for someone flying or recording a scene from the series, with what each stages and what is real.
 - [configuration.md](configuration.md): for someone setting a variable, with every default and every refusal.
-- [worlds.md](worlds.md): for someone writing a world for the simulated body, its humans and how they react, or flying one.
+- [worlds.md](worlds.md): for someone writing a world for the simulated body, its humans and how they react, flying one, or having a model generate worlds to find where the stack fails.
 - [magi.md](magi.md): for someone choosing or judging MAGI's models.
 - [bridge.md](bridge.md): for someone running the bridge or reading its panels.
 - [piloting.md](piloting.md): for someone steering the body, by script or gamepad, or training the dummy plug.

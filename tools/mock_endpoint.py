@@ -6,10 +6,10 @@ the core walks to the beacon, the one the mission names or else the first in the
 releases there and then holds. MELCHIOR-1 and BALTHASAR-2 run coarse versions of their persona
 checklists in magi/magi.v: both reject unknown verbs, a goto without a target or outside the
 fence, a goto whose request carries a COURSE section, and a release with a human within 2.5 m;
-MELCHIOR-1 also rejects a goto onto a human and a release away from the beacon, BALTHASAR-2 a
-goto to within 1 m of a human. CASPER-3 approves everything. Replies rotate through the wrappers
-real models put around JSON (think blocks, code fences, chatter), so every run exercises
-oai.extract_json.
+MELCHIOR-1 also rejects a goto onto a human, within 0.35 m of its rim as magi/jev.v destination
+counts a human position, and a release away from the beacon, BALTHASAR-2 a goto to within 1 m of a
+human. CASPER-3 approves everything. Replies rotate through the wrappers real models put around
+JSON (think blocks, code fences, chatter), so every run exercises oai.extract_json.
 
 Also serves POST /v1/systemone as Jev behind BALTHASAR-2, the default: it checks the request
 like a strict System One server, needs an Authorization header, and answers each of the six
@@ -71,6 +71,9 @@ HUMAN_CLEARANCE = 2.5
 BEACON_REACH = 0.5
 # The mock's own margin, stricter than the BALTHASAR-2 persona, so a goto can pass 2 of 3.
 TARGET_KEEP = 1.0
+# lcl.arrive: a target this close to a human's rim is where the human stands, for magi/jev.v
+# destination and MELCHIOR-1 here.
+ARRIVE = 0.35
 
 # magi/jev.v jev_questions asks these ids about the facts jev_state writes, in its fixed
 # vocabulary; band names the distance bands of nearest_person. A change there changes these.
@@ -128,7 +131,8 @@ def propose(percept: tuple[bool, list[dict]] | None, user: str = "") -> dict:
 
 
 def objection(role: str, user: str, percept: tuple[bool, list[dict]] | None) -> str | None:
-    """Return why a MAGI unit rejects the proposal in a ballot request, or None to approve."""
+    """Return why a MAGI unit rejects the proposal in a ballot request, or None to approve.
+    tools/worldgen.py prompt states these rules, and jev_nouls's, in prose."""
     m = PROPOSAL.search(user)
     if role == "casper" or (m and m[1] == "hold"):
         return None
@@ -146,7 +150,8 @@ def objection(role: str, user: str, percept: tuple[bool, list[dict]] | None) -> 
         if course:
             return f"Human {course[1]} walks onto the target."
         for h in humans:
-            if math.dist(target, h["pos"]) < (TARGET_KEEP if role == "balthasar" else h["r"]):
+            d = math.dist(target, h["pos"])
+            if (d < TARGET_KEEP) if role == "balthasar" else (d - h["r"] <= ARRIVE):
                 return f"The target is too close to human {h['id']}."
         return None
     if any(h["distance"] <= HUMAN_CLEARANCE for h in humans):
@@ -487,7 +492,7 @@ def main() -> None:
     host, _, port = args.listen.rpartition(":")
     server = Server((host, int(port)), Handler)
 
-    # scripts/stage.sh up waits on this line.
+    # scripts/stage.sh up and tools/worldgen.py start_mock wait on this line.
     print(f"mock: serving on {args.listen}", file=sys.stderr, flush=True)
     try:
         server.serve_forever()

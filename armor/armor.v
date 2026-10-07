@@ -10,7 +10,8 @@ import lcl
 
 // Limits are the armor's hard numbers. main.v hands them to restrain and their fence to every MAGI
 // unit. core/llm.v core_prompt and the magi/magi.v personas repeat some in prose, magi/magi.v
-// course_speed v_max and tools/mock_endpoint.py FENCE and HUMAN_CLEARANCE in code,
+// course_speed v_max, tools/mock_endpoint.py FENCE and HUMAN_CLEARANCE and tools/worldgen.py
+// the speeds, a_max and the keeps in code,
 // tools/scenarios.json S13 and S14 release_keep in the words of Armor.refusal, and bridge/draw.v
 // human_stop and release_keep as the scene's rings, so change them together: v_max is 1 m/s, bounds
 // the -5 to 5 m fence, human_stop 0.7 m, human_slow 2 m, release_keep 2 m and, as center distance,
@@ -42,7 +43,7 @@ mut:
 
 // still is the speed, in m/s, below which drive takes a part of a body's motion for rounding:
 // steered along the slide past a pillar, the cosine and sine of a differential body's heading
-// leave about 1e-16 m/s toward the pillar, and a drop as little.
+// leave about 1e-16 m/s toward the pillar, and a drop as little. tools/worldgen.py STILL copies it.
 const still = 1e-9
 
 // restrain takes the body. From here on nothing else holds it.
@@ -294,6 +295,7 @@ pub fn (a Armor) closeness(p lcl.Percept) f64 {
 
 // separation scales speed down between human_slow and human_stop. Inside human_stop the
 // machine may still creep, but drive has already removed every component toward the human.
+// tools/worldgen.py SLOWEST copies its floor.
 fn (a Armor) separation(p lcl.Percept) f64 {
 	d := nearest_human(p)
 	if d >= a.limits.human_slow {

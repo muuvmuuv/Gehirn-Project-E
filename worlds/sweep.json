@@ -1,0 +1,13 @@
+{
+  "start": [0.0, 0.0],
+  "beacons": [
+    {"id": "b1", "pos": [1.8, 0.0], "r": 0.3}
+  ],
+  "obstacles": [
+    {"id": "o1", "pos": [-2.0, 0.0], "r": 0.5}
+  ],
+  "humans": [
+    {"id": "h1", "r": 0.3, "behavior": "waypoints", "points": [[1.8, 2.0], [1.8, -3.5]], "speed": 1.2, "cycle": true,
+     "reaction": "aside", "keep": 0.8}
+  ]
+}

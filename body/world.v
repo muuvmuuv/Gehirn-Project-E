@@ -7,6 +7,7 @@ import lcl
 
 // body_radius is the simulated body's radius in meters: Sim counts contact with anything solid
 // whose rim lies closer to the body's center, and load_world keeps a world's start that clear.
+// tools/worldgen.py BODY_R copies it.
 const body_radius = 0.25
 
 // max_entities caps a world's beacons, obstacles and humans together, since every one reaches the

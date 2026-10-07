@@ -18,8 +18,8 @@ pub const known_verbs = ['goto', 'hold', 'release']
 pub const irreversible_verbs = ['release']
 
 // arrive is the radius, in meters, inside which a goto counts as reached, for main.v's field
-// loop, plug.Dummy and magi/jev.v destination. tools/pilot.py ARRIVE and tools/export_dummy.py
-// ARRIVE copy it.
+// loop, plug.Dummy and magi/jev.v destination. tools/pilot.py ARRIVE, tools/export_dummy.py
+// ARRIVE and tools/mock_endpoint.py ARRIVE copy it.
 pub const arrive = 0.35
 
 // beacon_reach is how close to a beacon's center, in meters, the body counts as at the beacon,
@@ -192,7 +192,8 @@ pub fn (i Intent) label() string {
 
 // describe renders a percept as text for language backends. It leaves out a human's velocity,
 // which only magi.walks_onto reads, so a model reads the same text whether a human walks or
-// stands. tools/mock_endpoint.py parses this layout.
+// stands. tools/mock_endpoint.py parses this layout, and tools/worldgen.py shown rounds a distance
+// as it does.
 pub fn (p Percept) describe() string {
 	mut lines := [
 		'self at (${p.pose[0]:.2f}, ${p.pose[1]:.2f}), carrying payload: ${p.payload}, in contact: ${p.contact}',
