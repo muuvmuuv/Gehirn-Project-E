@@ -639,7 +639,7 @@ struct GroundCase {
 // On ground drive lowers the top speed by the least factor of the patches within reach, the body
 // inside one included, times separation near a human, seated or not; past the reach, its stopping
 // distance plus a tick of travel, 1.5 m from rest over a tick of 1 s, a patch slows nothing.
-fn test_drive_on_ground() {
+fn test_ground_factor() {
 	o := [0.0, 0.0]
 	north := [ent('human', [0.0, 1.85], 0.5)] // 1.35 m off, halfway between human_stop and human_slow
 	cases := [

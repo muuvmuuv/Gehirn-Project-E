@@ -12,6 +12,8 @@ const body_radius = 0.25
 
 // max_entities caps a world's entities of every list together, since every one reaches the
 // percept a model reads at each deliberation and the recorder's line 50 times a second.
+// ponytail: every entity is a circle, so a cliff is a row of ditches that spends the 16; add
+// segments once a world needs a longer edge.
 const max_entities = 16
 
 // walk_min and walk_max bound a human's walking speed in meters per second, from a stroll to a
@@ -77,6 +79,8 @@ pub:
 
 // Patch is a patch of ground of a World, water, mud or a slope, a circle the body may enter and
 // the armor slows it on (ADR-0010).
+// ponytail: a slope slows the body uphill and downhill alike; give it a direction, with an armor
+// cap on downhill speed, once a real base's numbers exist (PLAN, Open question 1).
 pub struct Patch {
 pub:
 	id     string

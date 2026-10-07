@@ -117,6 +117,8 @@ struct Ahead {
 // It closes on the target as the reflex does, at 1.5 times the distance, and gives zero on it. A
 // percept or goal it cannot measure gives zero; a human or an obstacle whose velocity it cannot
 // measure counts as standing.
+// ponytail: it wades through ground at the speed it plans off ground and leaves the slowing to the
+// armor; cost a patch at 1 / factor per meter once a world shows a detour beating the wade.
 pub fn (mut pl Planner) next(p lcl.Percept, goal lcl.Intent, top f64) []f64 {
 	if p.pose.len != 2 {
 		return []f64{len: p.pose.len}

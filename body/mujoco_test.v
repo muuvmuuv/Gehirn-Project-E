@@ -469,8 +469,8 @@ fn test_a_bad_step_ends_the_run_before_a_percept() {
 	}
 }
 
-// default_mjcf is mjcf of default_world as it was before worlds held moving obstacles, so every
-// measurement on the MuJoCo base stays comparable.
+// default_mjcf is mjcf of default_world, pinned to the byte so every measurement on the MuJoCo
+// base stays comparable.
 const default_mjcf = '<mujoco model="gehirn"><compiler usethread="false"/><option timestep="0.002"><flag autoreset="disable"/></option><worldbody><body name="base" pos="-3.5 -2.5 0.2"><joint name="x" type="slide" axis="1 0 0"/><joint name="y" type="slide" axis="0 1 0"/><joint name="yaw" type="hinge" axis="0 0 1"/><geom name="base" type="cylinder" size="0.25 0.2" mass="20.0"/></body><geom type="cylinder" pos="0.0 -0.3 0.2" size="0.8 0.2"/><body mocap="true" pos="2.6 1.2 0.2"><geom type="capsule" size="0.3 0.2" contype="0" conaffinity="0"/></body></worldbody><actuator><velocity joint="x" kv="400.0" forcerange="-200.0 200.0"/><velocity joint="y" kv="400.0" forcerange="-200.0 200.0"/><velocity joint="yaw" kv="62.5" forcerange="-100 100"/></actuator></mujoco>'
 
 // boat is an obstacle that walks a loop around center, stopping for the body at 0.6 m.

@@ -310,8 +310,10 @@ pub fn (a Armor) top_speed(p lcl.Percept, manned bool) f64 {
 
 // ground_factor is the least factor of the patches of ground in p whose rim lies within margin of
 // its pose, the body inside one included, or 1 with none. drive multiplies the top speed by it
-// with margin the body's stopping distance plus a tick of travel, so the body has slowed to the
-// patch's speed by the time its center crosses the rim, and leaving it speeds up within a_max.
+// with margin the body's stopping distance plus a tick of travel, so Sim's body moves at the
+// patch's speed by the time its center crosses the rim, and the MuJoCo base, whose velocity lags
+// its command, within about 1% of it there (PLAN, Known issue 33); leaving the patch, the body
+// speeds up within a_max.
 fn ground_factor(p lcl.Percept, margin f64) f64 {
 	mut k := 1.0
 	for g in p.ground {
