@@ -12,7 +12,7 @@ The percept carries each walking human's velocity. Before MAGI vote on a goto, `
 
 The horizon is 2 s because within it the default world's walker, who turns at 0.3 radians a second, strays at most 0.32 m from its straight line, about one person's radius, and within 3 s 0.71 m. A rule that followed the walker's real loop as far as the body's arrival would reject the default mission's first goto from the start in 57% of the walker's loop.
 
-What it does not catch: a goto proposed more than 2.35 m from its target, which is 2 s at 1 m/s plus the reach, and a walker who turns onto a target after the vote. MAGI judge a goal once, when it is proposed, so the reflex and the armor carry those cases: the armor slows the body within 2 m of a human and never moves it toward one inside 0.7 m ([ADR-0009](adr/0009-magi-judge-a-walking-humans-course.md), PLAN Known issue 34).
+What it does not catch: a goto proposed more than 2.35 m from its target, which is 2 s at 1 m/s plus the reach, and a walker who turns onto a target after the vote. MAGI judge a goal once, when it is proposed, so the core's command, the reflex or the local planner of `PLANNER=local`, and the armor carry those cases: the armor slows the body within 2 m of a human and never moves it toward one inside 0.7 m ([ADR-0009](adr/0009-magi-judge-a-walking-humans-course.md), PLAN Known issue 34).
 
 ## Three families
 
