@@ -23,13 +23,18 @@ export V_C_ERROR_BUG_REPORT_DISABLED=1
 # looks first, and beside its own file. vlib's C files change only with the v executable. It
 # fails when V cannot parse the sources, which the build then reports, or the scan fails.
 inputs() {
-    local files hits list
+    local files hits list vexe
     files=$(v -print-v-files -o "$out" "$@" 2>/dev/null | sed 's/:parse_text$//' | LC_ALL=C sort -u) || return
+
+    # `command -v v` may name a shim, such as proto's, whose content no V version changes, so the
+    # compiler hashed is the one beside the vlib that V parses.
+    vexe=$(printf '%s\n' "$files" | awk '!f && sub(/\/vlib\/builtin\/.*/, "/v") { print; f = 1 }')
+    [ -n "$vexe" ] || vexe=$(command -v v)
     hits=$(printf '%s\n' "$files" | tr '\n' '\0' |
         xargs -0 grep -Ho -e '@VMODROOT/[^"'\'' @]*' -e '[$]embed_file(['\''"][^'\''"]*' -e '#flag.* /[^"'\'' @]*\.a') || return
     list=$(
         {
-            printf '%s\n' "$files" "$(command -v v)" v.mod
+            printf '%s\n' "$files" "$vexe" v.mod
             {
                 printf '%s\n' "$hits" | sed -e 's|^.*@VMODROOT/||' -e 's|^[^#]*:#flag.* /|/|' -e 's|[^/]*:[$]embed_file(.||' -e 's|@DIR/||'
                 printf '%s\n' "$hits" | sed -n 's|^.*:[$]embed_file(.||p'

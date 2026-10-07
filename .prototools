@@ -1,0 +1,4 @@
+v = "0.5.2"
+
+[plugins]
+v = "github://muuvmuuv/proto-plugins/v_tool"
