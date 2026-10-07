@@ -270,10 +270,17 @@ fn fresh(stream string, echo_ms i64, now i64, grace_ms i64) ! {
 	}
 }
 
-// context opens a snapshot from the field. Its mission and memory are empty.
+// context opens a snapshot from the field. Its mission and memory are empty. HQ's readers, such as
+// lcl.Percept.describe, which the core and every chat unit read, index the body's pose and each
+// entity's position as x and y, so a percept whose pose, scene or ground holds another shape is
+// dropped here rather than panicking HQ.
 pub fn (mut o Opener) context(s zenoh.Sample) !lcl.Context {
 	raw, seq := o.check('context', s)!
 	m := json2.decode[ContextMsg](raw) or { return error('wire: unreadable context') }
+	p := m.percept
+	if p.pose.len != 2 || p.scene.any(it.pos.len != 2) || p.ground.any(it.pos.len != 2) {
+		return error('wire: unreadable context')
+	}
 	o.last['context'] = seq
 	return lcl.Context{
 		percept: m.percept

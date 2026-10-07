@@ -156,6 +156,64 @@ fn test_context_and_outcome_open_to_what_was_sealed() {
 	assert o.outcome(sample(s.outcome(out)))! == out
 }
 
+// A context whose pose, or the position of a scene entity or a patch of ground, is not one x and one
+// y is dropped as unreadable, though sealed under the link, since HQ's readers index both, and the
+// next sound one opens.
+fn test_a_context_of_another_shape_is_dropped() {
+	mut s := new_sealer(link, 'eva01')!
+	mut o := new_opener(link, 'eva01')!
+	entity := lcl.Entity{
+		id:   'o1'
+		kind: 'obstacle'
+		pos:  [1.0, 1.0]
+		r:    0.5
+	}
+	patch := lcl.Entity{
+		id:     'lake'
+		kind:   'ground'
+		pos:    [1.0, 1.0]
+		r:      1.4
+		factor: 0.5
+	}
+	sound := lcl.Percept{
+		pose:   [0.0, 0.0]
+		scene:  [entity]
+		ground: [patch]
+	}
+	cases := {
+		'a pose of no number':              lcl.Percept{
+			...sound
+			pose: []
+		}
+		'a pose of three numbers':          lcl.Percept{
+			...sound
+			pose: [0.0, 0.0, 0.0]
+		}
+		'a scene entity at one number':     lcl.Percept{
+			...sound
+			scene: [lcl.Entity{
+				...entity
+				pos: [1.0]
+			}]
+		}
+		'a patch of ground at no position': lcl.Percept{
+			...sound
+			ground: [lcl.Entity{
+				...patch
+				pos: []
+			}]
+		}
+	}
+	for name, p in cases {
+		if got := o.context(sample(s.context(lcl.Context{ percept: p }))) {
+			assert false, '${name} opened as ${got.percept}'
+		} else {
+			assert err.msg() == 'wire: unreadable context', name
+		}
+	}
+	assert o.context(sample(s.context(lcl.Context{ percept: sound })))!.percept == sound
+}
+
 // A holonomic body's percept has no heading, so a context and a view seal to the bytes they sealed
 // to before the percept carried one; a differential body's heading travels to HQ and the bridge.
 fn test_a_heading_travels_only_from_a_differential_body() {
