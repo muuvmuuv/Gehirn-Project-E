@@ -992,7 +992,17 @@ main:focus {
 }
 
 .viewer__run {
+	display: grid;
+	gap: 12px;
 	padding: 0 18px 18px;
+}
+
+.viewer__canon {
+	justify-self: start;
+	font-size: 15px;
+	color: var(--paper);
+	text-decoration-color: var(--orange);
+	text-underline-offset: 4px;
 }
 
 .teaser__more {

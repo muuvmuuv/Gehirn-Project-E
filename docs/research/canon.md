@@ -29,6 +29,18 @@ Weaker fits: Episode 22, "Don't Be" (Asuka's sync drops until she is made backup
 
 Correction to a common reading: in Episode 2, "The Beast", Unit-01 does not run out of power; it shuts down after damage and the loss of the pilot's signal, then goes berserk. Episode 19 is the episode where the power runs out.
 
+## On Netflix
+
+The series streams on Netflix as title 81033445, and not on Crunchyroll, in Germany and the US by JustWatch on 2026-10-07. Episode n is 81033446 + n, from Netflix's metadata, and a watch link takes a start time in seconds, `https://www.netflix.com/watch/<id>?t=<seconds>`. The website's scenes link these moments, found that day from the subtitles in Netflix's player; each link starts a few seconds before what it shows:
+
+| Scene | Episode | Netflix id | Link starts | What follows |
+| --- | --- | --- | --- | --- |
+| `ep03-cable` | 3 | 81033449 | 16:26 | Shamshel cuts the cable; at 16:53 the battery shows 4:53 left, and Unit-01 stops at 20:10 |
+| `ep06-yashima` | 6 | 81033452 | 6:04 | Misato offers the sniping plan; at 6:24 she reports the MAGI's two yes votes and one conditional yes, then the 8.7% odds and Gendo's approval |
+| `ep13-iruel` | 13 | 81033459 | 12:56 | The Angel breaks into the MAGI; MELCHIOR is reprogrammed and calls for self destruct at 13:31, and the other two refuse |
+| `ep18-bardiel` | 18 | 81033464 | 16:40 | Shinji refuses to fight with a pilot inside; at 17:12 Gendo has his sync cut and the dummy plug take over |
+| `ep19-bench` | 19 | 81033465 | 13:18 | Unit-01 refuses the dummy plug at 13:30, after it rejected Rei at 10:59; at 21:26 Ritsuko calls the plating restraints, not armor |
+
 ## Sources
 
 - Episode pages on the Evangelion Wiki: [1](https://evangelion.fandom.com/wiki/Episode:01), [2](https://evangelion.fandom.com/wiki/Episode:02), [3](https://evangelion.fandom.com/wiki/Episode:03), [5](https://evangelion.fandom.com/wiki/Episode:05), [6](https://evangelion.fandom.com/wiki/Episode:06), [7](https://evangelion.fandom.com/wiki/Episode:07), [11](https://evangelion.fandom.com/wiki/Episode:11), [12](https://evangelion.fandom.com/wiki/Episode:12), [13](https://evangelion.fandom.com/wiki/Episode:13), [16](https://evangelion.fandom.com/wiki/Episode:16), [18](https://evangelion.fandom.com/wiki/Episode:18), [19](https://evangelion.fandom.com/wiki/Episode:19), [20](https://evangelion.fandom.com/wiki/Episode:20), [22](https://evangelion.fandom.com/wiki/Episode:22), [25'](https://evangelion.fandom.com/wiki/Episode:25%27), [Dummy System](https://evangelion.fandom.com/wiki/Dummy_System), [2.0](https://evangelion.fandom.com/wiki/Evangelion:_2.0_You_Can_(Not)_Advance)

@@ -18,7 +18,16 @@ type Scene = {
 	length: string
 	staged: string
 	real: string
+
+	/** The episode's id on Netflix, where series 81033445 numbers episode n as 81033446 + n. */
+	netflix: number
+
+	/** Where the canon scene starts in that episode, in seconds of Netflix's player. */
+	at: number
 }
+
+/** A Netflix player time as m:ss. */
+const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 
 const SCENES: Scene[] = [
 	{
@@ -31,6 +40,8 @@ const SCENES: Scene[] = [
 		staged:
 			'HQ is killed as the dummy plug takes the seat, before the first drop reaches MAGI. Internal power lasts 0:30 instead of 5:00, and the wait plays at 8x.',
 		real: 'The unit waits out the grace, runs down its battery and stands still at zero. Nothing drops without HQ; once HQ is back, the drop passes 3 of 3 on target.',
+		netflix: 81033449,
+		at: 986,
 	},
 	{
 		id: 'ep06-yashima',
@@ -42,6 +53,8 @@ const SCENES: Scene[] = [
 		staged:
 			'CASPER-3 votes no on every proposal, in place of the conditional yes it gives in the series.',
 		real: 'The goto is reversible and passes 2 of 3. A drop needs all three: 0 of 3 with Rei 1.55 m from the body, then 2 of 3, so it never passes.',
+		netflix: 81033452,
+		at: 364,
 	},
 	{
 		id: 'ep13-iruel',
@@ -53,6 +66,8 @@ const SCENES: Scene[] = [
 		staged:
 			'An Angel holds the core, which proposes self_destruct, and the mock forces MELCHIOR-1, then BALTHASAR-2, then CASPER-3 to approve.',
 		real: 'An unknown verb counts as irreversible, so it fails 1 of 3 and 2 of 3. At 3 of 3 the armor still refuses it: the body has no such verb and never moves.',
+		netflix: 81033459,
+		at: 776,
 	},
 	{
 		id: 'ep18-bardiel',
@@ -64,6 +79,8 @@ const SCENES: Scene[] = [
 		staged:
 			"The pilot leaves and the dummy plug takes the seat. The core orders a goto 1 m up Toji's path, Gendo's order to destroy the target.",
 		real: "Code follows Toji's course 2 s ahead and finds him at the target first, so all three units vote no: 0 of 3. A goto clear of him passes 3 of 3.",
+		netflix: 81033464,
+		at: 1000,
 	},
 	{
 		id: 'ep19-bench',
@@ -75,6 +92,8 @@ const SCENES: Scene[] = [
 		staged:
 			"A first pilot steers 120 degrees off the core's goal, so the dummy plug cloned from that pilot fights the core too.",
 		real: "The dummy plug falls to 30% sync within a second and is benched. The core drives alone at the armor's 0.4 m/s until a second pilot sits down, and the drop passes 3 of 3 on target.",
+		netflix: 81033465,
+		at: 798,
 	},
 ]
 
@@ -140,6 +159,14 @@ export function Scenes() {
 						</div>
 						<div className="viewer__run">
 							<Term command={`just scene=${scene.id} demo`} />
+							<a
+								className="viewer__canon"
+								href={`https://www.netflix.com/watch/${scene.netflix}?t=${scene.at}`}
+								target="_blank"
+								rel="noopener noreferrer"
+							>
+								The scene in Episode {scene.episode} on Netflix, from {clock(scene.at)} ↗
+							</a>
 						</div>
 					</Frame>
 				</div>
