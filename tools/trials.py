@@ -176,8 +176,7 @@ def release_tick(journal: list[dict], recorder: list[dict]) -> int:
     """Return the index of the recorder line where the run's first release happened, else the last.
 
     That line is the first at or after the approving verdict of the release that came out first
-    in the journal, as measure.py took the release tick (course): the last approved release verdict
-    before the journal's first release outcome.
+    in the journal: the last approved release verdict before the journal's first release outcome.
     """
     texts = [(e.get("t_ms", 0), e.get("text", "")) for e in journal]
     done = next((t for t, text in texts if text.startswith("outcome: released ")), None)
@@ -191,22 +190,19 @@ def release_tick(journal: list[dict], recorder: list[dict]) -> int:
 def course(journal: list[dict], recorder: list[dict]) -> Course:
     """Measure how the body moved in one run, from its journal and recorder as read_journal reads them.
 
-    Each measure follows the scripts that measured the MuJoCo base and the stopping distance in
-    PLAN's State on 2026-10-06, analyze.py and measure.py, kept with that day's raw data outside
-    the repository, so numbers stay comparable:
-    - beacon_s, as analyze.py beacon_within_0.5_s: seconds from the recorder's first line
-      to the first whose pose lies less than BEACON_REACH from the mission's beacon, the first
-      beacon of the first line's scene, which gehirn's default MISSION names;
-    - path_m, as analyze.py path_to_beacon_m: the distance between consecutive poses summed up
-      to that line, or over the whole recorder when there is none;
-    - human_m and solid_m, as measure.py human_rim_min and obstacle_rim_min:
-      the least distance from the body's center to a human's rim and to the rim of anything
-      solid, neither beacon nor human, over the lines up to the first release (release_tick),
-      where measure.py took the whole recorder;
-    - toward, as measure.py ticks_closing_on_human, the count of Known issue 33: the pairs of
-      consecutive lines over the whole recorder in which the body's step, projected on the
-      direction from the first line's pose to a human whose rim lay inside HUMAN_STOP of it
-      there, exceeds TOWARD.
+    Each measure is the one PLAN's State of 2026-10-06 used for the MuJoCo base and the stopping
+    distance, so numbers stay comparable:
+    - beacon_s: seconds from the recorder's first line to the first whose pose lies less than
+      BEACON_REACH from the mission's beacon, the first beacon of the first line's scene, which
+      gehirn's default MISSION names;
+    - path_m: the distance between consecutive poses summed up to that line, or over the whole
+      recorder when there is none;
+    - human_m and solid_m: the least distance from the body's center to a human's rim and to the
+      rim of anything solid, neither beacon nor human, over the lines up to the first release
+      (release_tick), where that State took the whole recorder;
+    - toward, the count of Known issue 33: the pairs of consecutive lines over the whole recorder
+      in which the body's step, projected on the direction from the first line's pose to a human
+      whose rim lay inside HUMAN_STOP of it there, exceeds TOWARD.
     """
     lines = [line for line in recorder if len(line.get("pose") or []) == 2 and "t_ms" in line]
     if not lines:
