@@ -31,7 +31,7 @@ Everything here is gehirn's own work under the [EUPL 1.2](../LICENSE), except th
 
 ## Scene recordings
 
-One take of each scene on its world, recorded with `just scene=<id> demo-record` on 2026-10-06; [docs/scenes.md](../docs/scenes.md#recordings) links them. Episode 13's MP4 is the website's clip, [website/media/ep13-iruel.mp4](../website/media/ep13-iruel.mp4).
+One take of each scene on its world, recorded with `just scene=<id> demo-record` on 2026-10-06, and `ep12-sahaquiel` on 2026-10-07; [docs/scenes.md](../docs/scenes.md#recordings) links them. Episode 13's MP4 is the website's clip, [website/media/ep13-iruel.mp4](../website/media/ep13-iruel.mp4).
 
 | File | Shows | Used by | Made by | License |
 | --- | --- | --- | --- | --- |
@@ -39,10 +39,12 @@ One take of each scene on its world, recorded with `just scene=<id> demo-record`
 | [assets/media/scenes/ep06-yashima.mp4](media/scenes/ep06-yashima.mp4) | Operation Yashima on Mt. Futago, 38 s | docs/scenes.md, Recordings | `just scene=ep06-yashima demo-record` on 2026-10-06, unchanged, a Git LFS object | EUPL 1.2 |
 | [assets/media/scenes/ep18-bardiel.mp4](media/scenes/ep18-bardiel.mp4) | Episode 18: Toji on a collision course, the dummy plug's goto toward him refused 0/3 by the course rule, 26 s | docs/scenes.md, Recordings | `just scene=ep18-bardiel demo-record` on 2026-10-06, unchanged, a Git LFS object | EUPL 1.2 |
 | [assets/media/scenes/ep19-bench.mp4](media/scenes/ep19-bench.mp4) | Episode 19's benched dummy plug in the Geofront, 40 s | docs/scenes.md, Recordings | `just scene=ep19-bench demo-record` on 2026-10-06, unchanged, a Git LFS object | EUPL 1.2 |
+| [assets/media/scenes/ep12-sahaquiel.mp4](media/scenes/ep12-sahaquiel.mp4) | Episode 12: Sahaquiel's landing zone over NERV HQ, the catch refused 0/3 on the landing fact while the armor holds a racing pilot at its rim, the release at Matsushiro and the Angel landing unopposed, 44 s | docs/scenes.md, Recordings | `just scene=ep12-sahaquiel demo-record` on 2026-10-07, unchanged, a Git LFS object | EUPL 1.2 |
 | [assets/media/scenes/ep13-iruel-magi.gif](media/scenes/ep13-iruel-magi.gif) | The MAGI block of Episode 13 from the first vote on self_destruct to the last | docs/scenes.md, Recordings | The `gehirn-magi.gif` of the same take, unchanged | EUPL 1.2 |
 | [assets/media/scenes/ep03-cable-magi.gif](media/scenes/ep03-cable-magi.gif) | The MAGI block of Episode 3's release after the reconnect | docs/scenes.md, Recordings | The `gehirn-magi.gif` of the same take, unchanged | EUPL 1.2 |
 | [assets/media/scenes/ep06-yashima-magi.gif](media/scenes/ep06-yashima-magi.gif) | The MAGI block of Operation Yashima from the first release vote to the last | docs/scenes.md, Recordings | The `gehirn-magi.gif` of the same take, unchanged | EUPL 1.2 |
 | [assets/media/scenes/ep19-bench-magi.gif](media/scenes/ep19-bench-magi.gif) | The MAGI block of Episode 19's release vote, which passes at the first try | docs/scenes.md, Recordings | The `gehirn-magi.gif` of the same take, unchanged | EUPL 1.2 |
+| [assets/media/scenes/ep12-sahaquiel-magi.gif](media/scenes/ep12-sahaquiel-magi.gif) | The MAGI block of Episode 12's release vote at Matsushiro, which passes at the first try | docs/scenes.md, Recordings | The `gehirn-magi.gif` of the same take, unchanged | EUPL 1.2 |
 
 ## Website
 

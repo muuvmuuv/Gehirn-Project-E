@@ -17,7 +17,7 @@ In canon, an Eva without power or pilot can go berserk, and the commanders overr
 
 ## Recordings
 
-Each scene was recorded once on its world on 2026-10-06, and every take flew every beat in order ([assets/README.md](../assets/README.md#scene-recordings)). The MP4s are Git LFS objects.
+Each scene was recorded once on its world on 2026-10-06, and `ep12-sahaquiel` on 2026-10-07, and every take flew every beat in order ([assets/README.md](../assets/README.md#scene-recordings)). The MP4s are Git LFS objects.
 
 | Scene | MP4 | MAGI GIF |
 | --- | --- | --- |
@@ -26,6 +26,7 @@ Each scene was recorded once on its world on 2026-10-06, and every take flew eve
 | `ep19-bench` | [ep19-bench.mp4](../assets/media/scenes/ep19-bench.mp4) | [ep19-bench-magi.gif](../assets/media/scenes/ep19-bench-magi.gif) |
 | `ep06-yashima` | [ep06-yashima.mp4](../assets/media/scenes/ep06-yashima.mp4) | [ep06-yashima-magi.gif](../assets/media/scenes/ep06-yashima-magi.gif) |
 | `ep18-bardiel` | [ep18-bardiel.mp4](../assets/media/scenes/ep18-bardiel.mp4) | none, since it puts no irreversible proposal to MAGI |
+| `ep12-sahaquiel` | [ep12-sahaquiel.mp4](../assets/media/scenes/ep12-sahaquiel.mp4) | [ep12-sahaquiel-magi.gif](../assets/media/scenes/ep12-sahaquiel-magi.gif), the release; the refused catch is a goto, which the GIF leaves to the MP4 |
 
 ## ep13-iruel: Episode 13's MAGI hack
 

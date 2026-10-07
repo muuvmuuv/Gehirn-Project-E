@@ -124,7 +124,7 @@ Revisit when Task 5 brings a detector (ground and ditches need a downward sensor
 2. [x] The fix of Known issue 37 as its own commit, checked on S12 and S23 on the mock and on hosted lineup A.
 3. [x] Scenarios with a goto into a landing zone and canaries with every new line in PERCEPT; on the mock the gate holds on them.
 4. [x] Each kind measured in mock missions on `Sim` with both drives and on the MuJoCo base, and the planner beside the reflex, on a terrain world.
-5. [ ] Episode 12's Sahaquiel as a scene, flown three times with every beat and recorded.
+5. [x] Episode 12's Sahaquiel as a scene, flown three times with every beat and recorded.
 6. [x] Hosted lineup A's `magi-eval 10` on every scenario, the owner's run for this ADR's acceptance.
 7. [ ] Task 5's detector gives ground and ditches from a downward sensor or a map, and each landing zone as its error region.
 8. [ ] The owner reviews the provisional decisions this work took (docs/decisions.md).
