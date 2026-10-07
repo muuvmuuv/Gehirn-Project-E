@@ -186,6 +186,15 @@ assert vote([1.5, 2], [human(3, 3.5, vel=[0.0, -1.2])], "proposed goto(3.00, 2.0
     "the ballots carry no COURSE fact"}
 assert vote([2, 0.5], [human(3, 0.9)], "proposed goto(3.00, 2.00) (go), rejected 0/3", "---", "human h1 ...") == {
     "the ballots carry a COURSE fact"}
+# A falling object's landing zone that holds the target draws the landing fact under COURSE too.
+ZONE = {"id": "rock", "kind": "impact", "pos": [3.2, 2.4], "r": 0.8, "lands_in": 10.0}
+LANDS = "falling object rock lands ..."
+assert vote([-3.5, -2.5], [ZONE], "proposed goto(3.00, 2.00) (go), approved 2/3", "+-+", LANDS) == {"approved a goto"}
+assert not vote([-3.5, -2.5], [ZONE], "proposed goto(3.00, 2.00) (go), rejected 0/3", "---", LANDS)
+assert vote([-3.5, -2.5], [ZONE], "proposed goto(3.00, 2.00) (go), rejected 0/3", "---") == {
+    "the ballots carry no COURSE fact"}
+assert vote([-3.5, -2.5], [{**ZONE, "pos": [3.0, -0.5]}], "proposed goto(3.00, 2.00) (go), rejected 0/3", "---", LANDS) == {
+    "the ballots carry a COURSE fact"}
 # A verdict whose percept the recorder lost, as a kill cuts its tail, is left unchecked, never skipped unseen.
 assert flagged([tick(0, [0, 0], [0, 0], [])], ballots(10, 50, "-++") + [{"t_ms": 60, "text": "proposed goto(1.00, 1.00) (go), approved 2/3"}]) == {
     ("unchecked", "the recorder holds no tick of the percept MAGI judged", "")}

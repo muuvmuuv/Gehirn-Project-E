@@ -83,16 +83,17 @@ fn (h Hazard) str() string {
 // here from the numbers and never quotes the proposal.
 fn (u Unit) jev_vote(ep jev.Endpoint, ctx lcl.Context, p lcl.Intent) Ballot {
 	// nearest skips an entity it cannot measure, so a human with a NaN coordinate would read as
-	// no person in sight, and walks_onto counts a velocity it cannot measure as onto every target.
+	// no person in sight, and crossing counts a velocity or a landing time it cannot measure as
+	// onto every target.
 	pc := ctx.percept
 	measurable := pc.scene.all(finite(it.pos) && math.is_finite(it.r)
-		&& (it.vel.len == 0 || measured_vel(it.vel)))
+		&& (it.vel.len == 0 || measured_vel(it.vel)) && math.is_finite(it.lands_in))
 	if u.bounds.len != 4 || !finite(pc.pose) || !measurable {
 		return Ballot{
 			unit:  u.name
 			model: ep.model
 			fault: true
-			why:   '${ep.model}: needs the operating area and finite positions and velocities'
+			why:   '${ep.model}: needs the operating area and finite positions, velocities and landing times'
 		}
 	}
 	sw := time.new_stopwatch()
@@ -106,8 +107,8 @@ fn (u Unit) jev_vote(ep jev.Endpoint, ctx lcl.Context, p lcl.Intent) Ballot {
 		}
 	}
 	latency_ms := sw.elapsed().milliseconds()
-	walker := if c := walks_onto(pc, p.target) { c.who } else { '' }
-	approve, why := jev_judge(r, p.verb, walker) or {
+	harm := if c := crossing(pc, p.target) { c.harm() } else { '' }
+	approve, why := jev_judge(r, p.verb, harm) or {
 		return Ballot{
 			unit:       u.name
 			model:      ep.model
@@ -126,11 +127,11 @@ fn (u Unit) jev_vote(ep jev.Endpoint, ctx lcl.Context, p lcl.Intent) Ballot {
 }
 
 // jev_judge applies the any serious violation rule: approve only a verb in lcl.known_verbs whose
-// target no walker crosses, walker naming the one walks_onto found, and only if every hazard stays
+// target crossing finds clear, harm naming the Crossing it found, and only if every hazard stays
 // below the limit of the verb's class, which lcl policy sets, never the proposal. A composite
 // hazard takes the lesser of its two nouls, an upper bound on both being true, so it errs toward
 // no.
-fn jev_judge(r jev.Reply, verb string, walker string) !(bool, string) {
+fn jev_judge(r jev.Reply, verb string, harm string) !(bool, string) {
 	if r.model != jev_tuned {
 		return error('answered by ${r.model}, thresholds tuned on ${jev_tuned}')
 	}
@@ -162,9 +163,11 @@ fn jev_judge(r jev.Reply, verb string, walker string) !(bool, string) {
 	// jev-1.13.0 read goes_to_person 0.33 to 0.49 for the destination a walker crosses within 2 s,
 	// in 60 ballots on tools/scenarios.json S19 and S22, against 0.18 to 0.22 on S20, the same goto
 	// with the walker heading away (PLAN, State, 2026-10-06), never the limit, so code rejects
-	// that course whatever Jev reads, as it rejects an unknown verb.
-	if walker != '' {
-		return false, 'harm: person ${walker} walks onto the destination, highest ${hazards[0]} < ${limit:.2f}, ${class}'
+	// that course whatever Jev reads, as it rejects an unknown verb. Jev's state has no words for
+	// a falling object's landing zone, which destination reads as open floor, so code rejects that
+	// too (ADR-0010).
+	if harm != '' {
+		return false, 'harm: ${harm}, highest ${hazards[0]} < ${limit:.2f}, ${class}'
 	}
 
 	// Jev knows an unknown verb only by its name, since means has nothing to say about it:

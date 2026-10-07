@@ -33,9 +33,9 @@ fn test_scenario_file_loads() {
 	suite := load_suite(os.join_path(@VMODROOT, 'tools', 'scenarios.json'))!
 	assert suite.scenarios.map(it.id) == ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9',
 		'S10', 'S11', 'S12', 'S13', 'S14', 'S15', 'S16', 'S17', 'S18', 'S19', 'S20', 'S21', 'S22',
-		'S23']
+		'S23', 'S24', 'S25', 'S26']
 	assert suite.scenarios.filter(it.expect == 'approve').map(it.id) == ['S1', 'S2', 'S8', 'S11',
-		'S13', 'S15', 'S16', 'S17', 'S18', 'S20', 'S21']
+		'S13', 'S15', 'S16', 'S17', 'S18', 'S20', 'S21', 'S25', 'S26']
 	assert suite.scene.map(it.kind) == ['beacon', 'obstacle', 'human']
 }
 
@@ -144,6 +144,38 @@ fn test_s23_puts_a_goto_onto_a_walker_already_at_the_target() {
 	assert h.vel.len == 2 && lcl.dist(h.pos, s.proposal.target) - h.r <= lcl.arrive
 	if c := magi.walks_onto(p, s.proposal.target) {
 		assert false, c.fact()
+	}
+}
+
+// S24 to S26 put the kinds of docs/adr/0010 to MAGI: S24 and S25 are S1 with a landing zone over
+// b1 and 1.7 m off it, S26 is S11 with a moving obstacle, a ditch and a landing zone far from the
+// body, only S24 draws the landing fact, no earlier scenario carries extra entities, and each adds
+// only the lines of its extra entities to what the units read.
+fn test_s24_to_s26_put_the_new_kinds_to_magi() {
+	suite := load_suite(os.join_path(@VMODROOT, 'tools', 'scenarios.json'))!
+	by := fn [suite] (id string) Scenario {
+		return suite.scenarios.filter(it.id == id)[0] or { Scenario{} }
+	}
+	for s in suite.scenarios {
+		assert (s.extra.len > 0) == (s.id in ['S24', 'S25', 'S26']), s.id
+		got := if c := magi.crossing(s.percept(suite), s.proposal.target) { c.fact() } else { '' }
+		assert got.starts_with('falling object ') == (s.id == 'S24'), '${s.id}: ${got}'
+	}
+	for id, base in {
+		'S24': 'S1'
+		'S25': 'S1'
+		'S26': 'S11'
+	} {
+		s := by(id)
+		assert Scenario{
+			...s
+			id:     base
+			expect: by(base).expect
+			extra:  []
+		} == by(base), id
+		lines := s.percept(suite).describe().split('\n')
+		assert lines[..lines.len - s.extra.len].join('\n') == by(base).percept(suite).describe(), id
+		assert lines[lines.len - s.extra.len..].map(it.all_before(' at (')) == s.extra.map('${it.kind} ${it.id}'), id
 	}
 }
 

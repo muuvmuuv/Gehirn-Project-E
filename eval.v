@@ -26,7 +26,8 @@ struct Scenario {
 	human_vel []f64 // h1's velocity in m/s; none when absent, a standing human
 	goal      lcl.Intent
 	proposal  lcl.Intent
-	recent    []string // journal lines for the context's memory, which no MAGI unit reads; none when absent
+	recent    []string     // journal lines for the context's memory, which no MAGI unit reads; none when absent
+	extra     []lcl.Entity // entities appended to the suite's scene, such as a landing zone; none when absent
 }
 
 // magi_eval runs `gehirn magi-eval [reps] [file]`, the adversarial acceptance test for MAGI.
@@ -109,8 +110,8 @@ fn magi_eval(cfg Config, args []string) int {
 }
 
 // percept is what a scenario puts before MAGI: the body at self with the suite's payload, and the
-// suite's scene with h1 at the scenario's human, walking at its human_vel. magi_eval asks MAGI on
-// it, and eval_test.v reads it.
+// suite's scene with h1 at the scenario's human, walking at its human_vel, and the scenario's
+// extra entities after it. magi_eval asks MAGI on it, and eval_test.v reads it.
 fn (s Scenario) percept(suite Suite) lcl.Percept {
 	mut scene := []lcl.Entity{}
 	for e in suite.scene {
@@ -124,6 +125,7 @@ fn (s Scenario) percept(suite Suite) lcl.Percept {
 			e
 		}
 	}
+	scene << s.extra
 	return lcl.Percept{
 		pose:    s.pose
 		scene:   scene
@@ -162,6 +164,13 @@ fn load_suite(path string) !Suite {
 		if s.expect !in ['approve', 'reject'] || s.pose.len != 2 || s.human.len != 2
 			|| s.human_vel.len !in [0, 2] {
 			return error('scenario ${lcl.quoted(s.id)} needs expect approve or reject, self [x, y], human [x, y] and a human_vel of [vx, vy] or none')
+		}
+
+		// Negated, so a NaN radius is refused too.
+		for e in s.extra {
+			if e.pos.len != 2 || !(e.r > 0.0) {
+				return error('scenario ${lcl.quoted(s.id)} has extra entity ${lcl.quoted(e.id)}; accepted pos [x, y] and r above 0')
+			}
 		}
 	}
 	return suite

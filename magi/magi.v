@@ -78,15 +78,23 @@ pub const course_horizon = 2.0
 // test_course_speed_is_the_armor_top_speed compares the two.
 pub const course_speed = 1.0
 
-// Crossing is a walking human's way onto a goto's target as walks_onto finds it, the one fact
-// every MAGI unit gets about it and votes no on: a chat unit under COURSE, Jev as the destination,
-// and main.v hq journals it with each ballot.
+// Cause is what makes a goto's target a no-go in a Crossing: a walking human's course onto it
+// (ADR-0009) or a falling object landing where it lies (ADR-0010).
+pub enum Cause {
+	walking
+	falling
+}
+
+// Crossing is the one fact every MAGI unit gets about a goto's target and votes no on, as
+// crossing finds it: a chat unit reads it under COURSE, Jev's ballot names it in jev_judge, and
+// main.v hq journals it with each ballot.
 pub struct Crossing {
 pub:
-	who      string // the human's id
-	reach_s  f64    // when it comes within lcl.arrive of the target, at its current velocity
-	body_s   f64    // the soonest the body can be within lcl.arrive of the target, at course_speed, a lower bound
-	measured bool   // false for a velocity measured_vel refuses, which counts as onto every target
+	who      string // the human's or the falling object's id
+	reach_s  f64    // when the human comes within lcl.arrive of the target at its current velocity, or when the object lands
+	body_s   f64    // walking only: the soonest the body can be within lcl.arrive of the target, at course_speed, a lower bound
+	measured bool   // false for a velocity or a landing that cannot be measured, which counts as onto every target
+	cause    Cause
 }
 
 // measured_vel says whether walks_onto can follow vel: two finite numbers whose square is finite
@@ -96,16 +104,82 @@ fn measured_vel(vel []f64) bool {
 }
 
 // fact is the crossing in the one line every chat unit reads under COURSE and main.v hq
-// journals. tools/mock_endpoint.py COURSE reads the start of the line.
+// journals. tools/mock_endpoint.py COURSE reads the start of a walker's line.
 pub fn (c Crossing) fact() string {
-	if !c.measured {
-		return 'human ${c.who} has a velocity that cannot be measured: the target counts as a human position'
+	return match c.cause {
+		.walking {
+			if c.measured {
+				'human ${c.who}, at its current velocity, reaches the target in ${c.reach_s:.1f} s, and the machine can be there in ${c.body_s:.1f} s: the target counts as a human position'
+			} else {
+				'human ${c.who} has a velocity that cannot be measured: the target counts as a human position'
+			}
+		}
+		.falling {
+			if c.measured {
+				'falling object ${c.who} lands where the target lies in ${c.reach_s:.1f} s: the target counts as a no-go zone'
+			} else {
+				'falling object ${c.who} has a landing that cannot be measured: the target counts as a no-go zone'
+			}
+		}
 	}
-	return 'human ${c.who}, at its current velocity, reaches the target in ${c.reach_s:.1f} s, and the machine can be there in ${c.body_s:.1f} s: the target counts as a human position'
+}
+
+// harm is the crossing as jev_judge's why names it.
+fn (c Crossing) harm() string {
+	return match c.cause {
+		.walking { 'person ${c.who} walks onto the destination' }
+		.falling { 'falling object ${c.who} lands on the destination' }
+	}
+}
+
+// crossing is the one fact every MAGI unit gets about a goto's target: a walking human's course
+// onto it, which ADR-0009 decides, else a falling object landing where it lies, which ADR-0010
+// decides. Unit.llm_vote, jev_vote and main.v hq read it.
+pub fn crossing(pc lcl.Percept, target []f64) ?Crossing {
+	if c := walks_onto(pc, target) {
+		return c
+	}
+	return lands_on(pc, target)
+}
+
+// lands_on finds the falling object that lands where a goto's target lies: an impact zone of pc
+// whose circle holds target, for crossing; of several, the one that lands first. A zone whose
+// position, radius or landing time cannot be measured counts as holding every target, so the rule
+// fails closed. A landed one is a ditch, which binds no unit (ADR-0010). tools/worldgen.py
+// misjudged copies the rule to audit MAGI's verdicts.
+fn lands_on(pc lcl.Percept, target []f64) ?Crossing {
+	if !finite(target) {
+		return none
+	}
+	mut found := Crossing{}
+	for e in pc.scene {
+		if e.kind != 'impact' {
+			continue
+		}
+		if !finite(e.pos) || !math.is_finite(e.r) || !math.is_finite(e.lands_in)
+			|| !(e.lands_in > 0.0) {
+			return Crossing{
+				who:   e.id
+				cause: .falling
+			}
+		}
+		if lcl.dist(target, e.pos) <= e.r && (!found.measured || e.lands_in < found.reach_s) {
+			found = Crossing{
+				who:      e.id
+				reach_s:  e.lands_in
+				measured: true
+				cause:    .falling
+			}
+		}
+	}
+	if !found.measured {
+		return none
+	}
+	return found
 }
 
 // walks_onto finds the walking human whose straight course at its current velocity reaches the
-// target, for Unit.llm_vote, destination and main.v hq. A human counts when its rim comes within
+// target, for crossing and destination. A human counts when its rim comes within
 // lcl.arrive of the target within course_horizon, and is still there, or not yet there, when the
 // body could first be within lcl.arrive of it, driving straight at course_speed; of those, the
 // one that gets there first. A human already within reach counts as standing there, which
@@ -221,8 +295,8 @@ fn init() {
 }
 
 // vote asks one unit for its ballot. Any failure is a fault, and a fault counts as no. A target
-// that walks_onto finds a walking human crossing draws a no from every backend, whatever it
-// answers.
+// that crossing finds a walking human crossing or a falling object landing on draws a no from
+// every backend, whatever it answers.
 pub fn (u Unit) vote(ctx lcl.Context, p lcl.Intent) Ballot {
 	return match u.ep {
 		oai.Endpoint { u.llm_vote(u.ep, ctx, p) }
@@ -240,7 +314,7 @@ fn (u Unit) llm_vote(ep oai.Endpoint, ctx lcl.Context, p lcl.Intent) Ballot {
 	// 28). COURSE comes before PROPOSAL, so it reads as computed from the percept and no why can
 	// move it; a why that forges one can only add a no. tools/mock_endpoint.py PROPOSAL parses the
 	// PROPOSAL section and COURSE the COURSE section.
-	fact := if c := walks_onto(ctx.percept, p.target) { c.fact() } else { '' }
+	fact := if c := crossing(ctx.percept, p.target) { c.fact() } else { '' }
 	course := if fact == '' { '' } else { '\n\nCOURSE\n${fact}' }
 	question := '${ctx.situation()}${course}\n\nPROPOSAL (${class})\n${p.label()} from ${p.origin}: ${p.why}'
 	sw := time.new_stopwatch()

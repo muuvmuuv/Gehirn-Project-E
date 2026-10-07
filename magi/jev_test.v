@@ -53,6 +53,28 @@ fn walking(pose []f64, human []f64, vel []f64) lcl.Percept {
 	}
 }
 
+// with is pc with extra entities appended to its scene, as a world lists its new kinds after
+// the humans.
+fn with(pc lcl.Percept, extra []lcl.Entity) lcl.Percept {
+	mut scene := pc.scene.clone()
+	scene << extra
+	return lcl.Percept{
+		...pc
+		scene: scene
+	}
+}
+
+// zone is the landing zone of falling object id, of radius r at pos, landing in lands_in s.
+fn zone(id string, pos []f64, r f64, lands_in f64) lcl.Entity {
+	return lcl.Entity{
+		id:       id
+		kind:     'impact'
+		pos:      pos
+		r:        r
+		lands_in: lands_in
+	}
+}
+
 struct CourseCase {
 	name    string
 	pose    []f64
@@ -136,6 +158,97 @@ fn test_walks_onto() {
 		if c.fact != '' {
 			assert got.fact() == c.fact, c.name
 		}
+	}
+}
+
+struct LandsCase {
+	name     string
+	zones    []lcl.Entity
+	target   []f64
+	who      string // the zone named, empty for none
+	reach_s  f64
+	measured bool
+}
+
+fn test_lands_on() {
+	s := zone('sahaquiel', [3.2, 2.4], 0.8, 10.0)
+	shard := zone('shard', [3.0, 2.0], 0.5, 4.0)
+	cases := [
+		LandsCase{'the target at the center', [s], [3.2, 2.4], 'sahaquiel', 10.0, true},
+		LandsCase{'tools/scenarios.json S24, b1 inside the rim', [s], [3.0, 2.0], 'sahaquiel', 10.0, true},
+		LandsCase{'just inside the rim', [s], [3.99, 2.4], 'sahaquiel', 10.0, true},
+		LandsCase{'just outside the rim', [s], [4.01, 2.4], '', 0, false},
+		LandsCase{'S25, b1 1.7 m off the rim', [zone('sahaquiel', [3.0, -0.5], 0.8, 10.0)], [
+			3.0, 2.0], '', 0, false},
+		LandsCase{'a landed crater', [lcl.Entity{
+			...s
+			kind:     'ditch'
+			lands_in: 0
+		}], [3.2, 2.4], '', 0, false},
+		LandsCase{'of two zones the sooner', [s, shard], [3.0, 2.0], 'shard', 4.0, true},
+		LandsCase{'of two zones the sooner, listed first', [shard, s], [3.0, 2.0], 'shard', 4.0, true},
+		LandsCase{'a landing time of 0, away from the target', [
+			zone('rock', [-4.0, -4.0], 0.5, 0.0)], [3.0, 2.0], 'rock', 0, false},
+		LandsCase{'a NaN landing time', [zone('rock', [-4.0, -4.0], 0.5, math.nan())], [
+			3.0, 2.0], 'rock', 0, false},
+		LandsCase{'an infinite landing time', [zone('rock', [-4.0, -4.0], 0.5, math.inf(1))], [
+			3.0, 2.0], 'rock', 0, false},
+		LandsCase{'a NaN position', [zone('rock', [math.nan(), -4.0], 0.5, 5.0)], [3.0, 2.0], 'rock', 0, false},
+		LandsCase{'a short position', [zone('rock', [-4.0], 0.5, 5.0)], [3.0, 2.0], 'rock', 0, false},
+		LandsCase{'a NaN radius', [zone('rock', [-4.0, -4.0], math.nan(), 5.0)], [3.0, 2.0], 'rock', 0, false},
+		LandsCase{'a target that is not finite', [s], [math.nan(), 2.0], '', 0, false},
+		LandsCase{'no target', [s], [], '', 0, false},
+	]
+	for c in cases {
+		got := lands_on(lcl.Percept{ pose: [0.0, 0.0], scene: c.zones }, c.target) or {
+			assert c.who == '', '${c.name}: none'
+			continue
+		}
+		assert got.who == c.who && got.cause == .falling, '${c.name}: ${got}'
+		assert got.measured == c.measured && got.reach_s == c.reach_s, '${c.name}: ${got}'
+	}
+}
+
+struct CrossCase {
+	name string
+	pc   lcl.Percept
+	fact string // the fact crossing gives, empty for none
+}
+
+// crossing gives a walker's course before a landing on the same target, a landing where no walker
+// crosses, and nothing for a crater, a ditch or an obstacle that moves.
+fn test_crossing() {
+	b1 := [3.0, 2.0]
+	s19 := walking([2.0, 0.5], [3.0, 0.9], [0.0, 0.5])
+	s20 := walking([2.0, 0.5], [3.0, 0.9], [0.0, -0.5])
+	over := zone('sahaquiel', [3.2, 2.4], 0.8, 10.0)
+	cases := [
+		CrossCase{'a walker and a landing', with(s19, [over]), 'human h1, at its current velocity, reaches the target in 0.9 s, and the machine can be there in 1.5 s: the target counts as a human position'},
+		CrossCase{'a landing alone', with(s20, [over]), 'falling object sahaquiel lands where the target lies in 10.0 s: the target counts as a no-go zone'},
+		CrossCase{'a landing that cannot be measured', with(s20, [
+			zone('sahaquiel', [3.2, 2.4], 0.8, math.nan())]), 'falling object sahaquiel has a landing that cannot be measured: the target counts as a no-go zone'},
+		CrossCase{'neither', s20, ''},
+		CrossCase{'a crater, a ditch, an obstacle that moves', with(s20, [
+			lcl.Entity{
+				...over
+				kind:     'ditch'
+				lands_in: 0
+			}, lcl.Entity{
+				id:   'trench'
+				kind: 'ditch'
+				pos:  b1
+				r:    0.5
+			}, lcl.Entity{
+				id:   'boat'
+				kind: 'obstacle'
+				pos:  [3.0, 1.0]
+				r:    0.35
+				vel:  [0.0, 0.5]
+			}]), ''},
+	]
+	for c in cases {
+		got := if f := crossing(c.pc, b1) { f.fact() } else { '' }
+		assert got == c.fact, c.name
 	}
 }
 
@@ -267,42 +380,51 @@ fn test_jev_judge() {
 	}
 }
 
-// A destination a walker crosses is rejected whatever Jev reads, before an unknown verb, while a
-// hazard over the limit still names itself first.
-fn test_jev_judge_rejects_a_destination_a_walker_crosses() {
+// A destination a walker crosses or a falling object lands on is rejected whatever Jev reads,
+// before an unknown verb, while a hazard over the limit still names itself first. Each case's why
+// is the harm crossing hands jev_judge.
+fn test_jev_judge_rejects_a_destination_crossing_finds() {
+	walker := 'person h1 walks onto the destination'
 	cases := {
-		'harm: person h1 walks onto the destination, highest goes_to_person 0.41 < 0.60, reversible':   JudgeCase{'goto', [
+		'harm: person h1 walks onto the destination, highest goes_to_person 0.41 < 0.60, reversible':              JudgeCase{'goto', [
 			0.41,
 			0.05,
 			0.03,
 			0.9,
 			0.9,
 			0.01,
-		], 'jev-1.13.0', 'reject', ''}
-		'harm: leaves_area 0.96 >= 0.60, reversible':                                                   JudgeCase{'goto', [
+		], 'jev-1.13.0', 'reject', walker}
+		'harm: leaves_area 0.96 >= 0.60, reversible':                                                              JudgeCase{'goto', [
 			0.41,
 			0.96,
 			0.03,
 			0.9,
 			0.9,
 			0.01,
-		], 'jev-1.13.0', 'reject', ''}
-		'harm: person h2 walks onto the destination, highest goes_to_person 0.20 < 0.35, irreversible': JudgeCase{'teleport', [
+		], 'jev-1.13.0', 'reject', walker}
+		'harm: person h2 walks onto the destination, highest goes_to_person 0.20 < 0.35, irreversible':            JudgeCase{'teleport', [
 			0.20,
 			0.05,
 			0.03,
 			0.05,
 			0.05,
 			0.01,
-		], 'jev-1.13.0', 'reject', ''}
+		], 'jev-1.13.0', 'reject', 'person h2 walks onto the destination'}
+		'harm: falling object sahaquiel lands on the destination, highest goes_to_person 0.12 < 0.60, reversible': JudgeCase{'goto', [
+			0.12,
+			0.05,
+			0.03,
+			0.05,
+			0.05,
+			0.01,
+		], 'jev-1.13.0', 'reject', 'falling object sahaquiel lands on the destination'}
 	}
 	for want, c in cases {
 		mut nouls := map[string]f64{}
 		for i, v in c.nouls {
 			nouls[jev_ids[i]] = v
 		}
-		walker := if c.verb == 'teleport' { 'h2' } else { 'h1' }
-		approve, why := jev_judge(jev.Reply{ model: c.model, nouls: nouls }, c.verb, walker)!
+		approve, why := jev_judge(jev.Reply{ model: c.model, nouls: nouls }, c.verb, c.why)!
 		assert !approve, want
 		assert why == want
 	}
@@ -364,7 +486,17 @@ fn test_jev_unit_faults_are_no() {
 	for vel in [[math.nan(), 0.0], [0.5], [1e155, 0.0]] {
 		b := u.vote(lcl.Context{ percept: walking([3.0, 2.0], [-1.0, 1.2], vel) }, release)
 		assert b.fault && !b.approve, '${vel}'
-		assert b.why.contains('finite positions and velocities'), b.why
+		assert b.why.contains('finite positions, velocities'), b.why
+	}
+
+	// Nor is a landing time it cannot measure, which crossing counts as onto every target.
+	for lands_in in [math.nan(), math.inf(1)] {
+		pc := with(percept([3.0, 2.0], [-1.0, 1.2]), [
+			zone('rock', [-4.0, -4.0], 0.5, lands_in),
+		])
+		b := u.vote(lcl.Context{ percept: pc }, release)
+		assert b.fault && !b.approve, '${lands_in}'
+		assert b.why.contains('finite positions, velocities and landing times'), b.why
 	}
 }
 
@@ -438,6 +570,75 @@ fn test_jev_unit_rejects_a_goto_onto_a_walkers_course() {
 	assert !s20.fault && s20.approve, s20.why
 }
 
+// A Jev unit rejects a goto into a falling object's landing zone, tools/scenarios.json S24, where
+// Jev reads b1 as a beacon and no hazard near the limit, and passes the same goto with the zone
+// 1.7 m off b1's rim, S25. l stays open as in test_jev_unit_rejects_a_goto_onto_a_walkers_course.
+fn test_jev_unit_rejects_a_goto_into_a_landing_zone() {
+	mut l := net.listen_tcp(.ip, '127.0.0.1:0')!
+	addr := l.addr()!
+	spawn fn [mut l] () {
+		answering(mut l, 0.25)
+	}()
+	u := Unit{
+		name:   'BALTHASAR-2'
+		ep:     jev.Endpoint{
+			url:     'http://${addr}/v1/systemone'
+			model:   'jev-1.13.0'
+			key:     'test'
+			timeout: 3 * time.second
+		}
+		bounds: fence()
+	}
+	to_b1 := lcl.Intent{
+		verb:   'goto'
+		target: [3.0, 2.0]
+	}
+	s1 := percept([-3.5, -2.5], [2.6, 1.2])
+	s24 := u.vote(lcl.Context{
+		percept: with(s1, [
+			zone('sahaquiel', [3.2, 2.4], 0.8, 10.0),
+		])
+	}, to_b1)
+	assert !s24.fault && !s24.approve, s24.why
+	assert s24.why == 'harm: falling object sahaquiel lands on the destination, highest goes_to_person 0.25 < 0.60, reversible'
+	s25 := u.vote(lcl.Context{
+		percept: with(s1, [
+			zone('sahaquiel', [3.0, -0.5], 0.8, 10.0),
+		])
+	}, to_b1)
+	assert !s25.fault && s25.approve, s25.why
+}
+
+// chat_servers serves three chat models on loopback that answer every ballot with approve, with
+// reject, or without a vote, and gives each one's address under approve, reject and garbage.
+fn chat_servers() !map[string]string {
+	mut servers := map[string]string{}
+	for reply in ['approve', 'reject', 'garbage'] {
+		content := if reply == 'garbage' {
+			'{"decision":"approve"}'
+		} else {
+			'{"why":"Target inside fence.","vote":"${reply}"}'
+		}
+		mut l := net.listen_tcp(.ip, '127.0.0.1:0')!
+		servers[reply] = l.addr()!.str()
+		spawn fn [mut l, content] () {
+			serving(mut l, '{"choices":[{"message":{"content":${json2.encode(content)}}}]}')
+		}()
+	}
+	return servers
+}
+
+// voted is a ballot as the veto tests compare it: approve, reject or fault.
+fn voted(b Ballot) string {
+	return if b.fault {
+		'fault'
+	} else if b.approve {
+		'approve'
+	} else {
+		'reject'
+	}
+}
+
 struct VetoCase {
 	name   string
 	pose   []f64
@@ -453,19 +654,7 @@ struct VetoCase {
 // the model answered, and keeps the model's vote and why; without a crossing the model's ballot
 // stands, and a fault stays a fault. tools/scenarios.json S19 to S22 are the scenes.
 fn test_a_chat_unit_rejects_a_goto_onto_a_walkers_course() {
-	mut servers := map[string]string{}
-	for reply in ['approve', 'reject', 'garbage'] {
-		content := if reply == 'garbage' {
-			'{"decision":"approve"}'
-		} else {
-			'{"why":"Target inside fence.","vote":"${reply}"}'
-		}
-		mut l := net.listen_tcp(.ip, '127.0.0.1:0')!
-		servers[reply] = l.addr()!.str()
-		spawn fn [mut l, content] () {
-			serving(mut l, '{"choices":[{"message":{"content":${json2.encode(content)}}}]}')
-		}()
-	}
+	servers := chat_servers()!
 	s19 := 'course veto: human h1, at its current velocity, reaches the target in 0.9 s, and the machine can be there in 1.5 s: the target counts as a human position'
 	unmeasured := 'course veto: human h1 has a velocity that cannot be measured: the target counts as a human position'
 	b1 := [3.0, 2.0]
@@ -496,14 +685,7 @@ fn test_a_chat_unit_rejects_a_goto_onto_a_walkers_course() {
 				verb:   'goto'
 				target: c.target
 			})
-			got := if b.fault {
-				'fault'
-			} else if b.approve {
-				'approve'
-			} else {
-				'reject'
-			}
-			assert got == c.vote, '${u.name}, ${c.name}: ${b.why}'
+			assert voted(b) == c.vote, '${u.name}, ${c.name}: ${b.why}'
 			assert b.why == c.why, '${u.name}, ${c.name}'
 		}
 	}
@@ -521,6 +703,97 @@ fn test_a_chat_unit_rejects_a_goto_onto_a_walkers_course() {
 	}.decide(lcl.Context{ percept: walking([1.0, -2.0], [2.5, -0.6], [-0.5, 0.0]) }, lcl.Intent{
 		verb:   'goto'
 		target: [1.3, -0.6]
+	}, fn (_ Ballot) {})
+	assert !v.approved && v.yes == 0, v.str()
+}
+
+struct LandingCase {
+	name  string
+	pc    lcl.Percept
+	reply string // what the chat model answers: approve, reject or garbage
+	vote  string // the ballot: approve, reject or fault
+	why   string
+}
+
+// A chat unit's ballot on a goto into a falling object's landing zone is a no whatever the model
+// answered, and keeps the model's vote and why; a walker's course onto the same target gives the
+// walker's fact, a fault stays a fault, and a crater, a ditch, an obstacle that moves and ground
+// draw nothing. tools/scenarios.json S24 and S25 are the scenes.
+fn test_a_chat_unit_rejects_a_goto_into_a_landing_zone() {
+	servers := chat_servers()!
+	s1 := percept([-3.5, -2.5], [2.6, 1.2])
+	over := zone('sahaquiel', [3.2, 2.4], 0.8, 10.0)
+	landing := 'course veto: falling object sahaquiel lands where the target lies in 10.0 s: the target counts as a no-go zone'
+	clear := lcl.Percept{
+		...with(s1, [
+			lcl.Entity{
+				...over
+				kind:     'ditch'
+				lands_in: 0
+			},
+			lcl.Entity{
+				id:   'boat'
+				kind: 'obstacle'
+				pos:  [3.0, 1.0]
+				r:    0.35
+				vel:  [0.0, 0.5]
+			},
+		])
+		ground: [
+			lcl.Entity{
+				id:     'lake'
+				kind:   'ground'
+				pos:    [3.0, 2.0]
+				r:      1.4
+				factor: 0.5
+			},
+		]
+	}
+	cases := [
+		LandingCase{'S24, approved', with(s1, [over]), 'approve', 'reject', '${landing}; the model voted approve: Target inside fence.'},
+		LandingCase{'S24, rejected', with(s1, [over]), 'reject', 'reject', '${landing}; the model voted reject: Target inside fence.'},
+		LandingCase{'S24, a fault', with(s1, [over]), 'garbage', 'fault', 'unreadable ballot'},
+		LandingCase{'a landing that cannot be measured', with(s1, [
+			zone('sahaquiel', [-4.0, -4.0], 0.5, 0.0)]), 'approve', 'reject', 'course veto: falling object sahaquiel has a landing that cannot be measured: the target counts as a no-go zone; the model voted approve: Target inside fence.'},
+		LandingCase{'a walker onto a target in a zone', with(walking([2.0, 0.5], [3.0, 0.9], [
+			0.0, 0.5]), [over]), 'approve', 'reject', 'course veto: human h1, at its current velocity, reaches the target in 0.9 s, and the machine can be there in 1.5 s: the target counts as a human position; the model voted approve: Target inside fence.'},
+		LandingCase{'S25, the zone off the target', with(s1, [
+			zone('sahaquiel', [3.0, -0.5], 0.8, 10.0)]), 'approve', 'approve', 'Target inside fence.'},
+		LandingCase{'a crater, an obstacle that moves and ground', clear, 'approve', 'approve', 'Target inside fence.'},
+	]
+	for persona in [melchior, balthasar, casper] {
+		for c in cases {
+			u := Unit{
+				name:    persona.all_after('You are ').all_before(',')
+				persona: persona
+				ep:      oai.Endpoint{
+					url:     'http://${servers[c.reply]}/v1/chat/completions'
+					model:   'm'
+					timeout: 3 * time.second
+				}
+			}
+			b := u.vote(lcl.Context{ percept: c.pc }, lcl.Intent{
+				verb:   'goto'
+				target: [3.0, 2.0]
+			})
+			assert voted(b) == c.vote, '${u.name}, ${c.name}: ${b.why}'
+			assert b.why == c.why, '${u.name}, ${c.name}'
+		}
+	}
+
+	// The violation refused: every model approves S24, a reversible goto that needs 2 of 3.
+	approving := Unit{
+		ep: oai.Endpoint{
+			url:     'http://${servers['approve']}/v1/chat/completions'
+			model:   'm'
+			timeout: 3 * time.second
+		}
+	}
+	v := Magi{
+		units: [approving, approving, approving]
+	}.decide(lcl.Context{ percept: with(s1, [over]) }, lcl.Intent{
+		verb:   'goto'
+		target: [3.0, 2.0]
 	}, fn (_ Ballot) {})
 	assert !v.approved && v.yes == 0, v.str()
 }

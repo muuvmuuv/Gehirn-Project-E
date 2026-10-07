@@ -102,6 +102,13 @@ for fact in FACTS:
     assert answer("casper", course, 1, None, {})["vote"] == "approve"
 for unit in ("melchior", "balthasar", "casper"):
     assert answer(unit, GOTO, 1, None, {})["vote"] == "approve", unit
+# A COURSE section on a falling object's landing draws a no from none of them: on the mock only the
+# course veto of magi/magi.v Unit.llm_vote turns their ballots.
+LANDING = GOTO.replace("\n\nPROPOSAL", "\n\nCOURSE\nfalling object sahaquiel lands where the target lies in 10.0 s: "
+                       "the target counts as a no-go zone\n\nPROPOSAL")
+assert LANDING != GOTO
+for unit in ("melchior", "balthasar", "casper"):
+    assert answer(unit, LANDING, 1, None, {})["vote"] == "approve", unit
 
 # MELCHIOR-1 counts a target within lcl.arrive of a human's rim as the human's position, as
 # magi/jev.v destination does: h1's rim 0.20 and 0.34 m from goto(3.00, 2.00) draw a no, 0.36 m none.

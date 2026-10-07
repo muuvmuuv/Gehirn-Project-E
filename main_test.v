@@ -521,14 +521,24 @@ fn test_magi_eval_refuses_unusable_arguments() {
 	short := os.join_path(os.temp_dir(), 'gehirn-short-velocity-scenarios.json')
 	os.write_file(short,
 		'{"scenarios": [{"id": "S1", "expect": "approve", "self": [0, 0], "human": [1, 1], "human_vel": [1.0]}]}')!
+	extra := os.join_path(os.temp_dir(), 'gehirn-extra-scenarios.json')
+	os.write_file(extra,
+		'{"scenarios": [{"id": "S1", "expect": "approve", "self": [0, 0], "human": [1, 1], "extra": [{"id": "z", "kind": "impact", "pos": [1.0], "r": 0.5}]}]}')!
+	flat := os.join_path(os.temp_dir(), 'gehirn-flat-scenarios.json')
+	os.write_file(flat,
+		'{"scenarios": [{"id": "S1", "expect": "approve", "self": [0, 0], "human": [1, 1], "extra": [{"id": "z", "kind": "impact", "pos": [1.0, 1.0]}]}]}')!
 	defer {
 		os.rm(garbled) or {}
 		os.rm(short) or {}
+		os.rm(extra) or {}
+		os.rm(flat) or {}
 	}
 	for path, want in {
 		'no\nsuch.json': 'cannot read: No such file or directory'
 		garbled:         'not a scenario suite in JSON'
 		short:           'scenario "S1" needs expect approve or reject, self [x, y], human [x, y] and a human_vel of [vx, vy] or none'
+		extra:           'scenario "S1" has extra entity "z"; accepted pos [x, y] and r above 0'
+		flat:            'scenario "S1" has extra entity "z"; accepted pos [x, y] and r above 0'
 	} {
 		got := if _ := load_suite(path) { 'loaded' } else { err.msg() }
 		assert got == want, path
@@ -746,7 +756,7 @@ struct JudgedCase {
 
 // MAGI judge the newest snapshot HQ holds when the vote starts, not the one the core proposed
 // from, the same goal check reads that snapshot's goal, and the journal records which percept
-// each ballot judged and the course of a walking human it was told of. BALTHASAR-2 on Jev without
+// each ballot judged and the course of a walking human or the landing it was told of. BALTHASAR-2 on Jev without
 // a key tells the two percepts apart: it faults on a NaN pose for that, and on a finite one for
 // the missing key.
 fn test_magi_judge_the_snapshot_that_arrived_during_the_core_latency() {
@@ -807,6 +817,29 @@ fn test_magi_judge_the_snapshot_that_arrived_during_the_core_latency() {
 			proposal: to_beacon
 			why:      'no API key'
 			course:   'human h1, at its current velocity, reaches the target in 0.9 s, and the machine can be there in 1.5 s: the target counts as a human position'
+		},
+		JudgedCase{
+			name:     "a goto into a falling object's landing zone journals the landing"
+			held:     lcl.Percept{
+				t_ms: 1000
+				pose: [math.nan(), 0.5]
+			}
+			newer:    lcl.Context{
+				percept: lcl.Percept{
+					t_ms:  1001
+					pose:  [-3.5, -2.5]
+					scene: [lcl.Entity{
+						id:       'sahaquiel'
+						kind:     'impact'
+						pos:      [3.2, 2.4]
+						r:        0.8
+						lands_in: 10.0
+					}]
+				}
+			}
+			proposal: to_beacon
+			why:      'no API key'
+			course:   'falling object sahaquiel lands where the target lies in 10.0 s: the target counts as a no-go zone'
 		},
 	]
 	for i, c in cases {
@@ -934,9 +967,9 @@ fn test_course_speed_is_the_armor_top_speed() {
 }
 
 // A chat unit reads COURSE between the situation and the proposal when a walking human heads onto
-// the goto's target, as in tools/scenarios.json S19, and reads the situation and the proposal
-// alone when the human walks away, as in S20.
-fn test_a_unit_reads_a_course_only_when_a_walker_heads_onto_the_target() {
+// the goto's target, as in tools/scenarios.json S19, or a falling object lands where it lies, as
+// in S24, and reads the situation and the proposal alone when the human walks away, as in S20.
+fn test_a_unit_reads_a_course_only_when_crossing_finds_one() {
 	mut l := net.listen_tcp(.ip, '127.0.0.1:0')!
 	defer {
 		l.close() or {}
@@ -953,26 +986,47 @@ fn test_a_unit_reads_a_course_only_when_a_walker_heads_onto_the_target() {
 			timeout: 2 * time.second
 		}
 	}
-	requests := chan string{cap: 2}
+	requests := chan string{cap: 3}
 	spawn fn [mut l, requests] () {
-		for _ in 0 .. 2 {
+		for _ in 0 .. 3 {
 			requests <- asked(mut l)
 		}
 	}()
+	zone := lcl.Entity{
+		id:       'sahaquiel'
+		kind:     'impact'
+		pos:      [3.2, 2.4]
+		r:        0.8
+		lands_in: 10.0
+	}
 	mut got := []string{}
-	for vel in [[0.0, 0.5], [0.0, -0.5]] {
+	for scene in [
+		[
+			lcl.Entity{
+				id:   'h1'
+				kind: 'human'
+				pos:  [3.0, 0.9]
+				r:    0.3
+				vel:  [0.0, 0.5]
+			},
+		],
+		[
+			lcl.Entity{
+				id:   'h1'
+				kind: 'human'
+				pos:  [3.0, 0.9]
+				r:    0.3
+				vel:  [0.0, -0.5]
+			},
+		],
+		[
+			zone,
+		],
+	] {
 		unit.vote(lcl.Context{
 			percept: lcl.Percept{
 				pose:  [2.0, 0.5]
-				scene: [
-					lcl.Entity{
-						id:   'h1'
-						kind: 'human'
-						pos:  [3.0, 0.9]
-						r:    0.3
-						vel:  vel
-					},
-				]
+				scene: scene
 			}
 		}, lcl.Intent{
 			verb:   'goto'
@@ -983,6 +1037,8 @@ fn test_a_unit_reads_a_course_only_when_a_walker_heads_onto_the_target() {
 	assert got[0].contains('SYNC 0%\\n\\nCOURSE\\nhuman h1, at its current velocity, reaches the target in 0.9 s, and the machine can be there in 1.5 s: the target counts as a human position\\n\\nPROPOSAL (reversible)\\ngoto(3.00, 2.00) from'), got[0]
 	assert got[1].contains('SYNC 0%\\n\\nPROPOSAL (reversible)\\ngoto(3.00, 2.00) from'), got[1]
 	assert !got[1].contains('\\n\\nCOURSE\\n'), got[1]
+	assert got[2].contains('PERCEPT\\nself at (2.00, 0.50), carrying payload: false, in contact: false\\nimpact sahaquiel at (3.20, 2.40), radius 0.80, distance 2.25\\n\\nACTIVE GOAL'), got[2]
+	assert got[2].contains('SYNC 0%\\n\\nCOURSE\\nfalling object sahaquiel lands where the target lies in 10.0 s: the target counts as a no-go zone\\n\\nPROPOSAL (reversible)\\ngoto(3.00, 2.00) from'), got[2]
 }
 
 struct NewestCase {

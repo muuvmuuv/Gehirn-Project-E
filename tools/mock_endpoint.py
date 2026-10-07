@@ -5,7 +5,8 @@ Serves POST .../chat/completions and answers as whichever role the system prompt
 the core walks to the beacon, the one the mission names or else the first in the percept,
 releases there and then holds. MELCHIOR-1 and BALTHASAR-2 run coarse versions of their persona
 checklists in magi/magi.v: both reject unknown verbs, a goto without a target or outside the
-fence, a goto whose request carries a COURSE section, and a release with a human within 2.5 m;
+fence, a goto whose request carries a COURSE section on a walking human, and a release with a
+human within 2.5 m;
 MELCHIOR-1 also rejects a goto onto a human, within 0.35 m of its rim as magi/jev.v destination
 counts a human position, and a release away from the beacon, BALTHASAR-2 a goto to within 1 m of a
 human. CASPER-3 approves everything. Replies rotate through the wrappers real models put around
@@ -59,7 +60,9 @@ ENTITY = re.compile(
 )
 MISSION = re.compile(r"^MISSION\n(.*?)\n\nPERCEPT$", re.M | re.S)
 PROPOSAL = re.compile(r"^PROPOSAL \(\w+\)\n([^\s(]+)(?:\((\S+), (\S+)\))? from ", re.M)
-# The COURSE section magi/magi.v Unit.llm_vote puts before PROPOSAL, from magi Crossing.fact.
+# The COURSE section magi/magi.v Unit.llm_vote puts before PROPOSAL, from magi Crossing.fact, on a
+# walking human; the personas say nothing of a falling object, so neither do the mock's units, and
+# only the course veto turns their ballots on a landing.
 COURSE = re.compile(r"^COURSE\nhuman ([^\s,]+)", re.M)
 
 STYLES = ("plain", "think", "fence", "chatter")
