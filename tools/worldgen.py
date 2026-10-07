@@ -28,7 +28,7 @@ findings.jsonl with one line per world, and summary.txt. It never writes into wo
 tools/scenarios.json; a person promotes a find.
 
     python3 tools/withenv.py .env python3 tools/worldgen.py --out hunt --rounds 3 --worlds 4 --runs 2
-    python3 tools/withenv.py .env python3 tools/worldgen.py --out hunt --ref-env PLANNER=local  # once Task 6 lands
+    python3 tools/withenv.py .env python3 tools/worldgen.py --out hunt --ref-env PLANNER=local  # the local planner as the reference
     python3 tools/withenv.py .env python3 tools/worldgen.py --out hunt --lineup magi --jobs 2
 """
 
