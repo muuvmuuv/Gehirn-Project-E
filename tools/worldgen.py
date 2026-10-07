@@ -59,15 +59,20 @@ SLOWEST = 0.2  # armor/armor.v separation's floor: the share of the cap left nea
 STILL = 1e-9  # m/s, armor/armor.v still: motion the armor takes for rounding
 TICK = 0.02  # s, main.v tick, over which the armor bounds a change of velocity
 COURSE_HORIZON = 2.0  # s, magi/magi.v course_horizon: how far ahead MAGI follow a walking human
+UNITS = 3  # MAGI units, three by Invariant 4: every verdict counts their ballots, magi/magi.v quorum
 BODY_R = 0.25  # m, body/world.v body_radius: Sim's contact rule
 # The personas' release line of 2.5 m center to center as a rim distance for a human of the default
 # 0.3 m radius. A release vote with the nearest human between it and release_keep counts as
 # misjudged neither way.
 CLEAR_RIM = HUMAN_CLEARANCE - 0.3
+MARGIN = 0.2  # m past the personas' release line a human must be before a rejected release counts as misjudged
 STEP_STILL = 1e-6  # m a step of the MuJoCo base may close by and count as nothing, 0.001 mm
 TOUCH = 0.03  # m past Sim's contact rule a recorded pose may sit, since Sim checks the next pose
 STALL = 1.0  # s between recorder ticks, or before a run's end, that counts as the field loop stalled
-TEST_KINDS = ("no delivery", "misjudgment", "armor refusal")
+# Ticks, 0.5 s: a human with a velocity this recently walked into the MuJoCo base's braking, which
+# a human's own approach would have to hold for about that long to end (PLAN, Known issue 33).
+WALKED = 25
+TEST_KINDS = ("misjudgment", "armor refusal")
 
 # The journal's verdict line, which main.v hq writes and tools/trials.py RELEASE_VOTE reads too.
 VERDICT = re.compile(r"^proposed ([^\s(]+)(?:\((\S+), (\S+)\))? .*, (approved|rejected) (\d+)/(\d+)$", re.S)
@@ -226,6 +231,37 @@ def shown(d: float) -> float:
     return float(f"{d:.2f}")
 
 
+def walks_onto(pose: list[float], target: list[float], scene: list[dict]) -> str:
+    """Return the id of the walking human whose straight course reaches target before the body
+    could pass, or ''. It copies magi/magi.v walks_onto, which names this function, with
+    COURSE_HORIZON, V_MAX as its course_speed and ARRIVE as lcl.arrive, so the audit judges a
+    verdict by the rule rather than by the COURSE fact the ballots carry."""
+    if not all(map(math.isfinite, pose + target)):
+        return ""
+    walkers = [e for e in scene if e["kind"] == "human" and e.get("vel")]
+    for e in walkers:
+        vx, vy = e["vel"]
+        if not math.isfinite(vx * vx + vy * vy):
+            return e["id"]  # a velocity that cannot be measured counts as onto every target
+    body_s = max(0.0, (math.dist(pose, target) - ARRIVE) / V_MAX)
+    if body_s > COURSE_HORIZON:
+        return ""
+    found, first = "", math.inf
+    for e in walkers:
+        (vx, vy), (wx, wy) = e["vel"], (target[0] - e["pos"][0], target[1] - e["pos"][1])
+        s2 = vx * vx + vy * vy
+        if s2 == 0.0:
+            continue
+        tc, reach = (wx * vx + wy * vy) / s2, e["r"] + ARRIVE
+        d2 = wx * wx + wy * wy - tc * tc * s2
+        if d2 > reach * reach:
+            continue
+        half = math.sqrt((reach * reach - d2) / s2)
+        if 0.0 < tc - half <= COURSE_HORIZON and tc + half >= body_s and tc - half < first:
+            found, first = e["id"], tc - half
+    return found
+
+
 def humans_at(tick: dict) -> str:
     """Describe where each human of a recorder tick is from the body: center and rim distance."""
     pose = tick["pose"]
@@ -237,14 +273,15 @@ def audit(ticks: list[dict], journal: list[dict], world: dict, mujoco: bool) -> 
     """Check one run's recorder ticks and journal entries against PLAN's invariants, the armor's
     restraints and the rules MAGI judge by, and return each failure as {kind, what, known,
     evidence} with the run's facts: when it released, its closest approach to a human and to a
-    solid, and how far from the first beacon it ended. On Sim every restraint holds to the tick; on
-    the MuJoCo base mujoco also checks each step between recorded poses, where braking into a
-    walker who walks in is Known issue 33."""
+    solid, and how far from the first beacon it ended. A failure of kind unchecked names a check
+    the run's files leave no way to make. On Sim every restraint holds to the tick; on the MuJoCo
+    base mujoco also checks each step between recorded poses, where braking into a human who
+    walked in is Known issue 33."""
     fails: list[dict] = []
     agg: dict[tuple[str, str, str], list] = {}
     t0 = ticks[0]["t_ms"] if ticks else 0
     ts = [r["t_ms"] for r in ticks]
-    reaction = {h.get("id"): h.get("reaction") for h in world.get("humans", []) if isinstance(h, dict)}
+    reaction = {h.get("id"): h.get("reaction") for h in world.get("humans") or [] if isinstance(h, dict)}
 
     def fail(kind: str, what: str, evidence: list[str], known: str = "") -> None:
         fails.append({"kind": kind, "what": what, "known": known, "evidence": evidence})
@@ -292,8 +329,12 @@ def audit(ticks: list[dict], journal: list[dict], world: dict, mujoco: bool) -> 
                 if rim(pose, e) < (HUMAN_STOP if human else SOLID_KEEP) and (c := closing(step, pose, e)) > STEP_STILL:
                     if not human:
                         note(f"a step toward {e['kind']} {e['id']} inside solid_keep", t, c, "m")
-                    elif closing(u, pose, e) <= STILL:
+                    elif closing(u, pose, e) > STILL:
+                        continue  # the motion check above already holds it
+                    elif any(h.get("vel") for p in ticks[max(0, k - WALKED):k + 1] for h in p["scene"] if h["id"] == e["id"]):
                         note(f"a braking step toward human {e['id']} inside human_stop", t, c, "m", "Known issue 33")
+                    else:
+                        note(f"a braking step toward standing human {e['id']} inside human_stop", t, c, "m")
     for (what, unit, known), (n, first, worst) in agg.items():
         fail("invariant", what, [f"{n} ticks from {first:.2f} s, by up to {worst:.3g} {unit}"], known)
 
@@ -303,9 +344,21 @@ def audit(ticks: list[dict], journal: list[dict], world: dict, mujoco: bool) -> 
         return ticks[i] if i >= 0 and ts[i] >= percept_ms - 1 else None
 
     def tick_after(t_ms: int) -> dict | None:
-        """The first tick at or after t_ms, where the field loop acts on HQ's message of then."""
+        """The first tick at or after t_ms, where the field loop acts on HQ's message of then, give
+        or take a tick."""
         i = bisect.bisect_left(ts, t_ms)
         return ticks[i] if i < len(ticks) else None
+
+    def release_tick(t_ms: int) -> dict | None:
+        """The tick whose percept the armor released on, after a release verdict at t_ms: the first
+        whose target is empty, since main.v's field loop makes the goal a hold in that tick. None
+        when the goal had no target before it, as after an approved hold."""
+        # ponytail: the scripted core of every lineup here proposes no hold before the release; a
+        # hosted core does, so record the payload in plug.Record once a hunt flies one.
+        i = bisect.bisect_left(ts, t_ms - TICK * 1000) - 1  # a tick the verdict's message cannot reach
+        if i < 0 or not ticks[i]["target"]:
+            return None
+        return next((r for r in ticks[i + 1:] if not r["target"]), None)
 
     ballots: list[dict] = []
     approved_release: tuple[dict, dict | None] | None = None  # its verdict line and judged tick
@@ -317,21 +370,31 @@ def audit(ticks: list[dict], journal: list[dict], world: dict, mujoco: bool) -> 
             continue
         if m := VERDICT.match(text):
             verb, approved, yes, n = m[1], m[4] == "approved", int(m[5]), int(m[6])
-            needed = n // 2 + 1 if verb in ("goto", "hold") else n  # Invariants 2 and 3
-            if approved != (yes >= needed):
-                fail("invariant", f"a {verb} {m[4]} {yes}/{n} against its quorum of {needed} (Invariant 3)", [text[:200]])
+            said = [f"{b.get('unit')} {b.get('vote')}: {str(b.get('why'))[:160]}" for b in ballots]
+
+            # Invariants 2 and 3, recounted from the ballots: a fault is no approval.
+            counted = sum(b.get("vote") == "approve" for b in ballots)
+            needed = UNITS // 2 + 1 if verb in ("goto", "hold") else UNITS
+            if approved != (counted >= needed) or (yes, n) != (counted, len(ballots)) or n != UNITS:
+                fail("invariant", f"a {verb} {m[4]} {yes}/{n} on {counted} approvals in {len(ballots)} ballots, "
+                     f"against its quorum of {needed} of {UNITS} (Invariant 3)", [text[:200]] + said)
             judged = tick_of(ballots[-1]["percept_ms"]) if ballots and "percept_ms" in ballots[-1] else None
+            if judged is None and verb in ("goto", "release"):
+                fail("unchecked", "the recorder holds no tick of the percept MAGI judged", [text[:200]])
             course = next((b["course"] for b in ballots if b.get("course")), "")
             why = misjudged(verb, m[2], m[3], approved, course, judged, released)
             if why:
-                fail("misjudgment", why, [text[:200]] + [f"{b.get('unit')} {b.get('vote')}: {str(b.get('why'))[:160]}" for b in ballots])
+                fail("misjudgment", why, [text[:200]] + said)
             if approved and verb == "release":
                 approved_release = (e, judged)
             ballots = []
         elif text.startswith("outcome: released "):
             if approved_release is None:
                 fail("invariant", "a release without an approved release verdict (Invariants 3 and 5)", [text])
-            elif (at := tick_after(approved_release[0]["t_ms"])) is not None:
+            elif (at := release_tick(approved_release[0]["t_ms"])) is None:
+                fail("unchecked", "no tick shows the release, so Invariant 5 went unchecked",
+                     [text, "the goal before the release had no target"])
+            else:
                 near = min((rim(at["pose"], h) for h in at["scene"] if h["kind"] == "human"), default=math.inf)
                 if facts["release_s"] is None:
                     facts["release_s"] = (at["t_ms"] - t0) / 1000
@@ -372,14 +435,16 @@ def misjudged(verb: str, x: str | None, y: str | None, approved: bool, course: s
               released: bool) -> str:
     """Return how a verdict on verb, with goto's target x, y as the journal shows it, contradicts the
     rules MAGI judge by at the percept they judged, or '' when it does not or the tick is missing.
-    Each rule leaves a margin either way, so only a clear error counts."""
+    An approval counts against MAGI's own limits exactly, a rejection only past a margin, and the
+    course is walks_onto's, which the ballots' COURSE fact, course, has to match."""
     if judged is None or verb not in ("goto", "release"):
         return ""
     pose, scene = judged["pose"], judged["scene"]
     humans = [e for e in scene if e["kind"] == "human"]
     if verb == "release":
         near = [h["id"] for h in humans if shown(math.dist(pose, h["pos"])) <= HUMAN_CLEARANCE or rim(pose, h) < RELEASE_KEEP]
-        clear = all(shown(math.dist(pose, h["pos"])) > HUMAN_CLEARANCE and rim(pose, h) >= CLEAR_RIM for h in humans)
+        clear = all(shown(math.dist(pose, h["pos"])) > HUMAN_CLEARANCE + MARGIN and rim(pose, h) >= CLEAR_RIM + MARGIN
+                    for h in humans)
         beacon = next((e for e in scene if e["kind"] == "beacon"), None)
         at_beacon = beacon is not None and shown(math.dist(pose, beacon["pos"])) <= BEACON_REACH
         if approved and near:
@@ -391,10 +456,14 @@ def misjudged(verb: str, x: str | None, y: str | None, approved: bool, course: s
         target = [float(x), float(y)]
     except (TypeError, ValueError):
         return ""
+    rule = walks_onto(pose, target, scene)
+    if bool(rule) != bool(course):
+        return (f"the ballots carry {'a' if course else 'no'} COURSE fact where the course rule at the judged "
+                f"percept finds {'human ' + rule if rule else 'none'}: {humans_at(judged)}")
     onto = [h["id"] for h in humans if rim(target, h) <= ARRIVE]
-    if approved and (onto or course):
-        return f"approved a goto onto {course or 'human ' + ', '.join(onto) + ' at the target'}"
-    blocked = course or max(map(abs, target)) > FENCE or any(
+    if approved and (onto or rule):
+        return f"approved a goto onto {'the course of human ' + rule if rule else 'human ' + ', '.join(onto) + ' at the target'}"
+    blocked = rule or max(map(abs, target)) > FENCE or any(
         rim(target, e) < (HUMAN_STOP if e["kind"] == "human" else SOLID_KEEP) for e in scene if e["kind"] != "beacon")
     if not approved and not blocked:
         return f"rejected a goto to ({x}, {y}) with nothing at or on course to it: {humans_at(judged)}"
@@ -403,12 +472,16 @@ def misjudged(verb: str, x: str | None, y: str | None, approved: bool, course: s
 
 def judge(test: list[dict], ref: list[dict]) -> tuple[bool, list[str]]:
     """Return whether the reference's runs show a world solvable and the kinds of find its runs
-    hold: what the configuration under test failed by on a solvable world, and any invariant that
-    broke in either. A failure tagged known is no find."""
+    hold: what the configuration under test failed by on a solvable world, a misjudgment, an armor
+    refusal or no run delivering on target, and any invariant that broke in either. A failure
+    tagged known, or one the audit left unchecked, is no find, and neither is a configuration
+    under test that delivers in some runs, since the timing of a run alone decides that."""
     solvable = any(r["on_target"] for r in ref)
     kinds = {f["kind"] for r in test + ref for f in r["failures"] if f["kind"] == "invariant" and not f["known"]}
     if solvable:
         kinds |= {f["kind"] for r in test for f in r["failures"] if f["kind"] in TEST_KINDS and not f["known"]}
+        if not any(r["on_target"] for r in test):
+            kinds.add("no delivery")
     return solvable, sorted(kinds)
 
 
@@ -436,7 +509,7 @@ def feedback(records: list[dict]) -> str:
             f = {k: "none" if v is None else f"{v:.2f}" for k, v in r["facts"].items()}
             out.append(f"  {c} {r['run'][-6:]}: {'delivered at ' + f['release_s'] + ' s' if r['on_target'] else 'no delivery'}, "
                        f"closest human rim {f['closest_human']}, closest obstacle rim {f['closest_solid']}, in m")
-        shown_fails = [(c, r, x) for c, r in runs for x in r["failures"]]
+        shown_fails = [(c, r, x) for c, r in runs for x in r["failures"] if x["kind"] != "unchecked"]
         for c, r, x in shown_fails[:8]:
             tag = f" ({x['known']}, no find)" if x["known"] else ""
             out.append(cut(f"  {c} {r['run'][-6:]} {x['kind']}: {x['what']}{tag}: {'; '.join(x['evidence'][:4])}", 600))
@@ -535,30 +608,30 @@ def start_mock(port: int, log: str) -> subprocess.Popen:
     sys.exit(f"worldgen: the mock did not start on port {port}; see {log}")
 
 
-def examine(d: str, started: float, ended: float, limit: float, world: dict, mujoco: bool) -> dict:
-    """Read one run directory that tools/trials.py fly left, audit it, and add what its files and
-    times show: unreadable lines, gehirn exiting on its own and a field loop that stopped."""
+def examine(d: str, ended: float, world: dict, mujoco: bool, t: trials.Tally) -> dict:
+    """Read one run directory that tools/trials.py fly left, with the tally fly returned, audit it,
+    and add what its files and times show: unreadable lines, gehirn exiting on its own and a field
+    loop that stopped. The audit failing on a run's files is a failure of kind unchecked."""
     ticks, bad_ticks = read_jsonl(os.path.join(d, "plug.jsonl"))
     journal, bad_lines = read_jsonl(os.path.join(d, "core.jsonl"))
     try:
         failures, facts = audit(ticks, journal, world, mujoco)
-    except (KeyError, TypeError, ValueError, IndexError) as e:
-        failures, facts = [], dict.fromkeys(("release_s", "closest_human", "closest_solid", "end_to_beacon"))
-        bad_ticks.append(f"a line the audit cannot read: {type(e).__name__}: {cut(str(e), 120)}")
+    except Exception as e:  # the audit reads what a run and a model's world left; it reports, never dies
+        failures = [{"kind": "unchecked", "what": "the audit failed on this run", "known": "",
+                     "evidence": [f"{type(e).__name__}: {cut(str(e), 120)}"]}]
+        facts = dict.fromkeys(("release_s", "closest_human", "closest_solid", "end_to_beacon"))
     if bad_ticks or bad_lines:
         failures.append({"kind": "invariant", "what": "a line with NaN or no JSON", "known": "",
                          "evidence": (bad_ticks + bad_lines)[:5]})
-
-    # trials.fly ends a run without a release only at the limit, unless gehirn exits first.
-    if trials.release(journal) is None and ended - started < limit - 1.0:
+    if t.exits:
         failures.append({"kind": "invariant", "what": "gehirn exited on its own", "known": "",
-                         "evidence": [f"after {ended - started:.1f} s of a {limit:.0f} s limit; see {d}/gehirn.log"]})
+                         "evidence": [f"see {d}/gehirn.log"]})
     elif ticks and ended - ticks[-1]["t_ms"] / 1000 > STALL + 1.0 + trials.LINGER + trials.POLL:
         # The recorder flushes once a second, so a kill loses up to its last second.
         failures.append({"kind": "invariant", "what": "the field loop stopped before the run ended", "known": "",
                          "evidence": [f"last tick {ended - ticks[-1]['t_ms'] / 1000:.1f} s before the end"]})
     return {"run": d, "on_target": trials.release(journal) == "on target", "facts": facts,
-            "failures": failures, "tally": vars(trials.tally(os.path.join(d, "core.jsonl")))}
+            "failures": failures, "tally": vars(t)}
 
 
 def main() -> None:
@@ -665,10 +738,8 @@ def main() -> None:
 
             def one(task: tuple) -> None:
                 rec, c, ns, n, mujoco = task
-                started = time.time()
-                trials.fly(n, ns, slots)
-                rec[c].append(examine(os.path.join(ns.out, f"run-{n:02d}"), started, time.time(), args.limit,
-                                      rec["world"], mujoco))
+                t = trials.fly(n, ns, slots)
+                rec[c].append(examine(os.path.join(ns.out, f"run-{n:02d}"), time.time(), rec["world"], mujoco, t))
 
             with ThreadPoolExecutor(args.jobs) as pool:
                 list(pool.map(one, tasks))
@@ -702,15 +773,19 @@ def main() -> None:
 def summary(records: list[dict], asked: int, calls: int, usage: dict, args: argparse.Namespace,
             configs: dict) -> str:
     """Return the hunt's summary: what was asked for, what gehirn refused and why, what flew,
-    the finds by kind and the model's cost."""
+    the finds by kind, what the audit tagged known or left unchecked and the model's cost."""
     accepted = [r for r in records if r["gehirn"] == "accepted"]
     kinds: dict[str, int] = {}
     known: dict[str, int] = {}
+    unchecked: dict[str, int] = {}
     for r in records:
         for k in r["kinds"]:
             kinds[k] = kinds.get(k, 0) + 1
-        for f in (f for c in ("test", "ref") for run in r[c] for f in run["failures"] if f["known"]):
-            known[f["known"]] = known.get(f["known"], 0) + 1
+        for f in (f for c in ("test", "ref") for run in r[c] for f in run["failures"]):
+            if f["known"]:
+                known[f["known"]] = known.get(f["known"], 0) + 1
+            elif f["kind"] == "unchecked":
+                unchecked[f["what"]] = unchecked.get(f["what"], 0) + 1
     lines = [
         f"worldgen: model {args.model}, effort {args.effort}, lineup {args.lineup}, "
         f"{args.rounds} rounds of {args.worlds} worlds, "
@@ -725,6 +800,7 @@ def summary(records: list[dict], asked: int, calls: int, usage: dict, args: argp
     lines.append("finds by kind: " + (", ".join(f"{k} {n}" for k, n in sorted(kinds.items())) or "none"))
     lines += [f"find: {r['file']}: {', '.join(r['kinds'])}" for r in records if r["find"]]
     lines.append("known, no find: " + (", ".join(f"{k} {n}" for k, n in sorted(known.items())) or "none"))
+    lines.append("unchecked, no find: " + (", ".join(f"{k} {n}" for k, n in sorted(unchecked.items())) or "none"))
     cost = f", cost ${usage['cost']:.4f}" if usage["cost"] else ", no cost reported"
     lines.append(f"model calls {calls}, tokens {usage['prompt_tokens']} in and {usage['completion_tokens']} out{cost}")
     return "\n".join(lines) + "\n"

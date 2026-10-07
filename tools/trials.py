@@ -65,6 +65,7 @@ class Tally:
     parse_faults: int = 0
     other_faults: int = 0
     core_faults: int = 0
+    exits: int = 0  # gehirn exited on its own before the run's end; fly sets it, tally cannot
 
     def add(self, other: "Tally") -> None:
         """Fold another tally into this one."""
@@ -174,6 +175,7 @@ def fly(n: int, args: argparse.Namespace, slots: "queue.Queue[int]") -> Tally:
     finally:
         slots.put(slot)
     t = tally(journal)
+    t.exits = int(code is not None)
     crash = "" if code is None else f"; gehirn exited {code} on its own"
     with print_lock:
         print(f"run {n:02d} after {elapsed:.0f} s: {t}{crash}", flush=True)

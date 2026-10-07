@@ -109,7 +109,8 @@ pub fn (c Crossing) fact() string {
 // body could first be within lcl.arrive of it, driving straight at course_speed; of those, the
 // one that gets there first. A human already within reach counts as standing there, which
 // destination names, and one without a velocity is judged where it stands. A velocity that
-// measured_vel refuses counts as onto every target, so the rule fails closed.
+// measured_vel refuses counts as onto every target, so the rule fails closed. tools/worldgen.py
+// walks_onto copies the rule to audit MAGI's verdicts.
 pub fn walks_onto(pc lcl.Percept, target []f64) ?Crossing {
 	if !finite(target) || !finite(pc.pose) {
 		return none

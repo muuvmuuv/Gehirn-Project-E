@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""Self check for trials.tally: python3 tools/test_trials.py"""
+"""Self check for trials.tally and trials.fly: python3 tools/test_trials.py"""
 
+import argparse
+import contextlib
+import io
 import json
 import os
+import queue
 import tempfile
 
-from trials import tally
+from trials import fly, tally
 
 # One run's journal as main.v hq writes it: text lines from core/core.v Memory, ballot lines
 # from main.v BallotEntry, core fault lines from main.v FaultEntry.
@@ -34,5 +38,15 @@ assert (t.ballots, t.parse_faults, t.other_faults) == (3, 1, 1), t
 # A why that names a refusal is not one.
 assert (t.approved, t.rejected, t.refusals) == (1, 1, 1), t
 assert (t.on_target, t.off_target, t.no_release) == (1, 0, 0), t
+
+# fly counts gehirn exiting on its own, which no journal shows.
+with tempfile.TemporaryDirectory() as d, contextlib.redirect_stdout(io.StringIO()):
+    slots: queue.Queue[int] = queue.Queue()
+    slots.put(0)
+    with open(os.path.join(d, "exits"), "w", encoding="utf-8") as f:
+        f.write("#!/bin/sh\nexit 3\n")
+    os.chmod(os.path.join(d, "exits"), 0o755)
+    run = argparse.Namespace(out=os.path.join(d, "a"), env={}, plug_base=1, binary=os.path.join(d, "exits"), limit=10.0)
+    assert fly(1, run, slots).exits == 1
 
 print("trials: ok")
