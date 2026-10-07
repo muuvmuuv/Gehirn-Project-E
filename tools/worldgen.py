@@ -661,9 +661,13 @@ def examine(d: str, ended: float, world: dict, mujoco: bool, t: trials.Tally, c:
     """Read one run directory that tools/trials.py fly left, with the tally and course fly returned,
     audit it, and add what its files and times show: unreadable lines, gehirn exiting on its own
     and a field loop that stopped. The audit failing on a run's files is a failure of kind
-    unchecked."""
+    unchecked, and a course that a NaN in the recorder made NaN is left unmeasured."""
     ticks, bad_ticks = read_jsonl(os.path.join(d, "plug.jsonl"))
     journal, bad_lines = read_jsonl(os.path.join(d, "core.jsonl"))
+
+    # trials' reader takes the NaN that read_jsonl refuses, which no line of findings.jsonl may hold.
+    if not all(math.isfinite(v) for v in vars(c).values() if v is not None):
+        c = trials.Course()
     try:
         failures, facts = audit(ticks, journal, world, mujoco)
     except Exception as e:  # the audit reads what a run and a model's world left; it reports, never dies

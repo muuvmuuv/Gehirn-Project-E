@@ -4,6 +4,7 @@
 import argparse
 import http.server
 import json
+import math
 import os
 import re
 import tempfile
@@ -269,6 +270,15 @@ with tempfile.TemporaryDirectory() as d:
     broken = examine(run, ended, WORLD, False, trials.Tally(), course)
     assert [(f["kind"], f["what"]) for f in broken["failures"]] == [("unchecked", "the audit failed on this run")], broken
     assert judge([broken], [ok]) == (True, [])
+
+    # A NaN pose, which trials' reader takes, leaves the course unmeasured rather than NaN.
+    with open(os.path.join(run, "plug.jsonl"), "w", encoding="utf-8") as f:
+        f.write("".join(json.dumps(e) + "\n" for e in [{**ticks[0], "pose": [float("nan"), 2.0]}] + ticks[1:]))
+    nan = trials.course(journal, trials.read_journal(os.path.join(run, "plug.jsonl")))
+    assert math.isnan(nan.path_m), nan
+    odd = examine(run, ended, WORLD, False, trials.Tally(), nan)
+    assert odd["course"] == vars(trials.Course()) and json.dumps(odd, allow_nan=False), odd
+    assert "a line with NaN or no JSON" in [f["what"] for f in odd["failures"]], odd
 
     # The tool names every file; nothing the model writes reaches a path.
     entries = [{"idea": "x", "world": {"start": [0, 0], "file": "../../worlds/default.json"}},
