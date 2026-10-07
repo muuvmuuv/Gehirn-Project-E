@@ -9,8 +9,9 @@ exit 2 before anything starts, and otherwise refuses the 0. On every accepted wo
 tools/trials.py, against a mock it starts on --mock-port, and audits each run's recorder and
 journal. The configuration under test is the default stack, which the reflex steers, and the
 reference the local planner of PLANNER=local. A world is solvable once a reference run delivers
-on target. A find is a solvable world on which the configuration under test fails, by no delivery
-on target, a MAGI misjudgment or an armor refusal, or any world on which an invariant breaks. The
+on target. A find is a solvable world on which the configuration under test fails, by no delivery,
+every run either never within reach of the beacon or releasing off target, a MAGI misjudgment or
+an armor refusal, or any world on which an invariant breaks. The
 next prompt carries the last --history rounds with what happened, so the model hunts.
 docs/worlds.md, Generating worlds, says what each check means and what a run costs.
 
@@ -486,14 +487,19 @@ def misjudged(verb: str, x: str | None, y: str | None, approved: bool, course: s
 def judge(test: list[dict], ref: list[dict]) -> tuple[bool, list[str]]:
     """Return whether the reference's runs show a world solvable and the kinds of find its runs
     hold: what the configuration under test failed by on a solvable world, a misjudgment, an armor
-    refusal or no run delivering on target, and any invariant that broke in either. A failure
-    tagged known, or one the audit left unchecked, is no find, and neither is a configuration
-    under test that delivers in some runs, since the timing of a run alone decides that."""
+    refusal or no delivery, every run either never within reach of the beacon or releasing off
+    target, and any invariant that broke in either. A failure tagged known, or one the audit left
+    unchecked, is no find, and neither is a configuration under test that delivers in some runs,
+    since the timing of a run alone decides that."""
     solvable = any(r["on_target"] for r in ref)
     kinds = {f["kind"] for r in test + ref for f in r["failures"] if f["kind"] == "invariant" and not f["known"]}
     if solvable:
         kinds |= {f["kind"] for r in test for f in r["failures"] if f["kind"] in TEST_KINDS and not f["known"]}
-        if not any(r["on_target"] for r in test):
+
+        # A run that came within reach and never released waited on release votes, which land in a
+        # walker's quiet or busy moment by when the body arrived, and the reference steers otherwise
+        # and arrives at another time; a misjudged vote and a refused release count above.
+        if all(not r["on_target"] and (r["course"]["beacon_s"] is None or r["tally"]["off_target"]) for r in test):
             kinds.add("no delivery")
     return solvable, sorted(kinds)
 
@@ -583,7 +589,7 @@ WHERE TO LOOK
 Worlds every reference run finishes that still stress the stack: a walker who comes back toward the beacon fast just as a release is voted, so the armor refuses what MAGI approved on an older percept; humans who crowd the body at the fence, in a corner or between obstacles, where the armor's restraints meet; toward humans from several sides; aside humans the body pushes; a target near a human's rim or a walker's course, where MAGI's rules sit at their margins; obstacles that a reflex, which plans nothing, cannot get around, such as a pocket open toward the start or a wall across the way, where a planner plans around them; many entities, large radii and fast walkers.
 
 WHAT COUNTS
-Each world flies {runs} missions of the configuration under test ({overlay(test)}) and {runs} of the reference ({overlay(ref)}). A world counts only once a reference run delivers on target, so an impossible world, such as a human who stands on the beacon for good or a beacon walled in, scores nothing. A find is a counted world on which the configuration under test fails: no delivery on target within the limit, a MAGI vote that contradicts the rules above at the percept it judged, or the armor refusing a release MAGI approved; or any world on which an invariant breaks: motion toward a human or into an obstacle inside its keep, past a speed or acceleration limit or further out of the fence, a release with a human within {RELEASE_KEEP} m, or contact that is not a through human walking into the body.
+Each world flies {runs} missions of the configuration under test ({overlay(test)}) and {runs} of the reference ({overlay(ref)}). A world counts only once a reference run delivers on target, so an impossible world, such as a human who stands on the beacon for good or a beacon walled in, scores nothing. A find is a counted world on which the configuration under test fails: no delivery, every run either never within {BEACON_REACH} m of the beacon within the limit or releasing off target, a MAGI vote that contradicts the rules above at the percept it judged, or the armor refusing a release MAGI approved; or any world on which an invariant breaks: motion toward a human or into an obstacle inside its keep, past a speed or acceleration limit or further out of the fence, a release with a human within {RELEASE_KEEP} m, or contact that is not a through human walking into the body. A body that reaches the beacon and waits there for a release MAGI approve scores nothing, since when a vote lands in a walker's quiet moment depends on when the body arrived.
 
 HISTORY
 {history or '(the first round)'}

@@ -303,15 +303,22 @@ for bad_reply in ("no json at all", '{"answer": 1}', '{"worlds": ["x", 1]}', '{"
     except ValueError:
         pass
 
-# A find: a solvable world the configuration under test fails on, by no run delivering, a
-# misjudgment or an armor refusal, or any world an invariant breaks on; an unsolvable world's
-# failures, a known failure, an unchecked one and a configuration under test that delivers in some
-# runs are none.
+# A find: a solvable world the configuration under test fails on, by no run delivering, each never
+# within reach of the beacon or releasing off target, a misjudgment or an armor refusal, or any
+# world an invariant breaks on; an unsolvable world's failures, a known failure, an unchecked one, a
+# configuration under test that delivers in some runs and runs that reached the beacon and never
+# released are none.
 NO = {"kind": "no delivery", "what": "no release", "known": "", "evidence": []}
 INV = {"kind": "invariant", "what": "contact 1 times", "known": "", "evidence": []}
 KNOWN = {**INV, "known": "Known issue 33"}
-ok, failed = {"on_target": True, "failures": []}, {"on_target": False, "failures": [NO]}
+ok = {"on_target": True, "failures": [], "course": {"beacon_s": 20.0}, "tally": {"off_target": 0}}
+failed = {"on_target": False, "failures": [NO], "course": {"beacon_s": None}, "tally": {"off_target": 0}}
+waited = {**failed, "course": {"beacon_s": 20.0}}
+off = {**waited, "tally": {"off_target": 1}}
 assert judge([failed], [ok, failed]) == (True, ["no delivery"])
+assert judge([waited, waited], [ok]) == (True, [])
+assert judge([failed, waited], [ok]) == (True, [])
+assert judge([failed, off], [ok]) == (True, ["no delivery"])
 assert judge([ok, failed], [ok, ok]) == (True, [])
 assert judge([failed], [failed]) == (False, [])
 assert judge([ok], [{"on_target": False, "failures": [NO, INV]}]) == (False, ["invariant"])
@@ -375,6 +382,7 @@ assert form.startswith("## A world file") and "## What gehirn refuses" in form a
 text = prompt(4, 2, 180, "mock", {"GEHIRN_KEY": "sk-x"}, {"PLANNER": "local"}, "", form)
 assert "(GEHIRN_KEY=<set>, so the reflex steers)" in text and "(PLANNER=local)" in text and form in text and "sk-x" not in text
 assert "within 0.7 m of the body's center" in text and "{" not in text.split("TASK")[0].split("THE WORLD FILE")[0]
+assert "every run either never within 0.5 m of the beacon within the limit or releasing off target" in text, text
 # What the reference can solve follows the reference's steering: the planner stalls before a person
 # who stands on or beside the beacon (PLAN, Known issue 38), the reflex before one on its way.
 assert "who stands on or beside the beacon, or stops there for the body, holds it short" in text, text
