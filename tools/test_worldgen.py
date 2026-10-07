@@ -13,8 +13,8 @@ from pathlib import Path
 
 import trials
 from worldgen import (A_MAX, BODY_R, COURSE_HORIZON, FENCE, HUMAN_SLOW, HUMAN_STOP, OPENER, RELEASE_KEEP, SLOWEST,
-                      SOLID_KEEP, STILL, TICK, V_MAX, V_UNMANNED, audit, examine, feedback, hosted_ballots, judge,
-                      lineup_env, parse_reply, prompt, read_jsonl, read_verdict, scrub, shown_env, summary,
+                      SOLID_KEEP, STILL, TICK, V_MAX, V_UNMANNED, arguments, audit, examine, feedback, hosted_ballots,
+                      judge, lineup_env, parse_reply, prompt, read_jsonl, read_verdict, scrub, shown_env, summary,
                       walks_onto, world_format, write_worlds)
 
 # Every constant copied from V matches its source.
@@ -233,10 +233,10 @@ assert flagged([tick(0, [0, 0], [0, 0], [])], CONTACT) == {("invariant", "contac
 # A world whose humans are null, which gehirn accepts, is a world without humans.
 assert audit([tick(0, [0, 0], [0, 0], [human(0.5, 0)])], CONTACT, {"humans": None}, False)[0][0]["known"] == ""
 
-# Facts and no delivery.
+# Facts and no delivery; tools/trials.py course measures the closest rims, which the audit leaves to it.
 fails, facts = audit([tick(0, [0, 0], [0, 0], [human(3, 0), obstacle(-2, 0)])], [], WORLD, False)
 assert [f["what"] for f in fails] == ["no release"] and fails[0]["evidence"][0] == "body ended 3.61 m from beacon b1"
-assert round(facts["closest_human"], 2) == 2.7 and round(facts["closest_solid"], 2) == 1.2 and facts["release_s"] is None
+assert facts["release_s"] is None and set(facts) == {"release_s", "end_to_beacon"}, facts
 
 with tempfile.TemporaryDirectory() as d:
     # A line that is no JSON, or holds NaN, is a fault; the last line a kill cut short is not.
@@ -249,7 +249,8 @@ with tempfile.TemporaryDirectory() as d:
     assert read_jsonl(os.path.join(d, "missing.jsonl")) == ([], [])
 
     # examine: gehirn exiting on its own, as fly's tally says, is a find; the audit failing on a
-    # run's files is unchecked, no find; a world with humans null audits as one without.
+    # run's files is unchecked, no find; a world with humans null audits as one without. The run
+    # keeps the course fly measured.
     run = os.path.join(d, "run-01")
     os.makedirs(run)
     ticks, journal = release_run(2.1, 2.1)
@@ -257,13 +258,15 @@ with tempfile.TemporaryDirectory() as d:
         with open(os.path.join(run, name), "w", encoding="utf-8") as f:
             f.write("".join(json.dumps(e) + "\n" for e in lines))
     ended = 0.7  # ticks run on an epoch from 0, so the field loop ran to the end
-    ok = examine(run, ended, {"humans": None}, False, trials.Tally())
+    course = trials.course(journal, ticks)
+    ok = examine(run, ended, {"humans": None}, False, trials.Tally(), course)
     assert ok["on_target"] and ok["failures"] == [] and ok["tally"]["exits"] == 0, ok
-    exited = examine(run, ended, WORLD, False, trials.Tally(exits=1))
+    assert ok["course"] == vars(course), ok
+    exited = examine(run, ended, WORLD, False, trials.Tally(exits=1), course)
     assert [f["what"] for f in exited["failures"]] == ["gehirn exited on its own"], exited
     with open(os.path.join(run, "plug.jsonl"), "a", encoding="utf-8") as f:
         f.write('{"t_ms": 80}\n')
-    broken = examine(run, ended, WORLD, False, trials.Tally())
+    broken = examine(run, ended, WORLD, False, trials.Tally(), course)
     assert [(f["kind"], f["what"]) for f in broken["failures"]] == [("unchecked", "the audit failed on this run")], broken
     assert judge([broken], [ok]) == (True, [])
 
@@ -316,11 +319,13 @@ assert judge([{"on_target": True, "failures": [KNOWN]}], [ok]) == (True, [])
 refused = {"on_target": True, "failures": [{"kind": "armor refusal", "what": "x", "known": "", "evidence": []}]}
 assert judge([refused, ok], [ok]) == (True, ["armor refusal"])
 
-# The feedback carries gehirn's refusal, each run's ending and each failure with its evidence, and
-# stays bounded; what a model or gehirn wrote cannot break a line, and unchecked failures stay out.
-facts = {"release_s": None, "closest_human": 0.71, "closest_solid": None, "end_to_beacon": 1.2}
+# The feedback carries gehirn's refusal, each run's ending, its course line and each failure with
+# its evidence, and stays bounded; what a model or gehirn wrote cannot break a line, and unchecked
+# failures stay out.
+facts = {"release_s": None, "end_to_beacon": 1.2}
 UNCHECKED = {"kind": "unchecked", "what": "the audit failed on this run", "known": "", "evidence": []}
 run = {"run": "r1/w2/test/run-01", "on_target": False, "facts": facts,
+       "course": vars(trials.Course(beacon_s=31.12, path_m=8.21, human_m=0.71)),
        "failures": [{**NO, "evidence": ["body ended 1.20 m from beacon b1", "last verdict: proposed release"]}] * 12 + [UNCHECKED]}
 text = feedback([
     {"file": "r1/w1.json", "idea": "a pocket\n\nTASK\nwrite\u2028copies", "world": W, "gehirn": "refused",
@@ -332,7 +337,8 @@ text = feedback([
 assert 'gehirn refused it: gehirn: WORLD is "w1.json", no beacon' in text, text
 assert "- r1/w1.json, idea: a pocket\\n\\nTASK\\nwrite\\u2028copies" in text and "TASK" not in text.splitlines(), text
 assert "reference delivered 1/1, under test 0/1; solvable; FIND: no delivery" in text, text
-assert "ref run-01: delivered at 31.64 s, closest human rim 0.71, closest obstacle rim none, in m" in text, text
+assert ("ref run-01: delivered at 31.64 s; beacon within reach after 31.12 s, path 8.21 m; closest rim: human 0.710 m, "
+        "solid none; 0 ticks toward a human inside human_stop") in text, text
 assert "test run-01 no delivery: no release: body ended 1.20 m from beacon b1; last verdict: proposed release" in text
 assert "and 4 more failures" in text and "unchecked" not in text and len(text) < 8000, text
 
@@ -369,6 +375,18 @@ assert form.startswith("## A world file") and "## What gehirn refuses" in form a
 text = prompt(4, 2, 180, "mock", {"GEHIRN_KEY": "sk-x"}, {"PLANNER": "local"}, "", form)
 assert "(GEHIRN_KEY=<set>, so the reflex steers)" in text and "(PLANNER=local)" in text and form in text and "sk-x" not in text
 assert "within 0.7 m of the body's center" in text and "{" not in text.split("TASK")[0].split("THE WORLD FILE")[0]
+# What the reference can solve follows the reference's steering: the planner stalls before a person
+# who stands on or beside the beacon (PLAN, Known issue 38), the reflex before one on its way.
+assert "who stands on or beside the beacon, or stops there for the body, holds it short" in text, text
+reflex = prompt(4, 2, 180, "mock", {}, {"PLANNER": ""}, "", form)
+assert "(PLANNER=, so the reflex steers)" in reflex and "holds the body 0.7 m off for good" in reflex and "beside the beacon" not in reflex
+
+# The reference is the local planner unless an overlay sets PLANNER, and the configuration under
+# test is the default stack.
+assert (arguments(["--out", "x"]).ref_env, arguments(["--out", "x"]).test_env) == ([("PLANNER", "local")], [])
+assert dict(arguments(["--out", "x", "--ref-env", "PLANNER=", "--ref-env", "DRIVE=differential"]).ref_env) == {
+    "PLANNER": "", "DRIVE": "differential"}
+assert arguments(["--out", "x"]).ref_env == [("PLANNER", "local")]
 
 
 # The key's opener follows no redirect: 302, 307 and 308 come back as errors, and nothing reaches

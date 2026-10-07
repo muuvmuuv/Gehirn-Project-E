@@ -7,11 +7,12 @@ accepts it: `gehirn magi-eval 0` with WORLD set refuses a bad file with its one 
 exit 2 before anything starts, and otherwise refuses the 0. On every accepted world it flies
 --runs missions of the configuration under test and --runs of the reference through
 tools/trials.py, against a mock it starts on --mock-port, and audits each run's recorder and
-journal. A world is solvable once a reference run delivers on target. A find is a solvable world
-on which the configuration under test fails, by no delivery on target, a MAGI misjudgment or an
-armor refusal, or any world on which an invariant breaks. The next prompt carries the last
---history rounds with what happened, so the model hunts. docs/worlds.md, Generating worlds, says
-what each check means and what a run costs.
+journal. The configuration under test is the default stack, which the reflex steers, and the
+reference the local planner of PLANNER=local. A world is solvable once a reference run delivers
+on target. A find is a solvable world on which the configuration under test fails, by no delivery
+on target, a MAGI misjudgment or an armor refusal, or any world on which an invariant breaks. The
+next prompt carries the last --history rounds with what happened, so the model hunts.
+docs/worlds.md, Generating worlds, says what each check means and what a run costs.
 
 A configuration is the lineup's variables with KEY=VALUE overlays on top, an empty VALUE
 unsetting one: the mock for the core and MAGI, or with --lineup magi lineup A's MAGI on OpenRouter
@@ -28,7 +29,7 @@ findings.jsonl with one line per world, and summary.txt. It never writes into wo
 tools/scenarios.json; a person promotes a find.
 
     python3 tools/withenv.py .env python3 tools/worldgen.py --out hunt --rounds 3 --worlds 4 --runs 2
-    python3 tools/withenv.py .env python3 tools/worldgen.py --out hunt --ref-env PLANNER=local  # the local planner as the reference
+    python3 tools/withenv.py .env python3 tools/worldgen.py --out hunt --ref-env PLANNER=  # the reflex as the reference
     python3 tools/withenv.py .env python3 tools/worldgen.py --out hunt --lineup magi --jobs 2
 """
 
@@ -279,11 +280,11 @@ def humans_at(tick: dict) -> str:
 def audit(ticks: list[dict], journal: list[dict], world: dict, mujoco: bool) -> tuple[list[dict], dict]:
     """Check one run's recorder ticks and journal entries against PLAN's invariants, the armor's
     restraints and the rules MAGI judge by, and return each failure as {kind, what, known,
-    evidence} with the run's facts: when it released, its closest approach to a human and to a
-    solid, and how far from the first beacon it ended. A failure of kind unchecked names a check
-    the run's files leave no way to make. On Sim every restraint holds to the tick; on the MuJoCo
-    base mujoco also checks each step between recorded poses, where braking into a human who
-    walked in is Known issue 33."""
+    evidence} with the run's facts: when it released and how far from the first beacon it ended.
+    tools/trials.py course measures the rest of how the body moved. A failure of kind unchecked
+    names a check the run's files leave no way to make. On Sim every restraint holds to the tick;
+    on the MuJoCo base mujoco also checks each step between recorded poses, where braking into a
+    human who walked in is Known issue 33."""
     fails: list[dict] = []
     agg: dict[tuple[str, str, str], list] = {}
     t0 = ticks[0]["t_ms"] if ticks else 0
@@ -298,15 +299,13 @@ def audit(ticks: list[dict], journal: list[dict], world: dict, mujoco: bool) -> 
         a[0] += 1
         a[2] = max(a[2], by)
 
-    facts = {"release_s": None, "closest_human": math.inf, "closest_solid": math.inf, "end_to_beacon": None}
+    facts = {"release_s": None, "end_to_beacon": None}
     touch: dict[str, list] = {}
     last = [0.0, 0.0]
     for k, r in enumerate(ticks):
         pose, u, t = r["pose"], r["u_out"], r["t_ms"]
         solid = [e for e in r["scene"] if e["kind"] != "beacon"]
         near = min((rim(pose, e) for e in solid if e["kind"] == "human"), default=math.inf)
-        facts["closest_human"] = min(facts["closest_human"], near)
-        facts["closest_solid"] = min([facts["closest_solid"]] + [rim(pose, e) for e in solid if e["kind"] != "human"])
         if k and t - ts[k - 1] > STALL * 1000:
             note("the field loop stalled between ticks", t, (t - ts[k - 1]) / 1000, "s")
         speed, top = math.hypot(*u), cap(r["seat"], near)
@@ -326,6 +325,11 @@ def audit(ticks: list[dict], journal: list[dict], world: dict, mujoco: bool) -> 
             note("motion further out of the fence", t, max(map(abs, u)), "m/s")
         if not r["target"] and (any(r["u_core"]) or (r["seat"] == "empty" and speed > STILL)):
             note("the body moved with nowhere to go (Invariant 8)", t, max(math.hypot(*r["u_core"]), speed), "m/s")
+
+        # tools/trials.py course counts each step toward a human inside human_stop past 1e-9 m on
+        # any body. The audit judges each step instead: Sim's steps are the motion checked above,
+        # a step that motion already breaks counts once, a step under STEP_STILL is no find, and a
+        # human who walked in is Known issue 33 where one who stood is a find.
         if mujoco and k + 1 < len(ticks):
             nxt = ticks[k + 1]["pose"]
             if max(map(abs, nxt)) > FENCE:
@@ -359,7 +363,9 @@ def audit(ticks: list[dict], journal: list[dict], world: dict, mujoco: bool) -> 
     def release_tick(t_ms: int) -> dict | None:
         """The tick whose percept the armor released on, after a release verdict at t_ms: the first
         whose target is empty, since main.v's field loop makes the goal a hold in that tick. None
-        when the goal had no target before it, as after an approved hold."""
+        when the goal had no target before it, as after an approved hold. tools/trials.py
+        release_tick takes the first tick at or after the verdict, which can come before the
+        release, so Invariant 5 keeps this one."""
         # ponytail: the scripted core of every lineup here proposes no hold before the release; a
         # hosted core does, so record the payload in plug.Record once a hunt flies one.
         i = bisect.bisect_left(ts, t_ms - TICK * 1000) - 1  # a tick the verdict's message cannot reach
@@ -499,8 +505,9 @@ def cut(s: str, n: int) -> str:
 
 def feedback(records: list[dict]) -> str:
     """Return the history a prompt carries: each world of records, as findings.jsonl holds them,
-    with gehirn's verdict, how the runs ended and each failure with its evidence, bounded, each
-    line one line whatever the model or gehirn wrote into it."""
+    with gehirn's verdict, how each run ended and moved, as tools/trials.py's course line has it,
+    and each failure with its evidence, bounded, each line one line whatever the model or gehirn
+    wrote into it."""
     out = []
     for rec in records:
         out.append(f"- {rec['file']}, idea: {cut(rec['idea'], 300) or 'none given'}")
@@ -514,9 +521,9 @@ def feedback(records: list[dict]) -> str:
                    f"{'solvable' if rec['solvable'] else 'not solvable, so it scores nothing'}; "
                    f"{'FIND: ' + ', '.join(rec['kinds']) if rec['kinds'] else 'no find'}")
         for c, r in runs:
-            f = {k: "none" if v is None else f"{v:.2f}" for k, v in r["facts"].items()}
-            out.append(f"  {c} {r['run'][-6:]}: {'delivered at ' + f['release_s'] + ' s' if r['on_target'] else 'no delivery'}, "
-                       f"closest human rim {f['closest_human']}, closest obstacle rim {f['closest_solid']}, in m")
+            at = "none" if r["facts"]["release_s"] is None else f"{r['facts']['release_s']:.2f}"
+            out.append(f"  {c} {r['run'][-6:]}: {'delivered at ' + at + ' s' if r['on_target'] else 'no delivery'}; "
+                       f"{trials.Course(**r['course'])}")
         shown_fails = [(c, r, x) for c, r in runs for x in r["failures"] if x["kind"] != "unchecked"]
         for c, r, x in shown_fails[:8]:
             tag = f" ({x['known']}, no find)" if x["known"] else ""
@@ -546,6 +553,14 @@ def prompt(k: int, runs: int, limit: float, lineup: str, test: dict, ref: dict, 
     def overlay(env: dict) -> str:
         return (shown_env(env) or "the defaults") + ("" if env.get("PLANNER") else ", so the reflex steers")
 
+    # PLAN, Known issue 38: the planner holds off a person who stands on or beside its target.
+    stands = (f"With PLANNER=local the body plans its way around a human who stands and keeps further off than {HUMAN_STOP} m, "
+              f"but neither a stop human nor an aside one moves first, so one who stands on or beside the beacon, or stops "
+              f"there for the body, holds it short of the beacon for good"
+              if ref.get("PLANNER") == "local" else
+              f"A stop human who stands on the body's way, or walks to it and waits, holds the body {HUMAN_STOP} m off for "
+              f"good; an aside human steps out of the way")
+
     return f"""You write world files for gehirn's 2D simulator to find where its control stack fails.
 
 THE STACK
@@ -561,11 +576,11 @@ THE WORLD FILE, from gehirn's docs
 WHAT THE REFERENCE CAN SOLVE
 Earlier hunts lost most of their worlds here, so check each world against these before you write it:
 - The release needs the body within {BEACON_REACH} m of the beacon's center while every human's center lies more than {HUMAN_CLEARANCE} m from the body's, through a vote of a few seconds, and a rejected release comes back only after the cooldown. A human who loops, stands or walks within about 3 m of the beacon most of the time leaves no such moment; one who passes the beacon now and then makes the release hard but possible.
-- A stop human who stands on the body's way, or walks to it and waits, holds the body {HUMAN_STOP} m off for good; an aside human steps out of the way.
+- {stands}.
 - A beacon inside an obstacle, or walled in by obstacles and the fence, is out of reach.
 
 WHERE TO LOOK
-Worlds every reference run finishes that still stress the stack: a walker who comes back toward the beacon fast just as a release is voted, so the armor refuses what MAGI approved on an older percept; humans who crowd the body at the fence, in a corner or between obstacles, where the armor's restraints meet; toward humans from several sides; aside humans the body pushes; a target near a human's rim or a walker's course, where MAGI's rules sit at their margins; many entities, large radii and fast walkers.
+Worlds every reference run finishes that still stress the stack: a walker who comes back toward the beacon fast just as a release is voted, so the armor refuses what MAGI approved on an older percept; humans who crowd the body at the fence, in a corner or between obstacles, where the armor's restraints meet; toward humans from several sides; aside humans the body pushes; a target near a human's rim or a walker's course, where MAGI's rules sit at their margins; obstacles that a reflex, which plans nothing, cannot get around, such as a pocket open toward the start or a wall across the way, where a planner plans around them; many entities, large radii and fast walkers.
 
 WHAT COUNTS
 Each world flies {runs} missions of the configuration under test ({overlay(test)}) and {runs} of the reference ({overlay(ref)}). A world counts only once a reference run delivers on target, so an impossible world, such as a human who stands on the beacon for good or a beacon walled in, scores nothing. A find is a counted world on which the configuration under test fails: no delivery on target within the limit, a MAGI vote that contradicts the rules above at the percept it judged, or the armor refusing a release MAGI approved; or any world on which an invariant breaks: motion toward a human or into an obstacle inside its keep, past a speed or acceleration limit or further out of the fence, a release with a human within {RELEASE_KEEP} m, or contact that is not a through human walking into the body.
@@ -634,10 +649,11 @@ def start_mock(port: int, log: str) -> subprocess.Popen:
     sys.exit(f"worldgen: the mock did not start on port {port}; see {log}")
 
 
-def examine(d: str, ended: float, world: dict, mujoco: bool, t: trials.Tally) -> dict:
-    """Read one run directory that tools/trials.py fly left, with the tally fly returned, audit it,
-    and add what its files and times show: unreadable lines, gehirn exiting on its own and a field
-    loop that stopped. The audit failing on a run's files is a failure of kind unchecked."""
+def examine(d: str, ended: float, world: dict, mujoco: bool, t: trials.Tally, c: trials.Course) -> dict:
+    """Read one run directory that tools/trials.py fly left, with the tally and course fly returned,
+    audit it, and add what its files and times show: unreadable lines, gehirn exiting on its own
+    and a field loop that stopped. The audit failing on a run's files is a failure of kind
+    unchecked."""
     ticks, bad_ticks = read_jsonl(os.path.join(d, "plug.jsonl"))
     journal, bad_lines = read_jsonl(os.path.join(d, "core.jsonl"))
     try:
@@ -645,7 +661,7 @@ def examine(d: str, ended: float, world: dict, mujoco: bool, t: trials.Tally) ->
     except Exception as e:  # the audit reads what a run and a model's world left; it reports, never dies
         failures = [{"kind": "unchecked", "what": "the audit failed on this run", "known": "",
                      "evidence": [f"{type(e).__name__}: {cut(str(e), 120)}"]}]
-        facts = dict.fromkeys(("release_s", "closest_human", "closest_solid", "end_to_beacon"))
+        facts = dict.fromkeys(("release_s", "end_to_beacon"))
     if bad_ticks or bad_lines:
         failures.append({"kind": "invariant", "what": "a line with NaN or no JSON", "known": "",
                          "evidence": (bad_ticks + bad_lines)[:5]})
@@ -657,7 +673,7 @@ def examine(d: str, ended: float, world: dict, mujoco: bool, t: trials.Tally) ->
         failures.append({"kind": "invariant", "what": "the field loop stopped before the run ended", "known": "",
                          "evidence": [f"last tick {ended - ticks[-1]['t_ms'] / 1000:.1f} s before the end"]})
     return {"run": d, "on_target": trials.release(journal) == "on target", "facts": facts,
-            "failures": failures, "tally": vars(t)}
+            "course": vars(c), "failures": failures, "tally": vars(t)}
 
 
 def interrupt(signum: int, frame: object) -> None:
@@ -672,9 +688,8 @@ def hosted_ballots(records: list[dict], hosted: list[str]) -> int:
     return sum(run["tally"]["ballots"] for r in records for c in hosted for run in r[c])
 
 
-def main() -> None:
-    signal.signal(signal.SIGTERM, interrupt)
-    signal.signal(signal.SIGINT, interrupt)
+def arguments(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse the command line, sys.argv's unless argv is given."""
     ap = argparse.ArgumentParser(description=__doc__ and __doc__.splitlines()[0])  # None under -OO
     ap.add_argument("--out", required=True, help="empty or new directory for the hunt")
     ap.add_argument("--rounds", type=int, default=3, help="rounds of the hunt")
@@ -691,14 +706,20 @@ def main() -> None:
                     help="mock: the mock for the core and MAGI; magi: hosted MAGI before the mock's core")
     ap.add_argument("--test-env", type=overlay_arg, action="append", default=[], metavar="KEY=VALUE",
                     help="a variable of the configuration under test")
-    ap.add_argument("--ref-env", type=overlay_arg, action="append", default=[], metavar="KEY=VALUE",
-                    help="a variable of the reference")
+    ap.add_argument("--ref-env", type=overlay_arg, action="append", default=[("PLANNER", "local")], metavar="KEY=VALUE",
+                    help="a variable of the reference, on top of PLANNER=local")
     ap.add_argument("--jobs", type=int, default=3, help="missions flown at the same time")
     ap.add_argument("--limit", type=float, default=180.0, help="seconds before a mission is cut off")
     ap.add_argument("--binary", default="./gehirn", help="gehirn executable")
     ap.add_argument("--mock-port", type=int, default=8081, help="port of the mock this tool starts")
     ap.add_argument("--plug-base", type=int, default=7800, help="PLUG_LISTEN port of job slot 0")
-    args = ap.parse_args()
+    return ap.parse_args(argv)
+
+
+def main() -> None:
+    signal.signal(signal.SIGTERM, interrupt)
+    signal.signal(signal.SIGINT, interrupt)
+    args = arguments()
 
     key, typesafe = os.environ.pop("GEHIRN_KEY", ""), os.environ.pop("TYPESAFE_API_KEY", "")
     if not key:
@@ -787,8 +808,8 @@ def main() -> None:
             def one(task: tuple) -> None:
                 rec, c, ns, n, mujoco = task
                 if not trials.STOP.is_set():
-                    t, _ = trials.fly(n, ns, slots)
-                    rec[c].append(examine(os.path.join(ns.out, f"run-{n:02d}"), time.time(), rec["world"], mujoco, t))
+                    t, course = trials.fly(n, ns, slots)
+                    rec[c].append(examine(os.path.join(ns.out, f"run-{n:02d}"), time.time(), rec["world"], mujoco, t, course))
 
             with ThreadPoolExecutor(args.jobs) as pool:
                 list(pool.map(one, tasks))
