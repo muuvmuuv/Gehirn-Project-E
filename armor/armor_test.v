@@ -667,8 +667,8 @@ fn test_ground_factor() {
 // A body driven east at 1 m/s through a patch of 0.5 has slowed to half the top speed when its
 // center crosses the rim, since the cap starts within its stopping distance plus a tick of travel
 // of the rim and not before, stays on until it is that far out again, and on the way out speeds up
-// by no more than a_max a tick, on either drive, whether it stops at once or coasts a Sim tick or
-// 0.1 s at its speed.
+// by no more than a_max a tick, on either drive, whether it stops at once or coasts 0.02 or 0.1 s
+// at its speed.
 fn test_drive_slows_the_body_through_a_patch_of_ground() {
 	lake := patch([2.0, 0.0], 1.0, 0.5) // from x 1 to x 3
 	limits := Limits{}
@@ -971,36 +971,56 @@ fn test_drive_widens_the_keeps_and_the_fence_by_the_stopping_distance() {
 
 struct TickCase {
 	name  string
-	pose  []f64
-	scene []lcl.Entity
-	last  []f64 // m/s, the motion the body moves with, which it also reports
+	world body.World // the body starts at its start
+	last  []f64      // m/s, the motion the body moves with as the case begins
 	u     []f64
 }
 
-// Sim moves along a command until the next tick, which its stopping reports, so a body moving at
-// a keep or the fence stands before it a tick later, where it used to end that tick's travel
-// inside: 9.33 mm past the north fence in the first case, as the local planner reversed there on
-// ep06-yashima, 0.34 m from the pillar's rim in the second and 0.699 m from the human's in the
-// third. Each starts within one tick's travel of the keep, at the seat's top speed.
-fn test_a_sim_body_stands_before_its_keeps_and_the_fence_a_tick_ahead() {
+// Sim moves along a command until the next sense, which its stopping reports, so a body moving at
+// a keep or the fence stands before it whatever the tick, here ticks of at least 20, 34, 47 and
+// 60 ms in real time. Each case starts beyond 20 ms of travel from its keep and within 34 ms of
+// it, at the top speed the armor allows there, where a Sim that moved for the whole of a 34 ms
+// tick ended it 9 mm past the north fence, 9 mm inside the pillar's solid_keep and 1.8 mm inside
+// the standing human's human_stop.
+fn test_a_sim_body_stands_before_its_keeps_and_the_fence_on_any_tick() {
 	cases := [
-		TickCase{'the north fence, a command reversing 1.1 mm inside it', [-2.6412, 4.99886], []lcl.Entity{}, [
-			0.0772, 0.549], [0.7922, -0.6102]},
-		TickCase{'a pillar ahead, 1 cm outside solid_keep', [0.0, 0.0], [
-			ent('obstacle', [0.86, 0.0], 0.5)], [1.0, 0.0], [1.0, 0.0]},
-		TickCase{'a human ahead, 3 mm outside human_stop', [0.0, 0.0], [
-			ent('human', [1.003, 0.0], 0.3)], [0.2, 0.0], [1.0, 0.0]},
+		TickCase{'the north fence 2.5 cm ahead', body.World{
+			start: [0.0, 4.975]
+		}, [0.0, 1.0], [0.0, 1.0]},
+		TickCase{'a pillar 2.5 cm outside solid_keep', body.World{
+			start:     [0.0, 0.0]
+			obstacles: [body.Spot{'o1', [0.875, 0.0], 0.5}]
+		}, [1.0, 0.0], [1.0, 0.0]},
+		TickCase{'a standing human 5 mm outside human_stop', body.World{
+			start:  [0.0, 0.0]
+			humans: [body.Human{
+				id:       'h1'
+				r:        0.3
+				behavior: .stand
+				pos:      [1.005, 0.0]
+			}]
+		}, [0.2, 0.0], [1.0, 0.0]},
 	]
 	limits := Limits{}
-	for c in cases {
-		mut a := restrain(body.new_sim(body.default_world(), .holonomic), limits)
-		a.last = c.last.clone()
-		out := a.drive(c.u, lcl.Percept{ pose: c.pose, vel: c.last, scene: c.scene }, 0.02, true)
-		next := lcl.add(c.pose, lcl.scale(out, 0.02))
-		assert math.abs(next[0]) <= 5.0 && math.abs(next[1]) <= 5.0, '${c.name}: ${next}'
-		for e in c.scene {
-			keep := if e.kind == 'human' { limits.human_stop } else { limits.solid_keep }
-			assert lcl.dist(next, e.pos) - e.r >= keep, '${c.name}: ${next}'
+	for ms in [20, 34, 47, 60] {
+		for c in cases {
+			mut a := restrain(body.new_sim(c.world, .holonomic), limits)
+			a.last = c.last.clone()
+			mut p := lcl.Percept{
+				...a.sense()
+				vel: c.last
+			}
+			for n in 0 .. 5 {
+				a.drive(c.u, p, 0.02, true)
+				time.sleep(ms * time.millisecond)
+				p = a.sense()
+				at := '${c.name}, ${ms} ms, tick ${n}: ${p.pose}'
+				assert math.abs(p.pose[0]) <= 5.0 && math.abs(p.pose[1]) <= 5.0, at
+				for e in p.scene {
+					keep := if e.kind == 'human' { limits.human_stop } else { limits.solid_keep }
+					assert lcl.dist(p.pose, e.pos) - e.r >= keep, at
+				}
+			}
 		}
 	}
 }

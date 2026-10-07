@@ -10,8 +10,9 @@ import lcl
 // stop. Sim implements it, and armor.restrain takes the one main.v builds. stopping is how far,
 // in meters, the body may move along a motion at a speed in m/s that a command sets before it
 // stands once a later command takes the motion out: until the next command and through its
-// braking after. A body that stops with the command that takes a motion out reports how far one
-// tick of the field loop carries it. armor.Armor.drive widens its keeps and the fence by it.
+// braking after, whatever the field loop's tick. A body that stops with the command that takes a
+// motion out reports the most one sense carries it. armor.Armor.drive widens its keeps and the
+// fence by it.
 pub interface Body {
 	dof() int
 	drive() Drive
@@ -23,13 +24,16 @@ mut:
 	halt()
 }
 
-// tick_s is main.v tick, the field loop's period in seconds, until which Sim moves along a
-// command.
-const tick_s = 0.02
+// stride_s is the most time, in seconds, one sense moves and turns Sim: main.v tick, the field
+// loop's 20 ms, and the 10 ms by which its sleep wakes late on the Mac, so an ordinary tick moves
+// the body all of it, while a longer one, a stall's or a loaded host's, leaves it standing for
+// the rest, as body.Mujoco's catch_up does.
+const stride_s = 0.03
 
 // Sim is a planar point body with a payload in a World, the Body main.v builds with new_sim, on
-// either Drive. It integrates whenever it is sensed and, like any real motor controller, zeroes
-// its velocity by itself when commands go stale. The world's humans walk on at each sense too.
+// either Drive. It integrates whenever it is sensed, stride_s at most, and, like any real motor
+// controller, zeroes its velocity by itself when commands go stale. The world's humans walk on at
+// each sense too, all of the time since the last, on the world's clock.
 pub struct Sim {
 	world World
 	drive Drive
@@ -74,24 +78,22 @@ pub fn (s &Sim) drive() Drive {
 	return s.drive
 }
 
-// stopping is how far the body moves at speed until the next command, one tick of main.v's field
-// loop: it moves with exactly the motion of its last command and stops with the command that
-// takes a motion out.
-// ponytail: the loop's nominal tick, tick_s; a sense that comes later, as on ticks of up to 34 ms
-// on the Mac, carries the body that much further, 1.4 cm at 1 m/s. Once that matters, bound the
-// time one sense integrates, as body.Mujoco bounds its steps by catch_up.
+// stopping is how far the body moves at speed until the next command, stride_s of it at most
+// whatever the tick: it moves with exactly the motion of its last command and stops with the
+// command that takes a motion out.
 pub fn (s &Sim) stopping(speed f64) f64 {
-	return speed * tick_s
+	return speed * stride_s
 }
 
-// sense integrates the motion since the last call and reports where it left the body. A
-// differential body moves along the heading it had when commanded, as armor.Armor.drive checked,
-// then turns, which a round body may do wherever it stands, even in contact.
+// sense integrates the motion since the last call, stride_s of it at most, and reports where it
+// left the body. A differential body moves along the heading it had when commanded, as
+// armor.Armor.drive checked, then turns, which a round body may do wherever it stands, even in
+// contact.
 pub fn (mut s Sim) sense() lcl.Percept {
 	now := lcl.now_ms()
 
 	// lcl.now_ms reads the wall clock, which can step back.
-	dt := math.max(0.0, f64(now - s.last_ms) / 1000.0)
+	dt := math.min(stride_s, math.max(0.0, f64(now - s.last_ms) / 1000.0))
 	s.last_ms = now
 	if now - s.cmd_ms > 200 {
 		s.vel = [0.0, 0.0]

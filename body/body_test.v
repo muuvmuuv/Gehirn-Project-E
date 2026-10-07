@@ -518,14 +518,16 @@ struct CraterCase {
 
 // A landing zone holds nothing up before its object lands, so the body moves through it, though no
 // world or START lets the body start there and the armor keeps it out; from the landing on, a body
-// inside the crater stands for good, and one at its rim may back away, as at any ditch.
+// inside the crater stands for good, and one at its rim may back away where one sense carries it
+// clear, as at any ditch: at 1.24 m from the crater's center, 1 cm inside touching, stride_s at
+// 0.5 m/s carries it 1.5 cm.
 fn test_a_body_touches_a_crater_and_never_a_landing_zone() {
 	cases := [
 		CraterCase{'inside, before the landing', [0.0, 0.0], [0.5, 0.0], 0.0, false},
 		CraterCase{'inside, after the landing', [0.0, 0.0], [0.5, 0.0], 2.0, true},
 		CraterCase{'inside, a day after the landing', [0.0, 0.0], [0.5, 0.0], 86_400.0, true},
-		CraterCase{'at the rim, backing away', [1.2, 0.0], [0.5, 0.0], 2.0, false},
-		CraterCase{'at the rim, driving into it', [1.2, 0.0], [-0.5, 0.0], 2.0, true},
+		CraterCase{'at the rim, backing away', [1.24, 0.0], [0.5, 0.0], 2.0, false},
+		CraterCase{'at the rim, driving into it', [1.24, 0.0], [-0.5, 0.0], 2.0, true},
 	]
 	for c in cases {
 		mut s := new_sim(World{
@@ -566,6 +568,19 @@ fn test_a_holonomic_sim_slides_along_its_command() {
 	assert p.vel == [0.0, 0.5]
 	assert p.pose[0] == clear[0] && p.pose[1] > clear[1]
 	assert p.heading == 0.0
+}
+
+// A sense 100 ms after the last moves Sim stride_s along its command, the most its stopping
+// reports, while the world's human walks all 100 ms on the world's clock.
+fn test_a_sense_moves_sim_a_stride_at_most() {
+	mut s := new_sim(apart(), .holonomic)
+	s.actuate([0.0, 0.5])!
+	s.t0_ms -= 100
+	p := sensed(mut s, 100)
+	assert p.pose == [clear[0], clear[1] + 0.5 * stride_s]
+	assert s.stopping(0.5) == 0.5 * stride_s
+	assert p.scene[2].pos == default_world().humans[0].path(p.t_ms - s.t0_ms)
+	assert p.t_ms - s.t0_ms >= 100
 }
 
 // A differential Sim moves only along the heading it had when commanded, then turns toward the
