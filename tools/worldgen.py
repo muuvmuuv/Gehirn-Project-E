@@ -7,12 +7,13 @@ accepts it: `gehirn magi-eval 0` with WORLD set refuses a bad file with its one 
 exit 2 before anything starts, and otherwise refuses the 0. On every accepted world it flies
 --runs missions of the configuration under test and --runs of the reference through
 tools/trials.py, against a mock it starts on --mock-port, and audits each run's recorder and
-journal. The configuration under test is the default stack, which the reflex steers, and the
-reference the local planner of PLANNER=local. A world is solvable once a reference run delivers
-on target. A find is a solvable world on which the configuration under test fails, by no delivery,
-every run either never within reach of the beacon or releasing off target, a MAGI misjudgment or
-an armor refusal, or any world on which an invariant breaks. The
-next prompt carries the last --history rounds with what happened, so the model hunts.
+journal. Unless --test-env and --ref-env change them, the configuration under test is the default
+stack, which the reflex steers, and the reference the local planner, PLANNER=local. A world is
+solvable once a reference run delivers on target. A find is a solvable world on which the
+configuration under test fails, by no delivery, every run either never within reach of the beacon
+or releasing off target, a MAGI misjudgment or an armor refusal, or any world on which an
+invariant breaks. The next prompt carries the last --history rounds with what happened, so the
+model hunts.
 docs/worlds.md, Generating worlds, says what each check means and what a run costs.
 
 A configuration is the lineup's variables with KEY=VALUE overlays on top, an empty VALUE
