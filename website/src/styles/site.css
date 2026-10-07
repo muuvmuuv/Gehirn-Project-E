@@ -133,30 +133,8 @@ code {
 }
 
 .brand {
-	display: flex;
-	align-items: center;
-	gap: 12px;
-	color: var(--paper);
-	text-decoration: none;
-}
-
-.brand__name {
 	display: block;
-	font-family: var(--display);
-	font-weight: 900;
-	font-size: 24px;
-	letter-spacing: 0.1em;
-	line-height: 1;
-}
-
-.brand__jp {
-	display: block;
-	margin-top: 4px;
-	font-family: var(--jp);
-	font-weight: 700;
-	font-size: 11px;
-	letter-spacing: 0.14em;
-	color: var(--dim);
+	flex: none;
 }
 
 .lights {

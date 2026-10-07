@@ -1,20 +1,17 @@
 import { Link } from '@tanstack/react-router'
 import { REPO } from '../lib/site'
-import { Mark } from './Mark'
 
 /**
- * The header of every page: the mark and name, linking home, the bridge's three status lights as
- * ornament, and the sections. The lights show no state; the bridge's own show the running stack's.
+ * The header of every page: the lockup the README shows, linking home, the bridge's three status
+ * lights as ornament, and the sections. The lights show no state; the bridge's own show the
+ * running stack's.
  */
 export function Nav() {
 	return (
 		<header className="nav">
 			<Link to="/" className="brand" aria-label="gehirn, home">
-				<Mark size={34} />
-				<span>
-					<b className="brand__name">GEHIRN</b>
-					<small className="brand__jp">ゲヒルン E計画</small>
-				</span>
+				{/* docs/brand.md sets the lockup's smallest width at 200 px, where ゲヒルン E計画 stays legible. */}
+				<img src="/lockup-dark.svg" alt="" width={200} height={64} />
 			</Link>
 			<div className="lights" aria-hidden="true">
 				<span>

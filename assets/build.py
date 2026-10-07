@@ -7,12 +7,11 @@
     just assets
     uv run --script assets/build.py
 
-It writes the website's favicon set and manifest icons into website/public/, the bridge's
-window icons into bridge/icons and the social card into assets/brand/social.png and
-website/public/social.png, by the numbers of docs/brand.md, Rebuilding them, and needs
-rsvg-convert. It is a design time
-generator, not a tool: nothing in the checks, the missions or the runtime runs it
-(CONTRIBUTING.md, Python tools 2).
+It writes the website's favicon set, manifest icons and a copy of the dark lockup into
+website/public/, the bridge's window icons into bridge/icons and the social card into
+assets/brand/social.png and website/public/social.png, by the numbers of docs/brand.md,
+Rebuilding them, and needs rsvg-convert. It is a design time generator, not a tool: nothing
+in the checks, the missions or the runtime runs it (CONTRIBUTING.md, Python tools 2).
 """
 
 import io
@@ -168,6 +167,7 @@ def social() -> str:
 
 def main() -> None:
     (ROOT / "website/public/favicon.svg").write_text(MARK)
+    (ROOT / "website/public/lockup-dark.svg").write_text(LOCKUP)
     favicon = ROOT / "website/public/favicon.ico"
     favicon.write_bytes(ico([render(tile(s, s, 3 * s / 16, s), s, s) for s in (16, 32, 48)]))
     if sorted(Image.open(favicon).ico.sizes()) != [(16, 16), (32, 32), (48, 48)]:
