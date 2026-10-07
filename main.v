@@ -21,7 +21,8 @@ import wire
 import zenoh
 
 // tick is the field loop's period and the dt over which armor.Armor.drive bounds a change of
-// velocity. tools/worldgen.py TICK copies it.
+// velocity. body/body.v tick_s repeats it as how long Sim moves along a command before the next,
+// planner/planner_test.v tick as the tick its flights take, and tools/worldgen.py TICK copies it.
 const tick = 20 * time.millisecond
 
 // threshold is the sync ratio at or below which the core only advises and a dummy plug loses

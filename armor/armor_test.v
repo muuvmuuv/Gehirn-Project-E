@@ -759,6 +759,42 @@ fn test_drive_widens_the_keeps_and_the_fence_by_the_stopping_distance() {
 	}
 }
 
+struct TickCase {
+	name  string
+	pose  []f64
+	scene []lcl.Entity
+	last  []f64 // m/s, the motion the body moves with, which it also reports
+	u     []f64
+}
+
+// Sim moves along a command until the next tick, which its stopping reports, so a body moving at
+// a keep or the fence stands before it a tick later, where it used to end that tick's travel
+// inside: 9.33 mm past the north fence in the first case, as the local planner reversed there on
+// ep06-yashima, 0.34 m from the pillar's rim in the second and 0.699 m from the human's in the
+// third. Each starts within one tick's travel of the keep, at the seat's top speed.
+fn test_a_sim_body_stands_before_its_keeps_and_the_fence_a_tick_ahead() {
+	cases := [
+		TickCase{'the north fence, a command reversing 1.1 mm inside it', [-2.6412, 4.99886], []lcl.Entity{}, [
+			0.0772, 0.549], [0.7922, -0.6102]},
+		TickCase{'a pillar ahead, 1 cm outside solid_keep', [0.0, 0.0], [
+			ent('obstacle', [0.86, 0.0], 0.5)], [1.0, 0.0], [1.0, 0.0]},
+		TickCase{'a human ahead, 3 mm outside human_stop', [0.0, 0.0], [
+			ent('human', [1.003, 0.0], 0.3)], [0.2, 0.0], [1.0, 0.0]},
+	]
+	limits := Limits{}
+	for c in cases {
+		mut a := restrain(body.new_sim(body.default_world(), .holonomic), limits)
+		a.last = c.last.clone()
+		out := a.drive(c.u, lcl.Percept{ pose: c.pose, vel: c.last, scene: c.scene }, 0.02, true)
+		next := lcl.add(c.pose, lcl.scale(out, 0.02))
+		assert math.abs(next[0]) <= 5.0 && math.abs(next[1]) <= 5.0, '${c.name}: ${next}'
+		for e in c.scene {
+			keep := if e.kind == 'human' { limits.human_stop } else { limits.solid_keep }
+			assert lcl.dist(next, e.pos) - e.r >= keep, '${c.name}: ${next}'
+		}
+	}
+}
+
 struct AllowsCase {
 	name   string
 	pose   []f64

@@ -10,8 +10,8 @@ import lcl
 // stop. Sim implements it, and armor.restrain takes the one main.v builds. stopping is how far,
 // in meters, the body may move along a motion at a speed in m/s that a command sets before it
 // stands once a later command takes the motion out: until the next command and through its
-// braking after. A body that stops with the command that takes a motion out reports 0, since it
-// then moves toward nothing inside a keep. armor.Armor.drive widens its keeps and the fence by it.
+// braking after. A body that stops with the command that takes a motion out reports how far one
+// tick of the field loop carries it. armor.Armor.drive widens its keeps and the fence by it.
 pub interface Body {
 	dof() int
 	drive() Drive
@@ -22,6 +22,10 @@ mut:
 	effect(verb string) !
 	halt()
 }
+
+// tick_s is main.v tick, the field loop's period in seconds, until which Sim moves along a
+// command.
+const tick_s = 0.02
 
 // Sim is a planar point body with a payload in a World, the Body main.v builds with new_sim, on
 // either Drive. It integrates whenever it is sensed and, like any real motor controller, zeroes
@@ -70,10 +74,14 @@ pub fn (s &Sim) drive() Drive {
 	return s.drive
 }
 
-// stopping is 0 at every speed: the body moves with exactly the motion of its last command, so it
-// stops with the command that takes a motion out.
+// stopping is how far the body moves at speed until the next command, one tick of main.v's field
+// loop: it moves with exactly the motion of its last command and stops with the command that
+// takes a motion out.
+// ponytail: the loop's nominal tick, tick_s; a sense that comes later, as on ticks of up to 34 ms
+// on the Mac, carries the body that much further, 1.4 cm at 1 m/s. Once that matters, bound the
+// time one sense integrates, as body.Mujoco bounds its steps by catch_up.
 pub fn (s &Sim) stopping(speed f64) f64 {
-	return 0.0
+	return speed * tick_s
 }
 
 // sense integrates the motion since the last call and reports where it left the body. A
