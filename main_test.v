@@ -1170,7 +1170,9 @@ fn powers(drive body.Drive) {
 // The local planner flies the body from the default world's start to b1 through the armor on
 // `Sim`, at the top speed a seat allows, without contact and never inside the armor's keeps: the
 // pillar's solid_keep and the walking human's human_stop. It runs in real time, since `Sim` reads
-// the wall clock, about 12 s.
+// the wall clock, about 12 s, paced as the field loop is: `Sim` moves body/body.v stride_s of a
+// sense at most while its walker walks all of it, so ticks that each late sleep lengthened, rather
+// than the next tick shortening, let the walker catch the body on a loaded host.
 fn test_the_planner_brings_the_body_to_b1() {
 	limits := armor.Limits{}
 	w := body.default_world()
@@ -1185,6 +1187,7 @@ fn test_the_planner_brings_the_body_to_b1() {
 		target: w.beacons[0].pos
 	}
 	mut at := 0.0
+	mut deadline := time.sys_mono_now()
 	for n in 0 .. 1500 {
 		p := ar.sense()
 		assert !p.contact, 'tick ${n} at ${p.pose}'
@@ -1201,7 +1204,11 @@ fn test_the_planner_brings_the_body_to_b1() {
 			break
 		}
 		ar.drive(way.next(p, goal, ar.top_speed(p, true)), p, 0.02, true)
-		time.sleep(20 * time.millisecond)
+		next, nap := pace(deadline, time.sys_mono_now())
+		deadline = next
+		if nap > 0 {
+			time.sleep(time.Duration(nap))
+		}
 	}
 	assert at < lcl.beacon_reach
 }
