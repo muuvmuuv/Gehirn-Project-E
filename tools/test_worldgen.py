@@ -388,6 +388,8 @@ assert "every run either never within 0.5 m of the beacon within the limit or re
 assert "who stands on or beside the beacon, or stops there for the body, holds it short" in text, text
 reflex = prompt(4, 2, 180, "mock", {}, {"PLANNER": ""}, "", form)
 assert "(PLANNER=, so the reflex steers)" in reflex and "holds the body 0.7 m off for good" in reflex and "beside the beacon" not in reflex
+# Where to look names no weakness of one steering, which would seed a hunt's finds.
+assert "pocket" not in text and "pocket" not in reflex
 
 # The reference is the local planner unless an overlay sets PLANNER, and the configuration under
 # test is the default stack.
