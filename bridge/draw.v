@@ -99,7 +99,7 @@ fn draw(ctx &gg.Context, s State, unit string, at string, now i64) {
 	draw_harmonics(ctx, s, 16, 480, 736, 160)
 	draw_core(ctx, s, now, 16, 650, 736, 124)
 	draw_limit(ctx, s, now, 768, 58, 496, 210)
-	draw_scene(ctx, s, unit, 768, 278, 496, 348)
+	draw_scene(ctx, s, unit, now, 768, 278, 496, 348)
 	draw_logs(ctx, s, 768, 636, 496, 138)
 	draw_footer(ctx, s)
 	if s.emergency(now) {
@@ -883,7 +883,7 @@ fn (m Map) py(y f64) f32 {
 	return m.oy - f32(y - m.my) * m.k
 }
 
-fn draw_scene(ctx &gg.Context, s State, unit string, x f32, y f32, w f32, h f32) {
+fn draw_scene(ctx &gg.Context, s State, unit string, now i64, x f32, y f32, w f32, h f32) {
 	frame_box(ctx, x, y, w, h, 'SCENE', '周辺状況')
 	ax, ay, aw, ah := x + 8, y + 24, w - 16, h - 24 - 30
 	if s.view_at == 0 || s.span.len < 4 {
@@ -984,6 +984,15 @@ fn draw_scene(ctx &gg.Context, s State, unit string, x f32, y f32, w f32, h f32)
 				ctx.draw_circle_filled(ex, ey, r, ink)
 				ctx.draw_circle_empty(ex, ey, r, ember)
 			}
+			'impact' {
+				// In its last 5 s the ring blinks as the 活動限界 display warns.
+				ctx.draw_circle_filled(ex, ey, r, fade(alert, 0.12))
+				ctx.draw_circle_empty(ex, ey, r, if e.lands_in < 5.0 {
+					blink(now, 330, 0.8, alert, alert_deep)
+				} else {
+					alert
+				})
+			}
 			'beacon' {
 				ctx.draw_circle_filled(ex, ey, r, fade(cyan, 0.25))
 				ctx.draw_circle_empty(ex, ey, r, cyan)
@@ -1035,9 +1044,14 @@ fn draw_scene(ctx &gg.Context, s State, unit string, x f32, y f32, w f32, h f32)
 	taken << label(ctx, taken, bx, by, 10, unit.to_upper(), orange)
 	for e in p.scene {
 		if e.pos.len >= 2 {
+			name := if e.kind == 'impact' {
+				'${e.kind} ${e.id} ${e.lands_in:.1f} s'
+			} else {
+				'${e.kind} ${e.id}'
+			}
 			taken << label(ctx, taken, m.px(e.pos[0]), m.py(e.pos[1]), f32(e.r) * m.k + 4,
-				'${e.kind} ${e.id}'.to_upper(), match e.kind {
-				'human' { alert }
+				name.to_upper(), match e.kind {
+				'human', 'impact' { alert }
 				'beacon' { cyan }
 				'ditch' { ember }
 				else { dim }

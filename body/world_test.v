@@ -52,6 +52,16 @@ fn with_ground(gs string) string {
 	return base.all_before_last('}') + ', "ground": [${gs}]}'
 }
 
+// rock is a falling object, which the cases of test_load_world add to base.
+const rock = '{"id": "rock", "pos": [-2.2, -0.6], "r": 0.5, "lands": 30}'
+
+const accepted_lands = 'accepted above 0 and at most 600.0'
+
+// with_falling is base with the falling objects fs, a comma separated list.
+fn with_falling(fs string) string {
+	return base.all_before_last('}') + ', "falling": [${fs}]}'
+}
+
 // with_boat is base with obstacle o after its pillar.
 fn with_boat(o string) string {
 	return base.replace('"r": 0.8}]', '"r": 0.8}, ${o}]')
@@ -99,6 +109,26 @@ fn test_load_world() {
 		LoadCase{'ground outside the fence', with_ground(lake.replace('1.8', '6.8')), 'ground lake lies outside the fence; ${accepted_fence}'},
 		LoadCase{'ground of radius 0', with_ground(lake.replace('1.4', '0')), 'ground lake has radius 0.0; ${accepted_radius}'},
 		LoadCase{'ground and a human with one id', with_ground(lake.replace('"lake"', '"h1"')), 'ground has id h1, which another entity has; accepted an id per entity'},
+		LoadCase{'17 entities with falling objects', with_falling(
+			'{"id": "f1", "pos": [4, -4], "r": 0.1, "lands": 5}, '.repeat(13) + rock), '17 entities; accepted at most 16 in all'},
+		LoadCase{'a falling object', with_falling(rock), 'ok'},
+		LoadCase{'a falling object at the latest landing', with_falling(rock.replace('30}', '600}')), 'ok'},
+		LoadCase{'a falling object landing at once', with_falling(rock.replace('30}', '0}')), 'falling object rock lands 0.0 s after the world begins; ${accepted_lands}'},
+		LoadCase{'a falling object without a landing', with_falling(rock.replace(', "lands": 30', '')), 'falling object rock lands 0.0 s after the world begins; ${accepted_lands}'},
+		LoadCase{'a falling object landing before the world begins', with_falling(rock.replace('30}',
+			'-1}')), 'falling object rock lands -1.0 s after the world begins; ${accepted_lands}'},
+		LoadCase{'a falling object landing past ten minutes', with_falling(rock.replace('30}',
+			'601}')), 'falling object rock lands 601.0 s after the world begins; ${accepted_lands}'},
+		LoadCase{'a falling object landing past any finite time', with_falling(rock.replace('30}',
+			'1e999}')), 'falling object rock lands +inf s after the world begins; ${accepted_lands}'},
+		LoadCase{'a falling object outside the fence', with_falling(rock.replace('-2.2', '-5.2')), 'falling object rock lies outside the fence; ${accepted_fence}'},
+		LoadCase{'a falling object of radius 0', with_falling(rock.replace('"r": 0.5', '"r": 0')), 'falling object rock has radius 0.0; ${accepted_radius}'},
+		LoadCase{'a falling object and a human with one id', with_falling(rock.replace('"rock"',
+			'"h1"')), 'falling object has id h1, which another entity has; accepted an id per entity'},
+		LoadCase{'a start touching where an object falls', with_falling(rock).replace('[-3, -3]',
+			'[-2.2, -1.34]'), 'start touches where falling object rock lands; accepted a start more than 0.25 m from every landing zone'},
+		LoadCase{'a start clear of where an object falls', with_falling(rock).replace('[-3, -3]',
+			'[-2.2, -1.36]'), 'ok'},
 		LoadCase{'a ditch', with_ditches(trench), 'ok'},
 		LoadCase{'a cliff, the rim of a ditch of radius 5 at the fence', with_ditches('{"id": "cliff", "pos": [5, -5], "r": 5}'), 'ok'},
 		LoadCase{'a ditch outside the fence', with_ditches(trench.replace('-1.6', '-5.6')), 'ditch trench lies outside the fence; ${accepted_fence}'},

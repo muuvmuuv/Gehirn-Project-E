@@ -101,7 +101,8 @@ pub fn (mut s Sim) sense() lcl.Percept {
 	scene := s.scene(now)
 	s.contact = false
 	for e in scene {
-		if e.kind != 'beacon' && touches(next, e.pos, e.r) {
+		// A landing zone is air until its object lands, so it holds nothing up.
+		if e.kind != 'beacon' && e.kind != 'impact' && touches(next, e.pos, e.r) {
 			s.contact = true
 		}
 	}
@@ -177,8 +178,9 @@ pub fn (mut s Sim) halt() {
 }
 
 // scene is the world at now, with every human and moving obstacle walked on to now and each one
-// walking with the velocity of its last step. On default_world it is beacon b1, pillar o1 and
-// human h1 on its loop at every time.
+// walking with the velocity of its last step, and each falling object's zone or crater on the
+// world's clock. On default_world it is beacon b1, pillar o1 and human h1 on its loop at every
+// time.
 fn (mut s Sim) scene(now i64) []lcl.Entity {
 	// lcl.now_ms reads the wall clock, which can step back.
 	dt_ms := math.max(i64(0), now - s.walked_ms)
@@ -189,7 +191,7 @@ fn (mut s Sim) scene(now i64) []lcl.Entity {
 		s.walkers[s.world.humans.len + j].step(o, now - s.t0_ms, dt_ms, s.pose)
 	}
 	s.walked_ms = now
-	return s.world.scene(s.walkers)
+	return s.world.scene(s.walkers, now - s.t0_ms)
 }
 
 // walkers is a Walker for each human of w where its walk starts, then one for each moving
@@ -200,12 +202,15 @@ fn (w World) walkers() []Walker {
 	return all
 }
 
-// scene is w as a percept's scene, with its humans and moving obstacles where walkers, in the
-// order World.walkers makes them, have them, each walking with its walker's velocity: its beacons,
-// standing obstacles, humans, moving obstacles and ditches in that order, each kind in the world's
-// order.
-fn (w World) scene(walkers []Walker) []lcl.Entity {
-	mut scene := []lcl.Entity{cap: w.beacons.len + w.obstacles.len + walkers.len + w.ditches.len}
+// scene is w as a percept's scene clock_ms after the world began, with its humans and moving
+// obstacles where walkers, in the order World.walkers makes them, have them, each walking with its
+// walker's velocity: its beacons, standing obstacles, humans, moving obstacles, ditches and falling
+// objects in that order, each kind in the world's order. A falling object is its landing zone, of
+// kind impact with the seconds until it lands, until clock_ms reaches its landing, and its crater,
+// a ditch, from then on.
+fn (w World) scene(walkers []Walker, clock_ms i64) []lcl.Entity {
+	mut scene := []lcl.Entity{cap: w.beacons.len + w.obstacles.len + walkers.len + w.ditches.len +
+		w.falling.len}
 	for b in w.beacons {
 		scene << lcl.Entity{
 			id:   b.id
@@ -247,6 +252,16 @@ fn (w World) scene(walkers []Walker) []lcl.Entity {
 			kind: 'ditch'
 			pos:  d.pos.clone()
 			r:    d.r
+		}
+	}
+	for f in w.falling {
+		left := f.lands - f64(clock_ms) / 1000.0
+		scene << lcl.Entity{
+			id:       f.id
+			kind:     if left > 0.0 { 'impact' } else { 'ditch' }
+			pos:      f.pos.clone()
+			r:        f.r
+			lands_in: math.max(0.0, left)
 		}
 	}
 	return scene

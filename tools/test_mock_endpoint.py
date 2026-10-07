@@ -120,6 +120,15 @@ assert mission_beacon(TERRAIN, entities)["id"] == "b1"
 assert propose(read_percept(TERRAIN), TERRAIN)["target"] == [3.0, 2.0]
 for unit in ("melchior", "balthasar", "casper"):
     assert answer(unit, TERRAIN, 1, None, {})["vote"] == "approve", unit
+# A falling object's landing zone, whose line lcl/lcl.v Percept.describe writes as any entity's,
+# reads as kind impact and no human, and on the mock draws no rejection of a goto beside it.
+IMPACT = GOTO.replace("human h1 at (1.00, 1.00), radius 0.30, distance 5.70",
+                      "impact rock at (-2.20, -0.60), radius 0.50, distance 2.30")
+_, entities = read_percept(IMPACT)
+assert [(e["kind"], e["id"], e["distance"]) for e in entities][1] == ("impact", "rock", 2.3), entities
+assert propose(read_percept(IMPACT), IMPACT)["target"] == [3.0, 2.0]
+for unit in ("melchior", "balthasar", "casper"):
+    assert answer(unit, IMPACT, 1, None, {})["vote"] == "approve", unit
 # A patch of ground, whose line ends in the share of its speed the armor leaves the body, reads as
 # ground with that share and no distance, and changes no verdict.
 GROUND = GOTO.replace("human h1 at (1.00, 1.00), radius 0.30, distance 5.70",

@@ -227,7 +227,7 @@ fn test_a_walking_humans_velocity_travels_to_hq_and_the_bridge() {
 }
 
 // A percept without ground seals to the bytes it sealed to before ground existed; a patch of ground
-// travels to HQ and the bridge with its factor.
+// travels to HQ and the bridge with its factor, and a landing zone with its time to land.
 fn test_ground_travels_to_hq_and_the_bridge() {
 	mut s := new_sealer(link, 'eva01')!
 	mut o := new_opener(link, 'eva01')!
@@ -260,6 +260,22 @@ fn test_ground_travels_to_hq_and_the_bridge() {
 	assert f.payload.bytestr().contains('"ground":[{"id":"lake","kind":"ground","pos":[1.8,0.9],"r":1.4,"factor":0.5}],"payload"')
 	assert o.context(sample(f))!.percept == p
 	assert o.view(sample(s.view(lcl.FieldView{ percept: p })))!.percept == p
+	q := lcl.Percept{
+		...plain
+		scene: [
+			lcl.Entity{
+				id:       'rock'
+				kind:     'impact'
+				pos:      [-2.2, -0.6]
+				r:        0.5
+				lands_in: 12.5
+			},
+		]
+	}
+	g := s.context(lcl.Context{ percept: q })
+	assert g.payload.bytestr().contains('"r":0.5,"lands_in":12.5}],"payload"')
+	assert o.context(sample(g))!.percept == q
+	assert o.view(sample(s.view(lcl.FieldView{ percept: q })))!.percept == q
 }
 
 fn test_new_sealer() {

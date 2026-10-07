@@ -28,20 +28,23 @@ pub const arrive = 0.35
 // counts a release on target 0.1 m further out, as magi/jev.v jev_delivery does.
 pub const beacon_reach = 0.5
 
-// Entity is one thing in a percept's scene: an obstacle, a beacon, a human or a ditch, with its
-// position and radius in meters and, for a walking human or a moving obstacle, its velocity, or a
-// patch of ground in Percept.ground with its factor. body.Sim reports them, and the armor, the
-// reflex, the local planner and MAGI read them; the planner reads every velocity, magi.walks_onto
-// a human's, and the bridge draws an obstacle's. Every reader that keeps the body off something
-// keeps it off every kind of the scene but a beacon, so a kind no code names counts as solid.
+// Entity is one thing in a percept's scene: an obstacle, a beacon, a human, a ditch or the zone a
+// falling object lands on, with its position and radius in meters and, for a walking human or a
+// moving obstacle, its velocity, for a landing zone the time until it lands, or a patch of ground
+// in Percept.ground with its factor. body.Sim reports them, and the armor, the reflex, the local
+// planner and MAGI read them; the planner reads every velocity, magi.walks_onto a human's, and the
+// bridge draws an obstacle's and counts a landing zone down. Every reader that keeps the body off
+// something keeps it off every kind of the scene but a beacon, so a kind no code names counts as
+// solid, and the body is kept off a landing zone before its object lands (ADR-0010).
 pub struct Entity {
 pub:
-	id     string
-	kind   string // obstacle, beacon, human or ditch in a scene; ground in Percept.ground
-	pos    []f64
-	r      f64
-	vel    []f64 @[omitempty] // m/s, a walking human's or a moving obstacle's; empty for anything that stands, a stopped one included, never [0, 0]
-	factor f64   @[omitempty] // ground only: the share of its top speed the armor leaves the body there, 0.1 to 0.9
+	id       string
+	kind     string // obstacle, beacon, human, ditch or impact in a scene; ground in Percept.ground
+	pos      []f64
+	r        f64
+	vel      []f64 @[omitempty] // m/s, a walking human's or a moving obstacle's; empty for anything that stands, a stopped one included, never [0, 0]
+	lands_in f64   @[omitempty] // impact only: s from this percept until its falling object lands, above 0
+	factor   f64   @[omitempty] // ground only: the share of its top speed the armor leaves the body there, as body.Patch factor bounds it
 }
 
 // Percept is one reading of the body: pose, velocity, scene, ground, payload, contact and heading.

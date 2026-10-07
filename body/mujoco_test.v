@@ -223,6 +223,7 @@ fn test_a_mujoco_body_reports_its_world_like_sim() {
 			moving:  [boat([-2.0, 3.0])]
 			ditches: [Spot{'trench', [-1.6, -3.0], 0.5}]
 			ground:  [Patch{'lake', [1.8, 0.9], 1.4, 0.5}]
+			falling: [Falling{'rock', [2.0, -3.0], 0.5, 30.0}]
 		}
 		mut bw := new_mujoco(w)!
 		mut sw := new_sim(w, .differential)
@@ -234,6 +235,8 @@ fn test_a_mujoco_body_reports_its_world_like_sim() {
 		ps := sw.sense()
 		assert q.scene.map('${it.id} ${it.kind} ${it.r}') == ps.scene.map('${it.id} ${it.kind} ${it.r}')
 		assert q.ground == ps.ground && q.ground.len == 1
+		assert q.scene[5].kind == 'impact'
+		assert q.scene[5].lands_in == 30.0 - f64(bw.steps * step_ms) / 1000.0
 		assert q.scene[3].pos == w.moving[0].path(bw.steps * step_ms)
 		before := w.moving[0].path((bw.steps - 1) * step_ms)
 		assert q.scene[3].vel == lcl.scale(lcl.sub(q.scene[3].pos, before), 1000.0 / f64(step_ms))
@@ -410,6 +413,48 @@ fn test_a_mujoco_body_stands_at_a_ditch() {
 	}
 }
 
+// A MuJoCo body inside a falling object's footprint, which no world or START allows and the armor
+// keeps it out of, drives through the landing zone, since no geom stands there, and from the
+// landing on, on the model's clock, is held for good, as Sim holds a body inside a crater: it
+// brakes to a stand within its stopping distance and moves no more; its percept shows the crater
+// as a ditch.
+fn test_a_mujoco_body_holds_under_a_landed_crater() {
+	$if mujoco ? {
+		w := World{
+			start:   [0.0, 0.0]
+			beacons: [Spot{'b1', [4.0, 4.0], 0.3}]
+			falling: [Falling{'rock', [0.0, 0.0], 2.0, 0.5}]
+		}
+		mut b := new_mujoco(w)!
+		mut p := b.sense()
+		for _ in 0 .. 10 {
+			b.actuate([0.5, 0.0])!
+			b.t0_ms -= 40
+			p = b.sense()
+		}
+		assert p.scene[1].kind == 'impact' && !p.contact && p.pose[0] > 0.05, '${p.pose}'
+		mut landed := []f64{}
+		mut last := []f64{}
+		for i in 0 .. 40 {
+			b.actuate([0.5, 0.0])!
+			b.t0_ms -= 40
+			p = b.sense()
+			if p.scene[1].kind == 'ditch' {
+				if landed.len == 0 {
+					landed = p.pose.clone()
+				}
+				assert p.contact, '${i}'
+				assert lcl.dist(p.pose, landed) <= b.stopping(0.5), '${p.pose} ${landed}'
+			}
+			if i == 30 {
+				last = p.pose.clone()
+			}
+		}
+		assert landed.len == 2
+		assert lcl.dist(p.pose, last) < 1e-6, '${p.pose} ${last}'
+	}
+}
+
 // A bad number in a step ends the run with one line before sense builds a percept, so no NaN
 // reaches the armor, the recorder or HQ.
 fn test_a_bad_step_ends_the_run_before_a_percept() {
@@ -442,7 +487,8 @@ fn boat(center []f64) Human {
 	}
 }
 
-// mjcf writes every obstacle, human and ditch of a world with its radius, and no beacon or ground:
+// mjcf writes every obstacle, human and ditch of a world with its radius, and no beacon, ground or
+// falling object:
 // a standing obstacle and then a ditch as a static cylinder, a human as a mocap capsule and a
 // moving obstacle as a mocap cylinder after the humans, both without contacts. The default world's
 // model is as it was.
@@ -451,7 +497,8 @@ fn test_mjcf() {
 		assert mjcf(default_world()) == default_mjcf
 		assert mjcf(World{
 			...default_world()
-			ground: [Patch{'lake', [1.8, 0.9], 1.4, 0.5}]
+			ground:  [Patch{'lake', [1.8, 0.9], 1.4, 0.5}]
+			falling: [Falling{'rock', [-2.2, -0.6], 0.5, 30.0}]
 		}) == default_mjcf
 		with_boat := mjcf(World{
 			...default_world()

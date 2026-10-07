@@ -175,7 +175,8 @@ fn whole(name string, s string, min int, max int) !int {
 }
 
 // world reads WORLD, the file of the world the simulated body plays, for load_config, where unset
-// is body.default_world, and START, which moves the world's start when set.
+// is body.default_world, and START, which moves the world's start when set, though never under a
+// falling object.
 fn world(fence []f64) !body.World {
 	path := os.getenv('WORLD')
 	w := if path == '' {
@@ -188,9 +189,13 @@ fn world(fence []f64) !body.World {
 	if os.getenv('START') == '' {
 		return w
 	}
+	start := start_pose(fence)!
+	if id := w.lands_at(start) {
+		return error('START is ${lcl.quoted(os.getenv('START'))}, where falling object ${id} lands; accepted a start clear of every landing zone')
+	}
 	return body.World{
 		...w
-		start: start_pose(fence)!
+		start: start
 	}
 }
 

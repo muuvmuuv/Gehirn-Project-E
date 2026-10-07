@@ -382,8 +382,8 @@ fn test_sim_counts_contact() {
 }
 
 // Sim's scene lists the beacons, then the standing obstacles, then the humans, then the moving
-// obstacles, then the ditches, each kind in the world's order, a moving one with the velocity of
-// its last step.
+// obstacles, then the ditches, then the falling objects, each kind in the world's order, a moving
+// one with the velocity of its last step.
 fn test_scene_lists_every_kind_in_order() {
 	w := World{
 		start:     [-4.0, -4.0]
@@ -404,11 +404,14 @@ fn test_scene_lists_every_kind_in_order() {
 			standing('raft', [-2.0, -1.0], .stop, 0.5),
 		]
 		ditches:   [Spot{'trench', [-1.6, 1.2], 0.5}, Spot{'cliff', [5.0, 5.0], 1.0}]
+		falling:   [Falling{'rock', [-2.2, -0.6], 0.5, 30.0},
+			Falling{'shard', [4.0, 1.0], 0.5, 0.01}]
 	}
 	mut s := new_sim(w, .holonomic)
 	scene := s.scene(s.t0_ms + 20)
 	assert scene.map('${it.kind} ${it.id}') == ['beacon b1', 'beacon b2', 'obstacle o1',
-		'obstacle o2', 'human h1', 'obstacle boat', 'obstacle raft', 'ditch trench', 'ditch cliff']
+		'obstacle o2', 'human h1', 'obstacle boat', 'obstacle raft', 'ditch trench', 'ditch cliff',
+		'impact rock', 'ditch shard']
 	assert scene[5].pos == w.moving[0].path(20)
 	assert scene[5].vel == lcl.scale(lcl.sub(scene[5].pos, w.moving[0].path(0)), 1000.0 / 20.0)
 	assert scene.filter(it.id != 'boat').all(it.vel.len == 0)
@@ -475,6 +478,67 @@ fn test_an_obstacle_walks_and_stops_for_the_body() {
 	e := s.scene(s.t0_ms + 7000)[1]
 	assert close(e.pos, [stood[0] + 1.0, 0.0]), '${e.pos}'
 	assert close(e.vel, [1.0, 0.0]), '${e.vel}'
+}
+
+// A falling object is its landing zone, of kind impact with the seconds until it lands, until the
+// world's clock reaches its landing, and from then on its crater, a ditch of the same id and circle
+// with no time.
+fn test_a_falling_object_lands_and_leaves_a_crater() {
+	w := World{
+		start:   [-4.0, -4.0]
+		beacons: [Spot{'b1', [4.0, 4.0], 0.3}]
+		falling: [Falling{'rock', [-2.2, -0.6], 0.5, 30.0}]
+	}
+	for clock_ms, want in {
+		i64(0):     'impact 30.000'
+		12_340:     'impact 17.660'
+		29_980:     'impact 0.020'
+		30_000:     'ditch 0.000'
+		30_020:     'ditch 0.000'
+		86_400_000: 'ditch 0.000'
+	} {
+		e := w.scene([], clock_ms)[1]
+		assert '${e.kind} ${e.lands_in:.3f}' == want, '${clock_ms} ms'
+		assert e.id == 'rock' && e.pos == [-2.2, -0.6] && e.r == 0.5, '${clock_ms} ms'
+	}
+
+	// Sim plays it on its world's clock.
+	mut s := new_sim(w, .holonomic)
+	assert s.scene(s.t0_ms + 29_990)[1].kind == 'impact'
+	assert s.scene(s.t0_ms + 30_000)[1].kind == 'ditch'
+}
+
+struct CraterCase {
+	name    string
+	at      []f64
+	u       []f64
+	clock_s f64 // the world's clock at the sense, around a landing at 1 s
+	held    bool
+}
+
+// A landing zone holds nothing up before its object lands, so the body moves through it, though no
+// world or START lets the body start there and the armor keeps it out; from the landing on, a body
+// inside the crater stands for good, and one at its rim may back away, as at any ditch.
+fn test_a_body_touches_a_crater_and_never_a_landing_zone() {
+	cases := [
+		CraterCase{'inside, before the landing', [0.0, 0.0], [0.5, 0.0], 0.0, false},
+		CraterCase{'inside, after the landing', [0.0, 0.0], [0.5, 0.0], 2.0, true},
+		CraterCase{'inside, a day after the landing', [0.0, 0.0], [0.5, 0.0], 86_400.0, true},
+		CraterCase{'at the rim, backing away', [1.2, 0.0], [0.5, 0.0], 2.0, false},
+		CraterCase{'at the rim, driving into it', [1.2, 0.0], [-0.5, 0.0], 2.0, true},
+	]
+	for c in cases {
+		mut s := new_sim(World{
+			start:   c.at
+			beacons: [Spot{'b1', [4.0, 4.0], 0.3}]
+			falling: [Falling{'rock', [0.0, 0.0], 1.0, 1.0}]
+		}, .holonomic)
+		s.t0_ms -= i64(c.clock_s * 1000.0)
+		s.actuate(c.u)!
+		p := sensed(mut s, 100)
+		assert p.contact == c.held, c.name
+		assert (p.pose == c.at) == c.held, '${c.name}: ${p.pose}'
+	}
 }
 
 // sensed is s's percept dt_ms after its last one, as if that much time had passed.

@@ -129,7 +129,7 @@ pub fn (mut b Mujoco) sense() lcl.Percept {
 		t_ms:    now
 		pose:    b.pose()
 		vel:     [v[0], v[1]]
-		scene:   b.world.scene(b.walkers)
+		scene:   b.world.scene(b.walkers, b.steps * step_ms)
 		ground:  b.world.patches()
 		payload: b.payload
 		contact: b.contact
@@ -166,9 +166,9 @@ fn (b &Mujoco) pose() []f64 {
 }
 
 // walk moves every human and moving obstacle one step on, to the model's clock after the next
-// step, and sets the controls for it: the slides' to motion, or to zero while one of them touches
-// the base by Sim's rule, as Sim holds its body, and the hinge's toward aim. Their mocap bodies
-// are in World.walkers' order.
+// step, and sets the controls for it: the slides' to motion, or to zero while one of them or a
+// landed crater touches the base by Sim's rule, as Sim holds its body, and the hinge's toward aim.
+// Their mocap bodies are in World.walkers' order.
 fn (mut b Mujoco) walk() {
 	pose := b.pose()
 	b.held = false
@@ -183,6 +183,14 @@ fn (mut b Mujoco) walk() {
 		b.model.set_mocap(k, b.walkers[k].at[0], b.walkers[k].at[1])
 		b.held = b.held || touches(pose, b.walkers[k].at, o.r)
 	}
+
+	// A crater is no geom, since the model compiles once, so a base that touches one by Sim's rule,
+	// at its rim too, stays for good, where Sim lets a body at the rim back away; the armor keeps
+	// the base out of the zone from the world's start.
+	for f in b.world.falling {
+		b.held = b.held || (f64((b.steps + 1) * step_ms) / 1000.0 >= f.lands
+			&& touches(pose, f.pos, f.r))
+	}
 	m := if b.held { [0.0, 0.0] } else { b.motion }
 	b.model.set_ctrl(0, m[0])
 	b.model.set_ctrl(1, m[1])
@@ -195,7 +203,8 @@ fn (mut b Mujoco) walk() {
 // away, every human a mocap capsule and every moving obstacle a mocap cylinder of its radius where
 // its walk starts, all at one height, with no thread, plugin or floor, and autoreset off. A beacon
 // is no geom, since nothing touches it, nor is a patch of ground, on which the armor alone slows
-// the base (ADR-0010), and a mocap body takes part in no contact: it pushes with
+// the base, or a falling object, since the model compiles once and walk holds the base in a crater
+// (ADR-0010), and a mocap body takes part in no contact: it pushes with
 // no limit on its force, so a human walking through a base beside a pillar would squeeze the base
 // into the pillar and fling it out at about 8 m/s. The base weighs base_mass, so slide_gain gives
 // the slides a time constant of 0.05 s, and the hinge's gain of 62.5 one of 0.01 s on the

@@ -36,6 +36,17 @@ fn ditch(x f64, y f64, r f64) lcl.Entity {
 	}
 }
 
+// zone is the landing zone of a falling object at x, y of radius r, which lands in 20 s and which
+// the planner keeps out of as a static solid from the first percept.
+fn zone(x f64, y f64, r f64) lcl.Entity {
+	return lcl.Entity{
+		...solid(x, y, r)
+		id:       'z${x}${y}'
+		kind:     'impact'
+		lands_in: 20.0
+	}
+}
+
 fn person(x f64, y f64, vel []f64) lcl.Entity {
 	return lcl.Entity{
 		id:   'h'
@@ -177,12 +188,15 @@ fn test_way() {
 			ditch(0.0, 0.0, 0.8)], 0.0, 1.0},
 		WayCase{'a cliff, a ditch centered on the fence, across the line', [-3.0, 3.0], [
 			3.0, 3.0], [ditch(0.0, 5.0, 3.0)], 0.0, -1.0},
+		WayCase{'a landing zone on the line, passed as a pillar', [-3.0, 0.0], [3.0, 0.3], [
+			zone(0.0, 0.0, 0.8)], 0.0, 1.0},
 	]
 	for c in cases {
 		f := fly(c.pose, c.target, c.scene, 60.0)
 		assert f.arrived(c.target), '${c.name}: ended at ${f.poses.last()}'
 		assert f.nearest('obstacle') >= solid_keep, c.name
 		assert f.nearest('ditch') >= solid_keep, c.name
+		assert f.nearest('impact') >= solid_keep, c.name
 		assert f.nearest('human') >= human_stop + berth - 1e-6, c.name
 		assert f.poses.all(math.abs(it[0]) <= 5.0 && math.abs(it[1]) <= 5.0), c.name
 		y := f.crossing(c.at_x) - c.pose[1]

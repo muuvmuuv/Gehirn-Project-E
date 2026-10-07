@@ -35,7 +35,7 @@ A world is one JSON object. [worlds/example.json](../worlds/example.json) is a s
 }
 ```
 
-Positions are `[x, y]` in meters, radii and distances in meters, speeds in meters a second, angles in radians. Every position, waypoint and loop lies inside the armor's fence, -5 to 5 m on each axis. Every entity is a circle, as the percept shows it, and the percept lists the beacons, then the obstacles that stand, then the humans, then the obstacles that move, then the ditches, each in the file's order, and carries the ground apart from them. The core and MAGI read every one of them each time they judge, and the recorder writes all but the ground 50 times a second.
+Positions are `[x, y]` in meters, radii and distances in meters, speeds in meters a second, angles in radians. Every position, waypoint and loop lies inside the armor's fence, -5 to 5 m on each axis. Every entity is a circle, as the percept shows it, and the percept lists the beacons, then the obstacles that stand, then the humans, then the obstacles that move, then the ditches, then the falling objects, each in the file's order, and carries the ground apart from them. The core and MAGI read every one of them each time they judge, and the recorder writes all but the ground 50 times a second.
 
 | Field | Holds |
 | --- | --- |
@@ -45,6 +45,7 @@ Positions are `[x, y]` in meters, radii and distances in meters, speeds in meter
 | `humans` | People, each an `id`, an `r`, a `behavior`, a `reaction` and the fields those take; may be empty |
 | `ditches` | Ditches and cliffs, each an `id`, a `pos` and an `r`, which the body is kept out of as off a solid ([Ditches and cliffs](#ditches-and-cliffs)); may be absent |
 | `ground` | Water, mud or a slope, each an `id`, a `pos`, an `r` and a `factor`, which slow the body ([Ground](#ground-water-mud-a-slope)); may be absent |
+| `falling` | Objects that fall from the sky, each an `id`, a `pos`, an `r` and when it `lands`, whose landing zone the body is kept out of ([A falling object](#a-falling-object)); may be absent |
 
 An `id` is 1 to 16 lowercase letters, digits and hyphens, one per entity, since ids reach status lines and every prompt. A world holds at most 16 entities in all, over every list. Fields a behavior or reaction does not take are ignored.
 
@@ -71,7 +72,7 @@ A walking speed lies from 0.1 to 2 m/s; a loop's is its rate times its larger ra
 
 The simulator keeps its rules for every world: the body stands still while it touches anything solid, humans included, by a distance from its center under the solid's radius plus 0.25 m, and a velocity command lapses after 200 ms. The armor keeps its own ([Safety](safety.md)), whatever a human does, and a stop or aside human never steps within its `keep` of the body, so it never walks into it. Between two solids the body needs more room than twice the armor's 0.35 m: a gap of exactly 0.70 m between their rims lets the default holonomic body through with 0.35 m to each, but stops for good the differential `Sim`, whose slide starts early, and the MuJoCo base, whose keeps the armor widens by its stopping distance, while one of 0.74 m let all three through (PLAN, Known issue 33).
 
-Under `BODY=mujoco` the MuJoCo base plays the same world ([Safety](safety.md#how-the-body-moves)): every obstacle that stands and every ditch is a static cylinder of its radius, every human a walking capsule and every obstacle that moves a walking cylinder of its radius, which move by the same rules on the model's clock, starting at the base's first sense and pausing with the model after a stall. There a standing solid stops the base through MuJoCo's contact, a human who walks through the base touches it by `Sim`'s rule and holds it still while they touch, as in `Sim`, as would an obstacle that moves, though it stops for the base before it touches, and a beacon or a patch of ground is nothing the base can touch.
+Under `BODY=mujoco` the MuJoCo base plays the same world ([Safety](safety.md#how-the-body-moves)): every obstacle that stands and every ditch is a static cylinder of its radius, every human a walking capsule and every obstacle that moves a walking cylinder of its radius, which move by the same rules on the model's clock, starting at the base's first sense and pausing with the model after a stall. There a standing solid stops the base through MuJoCo's contact, a human who walks through the base touches it by `Sim`'s rule and holds it still while they touch, as in `Sim`, as would an obstacle that moves, though it stops for the base before it touches, and a beacon or a patch of ground is nothing the base can touch. A falling object is no geom either, since the model compiles once: the armor keeps the base out of its zone, and once it has landed the base holds still while it touches the crater by `Sim`'s rule, on the model's clock.
 
 ### Obstacles that move
 
@@ -108,6 +109,18 @@ A ditch is solid to everything that keeps the body off something. The armor keep
 
 Water, mud and a slope are one kind, a patch that slows the body, and the id says which; a slope slows it uphill and downhill alike. The body may enter a patch and start inside one. The percept carries the patches apart from the scene, as kind `ground` with their factor, so nothing keeps the body off them, and the armor lowers its top speed there by the least factor of the patches within reach, from a little before the rim, whoever steers ([Safety](safety.md#how-the-body-moves)); the reflex and the local planner wade through as through open floor. Neither body moves differently on ground by itself, and under `BODY=mujoco` a patch is no geom. The text the models read gives a patch a line after the scene's, `ground lake at (1.80, 0.90), radius 1.40, slows the body to 50%`, only in a world that holds one ([ADR-0010](adr/0010-terrain-on-the-plane.md)). The recorder leaves ground out, since the world file holds it, and the bridge draws it as a blue wash. Each patch counts toward the 16 entities.
 
+### A falling object
+
+`falling` holds what falls from the sky, as Sahaquiel falls in Episode 12, each an `id`, a `pos` and an `r`, where it lands and how wide, and `lands`, when, in seconds after the world begins, above 0 and at most 600:
+
+```json
+"falling": [
+  {"id": "rock", "pos": [-2.2, -0.6], "r": 0.5, "lands": 30.0}
+]
+```
+
+Until it lands, the percept lists its landing zone as kind `impact` with `lands_in`, the seconds from that percept until the landing, and from the landing on its crater, a ditch with the same id and circle. The zone is there from the world's start and is solid to everything that keeps the body off something, so the armor keeps the body 0.35 m and its stopping distance off it from the first percept, as off a pillar, and the body is never under the object, at the landing or ever; `Sim` counts no contact with a zone before the landing, since it is air until then, and a crater as a ditch after. No start in the file and no `START` may touch a zone, by the simulator's rule of contact, so nothing ever has to move the body out of one. The world's clock decides the landing, the one its humans walk by: on `Sim` from the field unit's start, and under `BODY=mujoco` the model's, so a stall delays a landing there and never advances it. The text the models read gives a zone a line in the scene's layout, `impact rock at (-2.20, -0.60), radius 0.50, distance 2.30`, without its time, and the bridge counts it down on a red ring. Each falling object counts toward the 16 entities ([ADR-0010](adr/0010-terrain-on-the-plane.md)).
+
 ### A walking human's velocity
 
 The percept carries each walking human's velocity, the step it took since the last sense over that time, in m/s, and none for a human that stands, stopped or waiting included, and an obstacle that moves carries its own the same way. The recorder writes it with the scene, and the text the models read leaves it out. Under `PLANNER=local` the local planner steers around each walker's course by it, a moving obstacle's included ([Safety](safety.md#how-the-body-moves)), and MAGI judge a goto by it ([MAGI](magi.md#a-goto-toward-a-walking-human)), but only a goto the body could reach within 2 s, from within 2.35 m of its target. A goto from farther than that never draws it: in the default world every start the tools fly lies at least 2.50 m from the beacon, so the mission's first goto never does, while a re-goto from near the beacon may. Of the scenes, only `ep18-bardiel` proposes a goto from that close, and a flight of it checks that MAGI refuse the one onto Toji's way. [The crossing world](#the-crossing-world) and [the sweep world](#the-sweep-world) start the body that close to their beacons, so the rule judges the mission's first goto. A sense in the millisecond the simulator starts carries no velocity, since no time has passed for a step, so a goto judged on it draws no course, as the mock's first goto can be (PLAN, Known issue 34).
@@ -125,9 +138,10 @@ gehirn reads `WORLD` at startup with the other variables and refuses to start, w
 - no beacon, or more than 16 entities over every list;
 - a walking speed outside 0.1 to 2 m/s, a `keep` outside 0.3 to 3 m for `stop` or `aside`, fewer than 2 waypoints or waypoints all in one place, and a human walking `toward` the body and `through` it;
 - an obstacle with a `behavior` that reacts other than `stop`, or keeps less than 0.5 m or more than 3 m from the body;
-- a patch of ground whose `factor` lies outside 0.1 to 0.9, a missing one included.
+- a patch of ground whose `factor` lies outside 0.1 to 0.9, a missing one included;
+- a falling object that `lands` at 0 s or before, a missing time included, or after 600 s, or whose landing zone the start touches.
 
-`START`, when set, moves the world's start and is checked as before: two decimals inside the fence.
+`START`, when set, moves the world's start and is checked as before, two decimals inside the fence, and refused where it touches a falling object's landing zone.
 
 ## Flying a world
 

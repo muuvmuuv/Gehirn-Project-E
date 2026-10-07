@@ -419,6 +419,30 @@ fn test_start_moves_the_start_of_a_world_file() {
 	assert got == 'START is "6,0", outside the fence; accepted x,y in meters, x from -5.0 to 5.0 and y from -5.0 to 5.0'
 }
 
+// START may not put the body where a falling object of the world lands, by Sim's rule of contact,
+// since the armor keeps the body out of a landing zone but never moves it out of one; elsewhere it
+// moves the start as before.
+fn test_start_never_lies_where_an_object_falls() {
+	path := os.join_path(os.vtmp_dir(), 'gehirn_falling_${os.getpid()}.json')
+	os.write_file(path,
+		'{"start": [-4, -4], "beacons": [{"id": "b1", "pos": [3, 2], "r": 0.3}], "falling": [{"id": "rock", "pos": [-2.2, -0.6], "r": 0.5, "lands": 30}]}')!
+	os.setenv('WORLD', path, true)
+	defer {
+		os.unsetenv('WORLD')
+		os.unsetenv('START')
+		os.rm(path) or {}
+	}
+	for start, want in {
+		'-2.2,-0.6':  'START is "-2.2,-0.6", where falling object rock lands; accepted a start clear of every landing zone'
+		'-2.2,-1.34': 'START is "-2.2,-1.34", where falling object rock lands; accepted a start clear of every landing zone'
+		'-2.2,-1.36': 'ok'
+	} {
+		os.setenv('START', start, true)
+		got := if _ := load_config() { 'ok' } else { err.msg() }
+		assert got == want, start
+	}
+}
+
 // Each key belongs to one role and its machines (ADR-0005): the link key seals goals and pulses,
 // the pilot's key steers and ejects, and the bridge holds only WATCH_KEY. One key in two roles is
 // refused whatever the case of its hex digits, and the refusal shows no key.

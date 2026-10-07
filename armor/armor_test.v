@@ -609,6 +609,8 @@ fn test_toward() {
 		TowardCase{'an obstacle that moves, past', 'obstacle', [-0.5, 0.0], 0.46, false},
 		TowardCase{'a ditch inside', 'ditch', [], 0.44, true},
 		TowardCase{'a ditch past', 'ditch', [], 0.46, false},
+		TowardCase{'a landing zone inside', 'impact', [], 0.44, true},
+		TowardCase{'a landing zone past', 'impact', [], 0.46, false},
 		TowardCase{'a kind no code names, inside', 'lava', [], 0.44, true},
 		TowardCase{'a kind no code names, past', 'lava', [], 0.46, false},
 	]
@@ -839,6 +841,20 @@ fn test_drive_widens_the_keeps_and_the_fence_by_the_stopping_distance() {
 			want:  [0.0, 0.0]
 		},
 		CoastCase{
+			name:  'a holonomic body slides along a landing zone within the margin'
+			scene: [ent('impact', [1.4, 0.0], 1.0)]
+			last:  ne
+			u:     ne
+			want:  [0.0, 0.8]
+		},
+		CoastCase{
+			name:  'a holonomic body moves nothing into a landing zone head on within the margin'
+			scene: [ent('impact', [1.4, 0.0], 1.0)]
+			last:  [1.0, 0.0]
+			u:     [1.0, 0.0]
+			want:  [0.0, 0.0]
+		},
+		CoastCase{
 			name:  'past the margin a solid does not deflect a holonomic body'
 			scene: far
 			last:  ne
@@ -863,6 +879,13 @@ fn test_drive_widens_the_keeps_and_the_fence_by_the_stopping_distance() {
 			name:  'a differential body turns in place before a ditch within the margin'
 			base:  .differential
 			scene: [ent('ditch', [1.45, 0.0], 1.0)]
+			want:  [0.0, 0.0]
+			sent:  [0.0, 0.0]
+		},
+		CoastCase{
+			name:  'a differential body turns in place before a landing zone within the margin'
+			base:  .differential
+			scene: [ent('impact', [1.45, 0.0], 1.0)]
 			want:  [0.0, 0.0]
 			sent:  [0.0, 0.0]
 		},
@@ -1220,17 +1243,21 @@ struct MovingCase {
 	name      string
 	start     []f64
 	obstacles []body.Spot
-	human     []f64 // where a human of radius 0.3 stands in every percept, nowhere when empty
-	steps_in  bool  // a human of radius 0.3 steps in with its rim 0.65 m ahead once the base runs at v_max
-	ticks     int   // slows the base to 1 cm/s even where every tick lasts exactly tick_ms (PLAN, Known issue 36)
+	falling   []body.Falling // whose landing zone, no geom on MuJoCo, the armor alone keeps the base off
+	human     []f64          // where a human of radius 0.3 stands in every percept, nowhere when empty
+	steps_in  bool           // a human of radius 0.3 steps in with its rim 0.65 m ahead once the base runs at v_max
+	ticks     int            // slows the base to 1 cm/s even where every tick lasts exactly tick_ms (PLAN, Known issue 36)
 	tick_ms   int = 20 // between a drive and the next sense
 }
 
 // depth is how far the base at p stands inside the keep of the case: past the east fence, inside
-// solid_keep of its pillar or inside human_stop of its standing human.
+// solid_keep of its pillar or its landing zone, or inside human_stop of its standing human.
 fn (c MovingCase) depth(p lcl.Percept, l Limits) f64 {
 	if c.obstacles.len > 0 {
 		return l.solid_keep - (lcl.dist(p.pose, c.obstacles[0].pos) - c.obstacles[0].r)
+	}
+	if c.falling.len > 0 {
+		return l.solid_keep - (lcl.dist(p.pose, c.falling[0].pos) - c.falling[0].r)
 	}
 	if c.human.len > 0 {
 		return l.human_stop - (lcl.dist(p.pose, c.human) - 0.3)
@@ -1242,7 +1269,8 @@ fn (c MovingCase) depth(p lcl.Percept, l Limits) f64 {
 // widens the keeps and the fence by its stopping distance (PLAN, Known issue 33): at the fence,
 // also on ticks of 60 ms, longer than the 50 ms one sense runs the base's last command, from two
 // starts half such a tick of travel apart, head on at a pillar, whose keep drive widens by
-// body.lead too, and before a standing human, whom it slows for. A human who steps in already
+// body.lead too, head on at a falling object's landing zone, which is no geom the base could
+// stop at, also on ticks of 60 ms, and before a standing human, whom it slows for. A human who steps in already
 // inside human_stop leaves it no room to brake, and the base moves on toward them by no more than
 // its stopping distance from the speed it had.
 fn test_a_moving_mujoco_body_stands_before_its_keeps() {
@@ -1276,6 +1304,19 @@ fn test_a_moving_mujoco_body_stands_before_its_keeps() {
 				ticks:     140
 			},
 			MovingCase{
+				name:    'a landing zone head on'
+				start:   [-2.2, -4.0]
+				falling: [body.Falling{'rock', [0.0, -4.0], 0.8, 600.0}]
+				ticks:   140
+			},
+			MovingCase{
+				name:    'a landing zone head on, on long ticks'
+				start:   [-2.2, -4.0]
+				falling: [body.Falling{'rock', [0.0, -4.0], 0.8, 600.0}]
+				ticks:   60
+				tick_ms: 60
+			},
+			MovingCase{
 				name:  'a standing human'
 				start: [-3.0, -4.0]
 				human: [-1.0, -4.0]
@@ -1293,6 +1334,7 @@ fn test_a_moving_mujoco_body_stands_before_its_keeps() {
 				start:     c.start
 				beacons:   body.default_world().beacons
 				obstacles: c.obstacles
+				falling:   c.falling
 			})!
 			mut a := restrain(b, Limits{})
 			mut p := a.sense()
