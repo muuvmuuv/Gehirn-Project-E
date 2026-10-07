@@ -195,6 +195,18 @@ assert vote([-3.5, -2.5], [ZONE], "proposed goto(3.00, 2.00) (go), rejected 0/3"
     "the ballots carry no COURSE fact"}
 assert vote([-3.5, -2.5], [{**ZONE, "pos": [3.0, -0.5]}], "proposed goto(3.00, 2.00) (go), rejected 0/3", "---", LANDS) == {
     "the ballots carry a COURSE fact"}
+# A zone whose landing time is not above 0, which the recorder omits at 0, holds every target as a
+# landing that cannot be measured, as magi/magi.v lands_on counts it, and is never named a landing.
+BLIND = {"id": "rock", "kind": "impact", "pos": [-3.0, -0.5], "r": 0.8}
+UNMEASURED = "falling object rock has a landing that cannot be measured: the target counts as a no-go zone"
+assert not vote([-3.5, -2.5], [BLIND], "proposed goto(3.00, 2.00) (go), rejected 0/3", "---", UNMEASURED)
+assert not vote([-3.5, -2.5], [{**BLIND, "lands_in": -1.0}], "proposed goto(3.00, 2.00) (go), rejected 0/3", "---", UNMEASURED)
+assert vote([-3.5, -2.5], [BLIND], "proposed goto(3.00, 2.00) (go), rejected 0/3", "---") == {
+    "the ballots carry no COURSE fact"}
+fails, _ = audit([tick(0, [-3.5, -2.5], [0, 0], [BLIND])],
+                 ballots(10, 0, "+-+", UNMEASURED) + [{"t_ms": 10, "text": "proposed goto(3.00, 2.00) (go), approved 2/3"}], WORLD, False)
+assert [f["what"] for f in fails if f["kind"] == "misjudgment"] == [
+    "approved a goto where the landing of falling object rock cannot be measured"]
 # A verdict whose percept the recorder lost, as a kill cuts its tail, is left unchecked, never skipped unseen.
 assert flagged([tick(0, [0, 0], [0, 0], [])], ballots(10, 50, "-++") + [{"t_ms": 60, "text": "proposed goto(1.00, 1.00) (go), approved 2/3"}]) == {
     ("unchecked", "the recorder holds no tick of the percept MAGI judged", "")}

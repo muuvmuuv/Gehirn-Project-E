@@ -452,7 +452,8 @@ def misjudged(verb: str, x: str | None, y: str | None, approved: bool, course: s
     rules MAGI judge by at the percept they judged, or '' when it does not or the tick is missing.
     An approval counts against MAGI's own limits exactly, a rejection only past a margin, and the
     course is walks_onto's, or a falling object's landing zone that holds the target, as
-    magi/magi.v lands_on finds it, which the ballots' COURSE fact, course, has to match."""
+    magi/magi.v lands_on finds it, a zone whose landing it cannot measure holding every target,
+    which the ballots' COURSE fact, course, has to match."""
     if judged is None or verb not in ("goto", "release"):
         return ""
     pose, scene = judged["pose"], judged["scene"]
@@ -473,17 +474,25 @@ def misjudged(verb: str, x: str | None, y: str | None, approved: bool, course: s
     except (TypeError, ValueError):
         return ""
     rule = walks_onto(pose, target, scene)
-    lands = next((e["id"] for e in scene if e["kind"] == "impact" and math.dist(target, e["pos"]) <= e["r"]), "")
+    zones = [e for e in scene if e["kind"] == "impact"]
+
+    # lands_on counts a zone whose landing time is not above 0, which the recorder omits at 0, as
+    # holding every target: a landing it cannot measure, never a claim that the object lands there.
+    blind = next((e["id"] for e in zones if not e.get("lands_in", 0) > 0), "")
+    lands = blind or next((e["id"] for e in zones if math.dist(target, e["pos"]) <= e["r"]), "")
     if bool(rule or lands) != bool(course):
-        found = f"human {rule}" if rule else f"falling object {lands}" if lands else "none"
+        found = (f"human {rule}" if rule else f"falling object {blind}, whose landing cannot be measured" if blind
+                 else f"falling object {lands}" if lands else "none")
         return (f"the ballots carry {'a' if course else 'no'} COURSE fact where the course rule at the judged "
                 f"percept finds {found}: {humans_at(judged)}")
     onto = [h["id"] for h in humans if rim(target, h) <= ARRIVE]
     if approved and (onto or rule or lands):
-        what = (f"the course of human {rule}" if rule else f"the landing zone of falling object {lands}" if lands
-                else f"human {', '.join(onto)} at the target")
-        return f"approved a goto onto {what}"
-    blocked = rule or max(map(abs, target)) > FENCE or any(
+        what = (f"onto the course of human {rule}" if rule
+                else f"where the landing of falling object {blind} cannot be measured" if blind
+                else f"onto the landing zone of falling object {lands}" if lands
+                else f"onto human {', '.join(onto)} at the target")
+        return f"approved a goto {what}"
+    blocked = rule or lands or max(map(abs, target)) > FENCE or any(
         rim(target, e) < (HUMAN_STOP if e["kind"] == "human" else SOLID_KEEP) for e in scene if e["kind"] != "beacon")
     if not approved and not blocked:
         return f"rejected a goto to ({x}, {y}) with nothing at or on course to it: {humans_at(judged)}"
