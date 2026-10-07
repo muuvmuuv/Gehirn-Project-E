@@ -976,28 +976,28 @@ struct TickCase {
 	u     []f64
 }
 
-// Sim moves along a command until the next sense, which its stopping reports, so a body moving at
-// a keep or the fence stands before it whatever the tick, here ticks of at least 20, 34, 47 and
-// 60 ms in real time. Each case starts beyond 20 ms of travel from its keep and within 34 ms of
-// it, at the top speed the armor allows there, where a Sim that moved for the whole of a 34 ms
-// tick ended it 9 mm past the north fence, 9 mm inside the pillar's solid_keep and 1.8 mm inside
-// the standing human's human_stop.
+// Sim moves along a command until the next sense, stride_s at most, which its stopping reports, so
+// a body moving at a keep or the fence stands before it whatever the tick, here ticks of at least
+// 20, 34, 47 and 60 ms in real time. Each case starts at the top speed the armor allows there,
+// just beyond the margin it widens the keep or the fence by, 30 ms of travel at the speed the body
+// may reach, and within 34 ms of travel of the fence and the pillar and 47 ms of the human, where
+// a Sim that moved for the whole tick ended it past them.
 fn test_a_sim_body_stands_before_its_keeps_and_the_fence_on_any_tick() {
 	cases := [
-		TickCase{'the north fence 2.5 cm ahead', body.World{
-			start: [0.0, 4.975]
+		TickCase{'the north fence 3.3 cm ahead', body.World{
+			start: [0.0, 4.967]
 		}, [0.0, 1.0], [0.0, 1.0]},
-		TickCase{'a pillar 2.5 cm outside solid_keep', body.World{
+		TickCase{'a pillar 3.3 cm outside solid_keep', body.World{
 			start:     [0.0, 0.0]
-			obstacles: [body.Spot{'o1', [0.875, 0.0], 0.5}]
+			obstacles: [body.Spot{'o1', [0.883, 0.0], 0.5}]
 		}, [1.0, 0.0], [1.0, 0.0]},
-		TickCase{'a standing human 5 mm outside human_stop', body.World{
+		TickCase{'a standing human 8 mm outside human_stop', body.World{
 			start:  [0.0, 0.0]
 			humans: [body.Human{
 				id:       'h1'
 				r:        0.3
 				behavior: .stand
-				pos:      [1.005, 0.0]
+				pos:      [1.008, 0.0]
 			}]
 		}, [0.2, 0.0], [1.0, 0.0]},
 	]
