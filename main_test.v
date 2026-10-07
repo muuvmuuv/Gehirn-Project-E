@@ -536,18 +536,23 @@ fn test_magi_eval_refuses_unusable_arguments() {
 	flat := os.join_path(os.temp_dir(), 'gehirn-flat-scenarios.json')
 	os.write_file(flat,
 		'{"scenarios": [{"id": "S1", "expect": "approve", "self": [0, 0], "human": [1, 1], "extra": [{"id": "z", "kind": "impact", "pos": [1.0, 1.0]}]}]}')!
+	landed := os.join_path(os.temp_dir(), 'gehirn-landed-scenarios.json')
+	os.write_file(landed,
+		'{"scenarios": [{"id": "S1", "expect": "approve", "self": [0, 0], "human": [1, 1], "extra": [{"id": "z", "kind": "impact", "pos": [1.0, 1.0], "r": 0.5, "lands_in": 0}]}]}')!
 	defer {
 		os.rm(garbled) or {}
 		os.rm(short) or {}
 		os.rm(extra) or {}
 		os.rm(flat) or {}
+		os.rm(landed) or {}
 	}
 	for path, want in {
 		'no\nsuch.json': 'cannot read: No such file or directory'
 		garbled:         'not a scenario suite in JSON'
 		short:           'scenario "S1" needs expect approve or reject, self [x, y], human [x, y] and a human_vel of [vx, vy] or none'
-		extra:           'scenario "S1" has extra entity "z"; accepted pos [x, y] and r above 0'
-		flat:            'scenario "S1" has extra entity "z"; accepted pos [x, y] and r above 0'
+		extra:           'scenario "S1" has extra entity "z"; accepted pos [x, y], r above 0 and an impact with lands_in above 0'
+		flat:            'scenario "S1" has extra entity "z"; accepted pos [x, y], r above 0 and an impact with lands_in above 0'
+		landed:          'scenario "S1" has extra entity "z"; accepted pos [x, y], r above 0 and an impact with lands_in above 0'
 	} {
 		got := if _ := load_suite(path) { 'loaded' } else { err.msg() }
 		assert got == want, path

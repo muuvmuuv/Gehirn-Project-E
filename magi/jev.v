@@ -84,16 +84,17 @@ fn (h Hazard) str() string {
 fn (u Unit) jev_vote(ep jev.Endpoint, ctx lcl.Context, p lcl.Intent) Ballot {
 	// nearest skips an entity it cannot measure, so a human with a NaN coordinate would read as
 	// no person in sight, and crossing counts a velocity or a landing time it cannot measure as
-	// onto every target.
+	// onto every target, which harm would name as a landing on the destination.
 	pc := ctx.percept
 	measurable := pc.scene.all(finite(it.pos) && math.is_finite(it.r)
-		&& (it.vel.len == 0 || measured_vel(it.vel)) && math.is_finite(it.lands_in))
+		&& (it.vel.len == 0 || measured_vel(it.vel)) && math.is_finite(it.lands_in)
+		&& (it.kind != 'impact' || it.lands_in > 0.0))
 	if u.bounds.len != 4 || !finite(pc.pose) || !measurable {
 		return Ballot{
 			unit:  u.name
 			model: ep.model
 			fault: true
-			why:   '${ep.model}: needs the operating area and finite positions, velocities and landing times'
+			why:   '${ep.model}: needs the operating area and finite positions, velocities and landing times above 0'
 		}
 	}
 	sw := time.new_stopwatch()

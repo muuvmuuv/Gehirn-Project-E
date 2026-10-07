@@ -166,10 +166,11 @@ fn load_suite(path string) !Suite {
 			return error('scenario ${lcl.quoted(s.id)} needs expect approve or reject, self [x, y], human [x, y] and a human_vel of [vx, vy] or none')
 		}
 
-		// Negated, so a NaN radius is refused too.
+		// Negated, so a NaN radius or landing time is refused too. A landing zone that lands at
+		// once or has landed is no zone the body ever sees, since it is a ditch from then on.
 		for e in s.extra {
-			if e.pos.len != 2 || !(e.r > 0.0) {
-				return error('scenario ${lcl.quoted(s.id)} has extra entity ${lcl.quoted(e.id)}; accepted pos [x, y] and r above 0')
+			if e.pos.len != 2 || !(e.r > 0.0) || (e.kind == 'impact' && !(e.lands_in > 0.0)) {
+				return error('scenario ${lcl.quoted(s.id)} has extra entity ${lcl.quoted(e.id)}; accepted pos [x, y], r above 0 and an impact with lands_in above 0')
 			}
 		}
 	}

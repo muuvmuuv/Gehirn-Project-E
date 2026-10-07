@@ -583,14 +583,15 @@ fn test_jev_unit_faults_are_no() {
 		assert b.why.contains('finite positions, velocities'), b.why
 	}
 
-	// Nor is a landing time it cannot measure, which crossing counts as onto every target.
-	for lands_in in [math.nan(), math.inf(1)] {
+	// Nor is a landing time it cannot measure, none above 0 included, which crossing counts as onto
+	// every target, so BALTHASAR-2 never names a landing on the destination that the percept lacks.
+	for lands_in in [math.nan(), math.inf(1), 0.0, -1.0] {
 		pc := with(percept([3.0, 2.0], [-1.0, 1.2]), [
 			zone('rock', [-4.0, -4.0], 0.5, lands_in),
 		])
 		b := u.vote(lcl.Context{ percept: pc }, release)
 		assert b.fault && !b.approve, '${lands_in}'
-		assert b.why.contains('finite positions, velocities and landing times'), b.why
+		assert b.why.contains('finite positions, velocities and landing times above 0'), b.why
 	}
 }
 
