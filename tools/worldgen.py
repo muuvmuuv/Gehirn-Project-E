@@ -300,7 +300,7 @@ def audit(ticks: list[dict], journal: list[dict], world: dict, mujoco: bool) -> 
         a[0] += 1
         a[2] = max(a[2], by)
 
-    facts = {"release_s": None, "end_to_beacon": None}
+    facts: dict[str, float | None] = {"release_s": None, "end_to_beacon": None}
     touch: dict[str, list] = {}
     last = [0.0, 0.0]
     for k, r in enumerate(ticks):
@@ -442,7 +442,7 @@ def audit(ticks: list[dict], journal: list[dict], world: dict, mujoco: bool) -> 
         last_verdict = next((str(e["text"])[:200] for e in reversed(journal) if VERDICT.match(str(e.get("text", "")))), "no verdict")
         end = f"body ended {facts['end_to_beacon']:.2f} m from beacon {beacon['id']}" if beacon else "no recorder tick"
         fail("no delivery", f"released {where}" if where else "no release", [end, f"last verdict: {last_verdict}"])
-    return fails, {k: None if v == math.inf else v for k, v in facts.items()}
+    return fails, facts
 
 
 def misjudged(verb: str, x: str | None, y: str | None, approved: bool, course: str, judged: dict | None,
