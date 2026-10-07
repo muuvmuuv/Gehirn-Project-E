@@ -56,18 +56,18 @@ shell *paths="scripts/*.sh scripts/scenes/*.sh .claude/hooks/*.sh":
     shellcheck -x {{ paths }}
     shfmt -i 4 -ci -d {{ paths }}
 
-# Builds the release binary ./gehirn, with -d mujoco when body is mujoco.
+# Builds the release binary ./gehirn, with -d mujoco when body is mujoco, in about a minute, unless gehirn.stamp shows the same command built it from the same inputs (scripts/build.sh).
 build: zenoh _body
-    v -prod {{ if body == "mujoco" { "-d mujoco" } else { "" } }} -o gehirn .
+    @scripts/build.sh gehirn -prod {{ if body == "mujoco" { "-d mujoco" } else { "" } }} .
 
 # Builds MuJoCo when body is mujoco.
 [private]
 _body:
     @{{ if body == "mujoco" { "scripts/mujoco.sh" } else { "true" } }}
 
-# Builds the bridge, ./gehirn-bridge, which runs on its own machine (ADR-0005).
+# Builds the bridge, ./gehirn-bridge, which runs on its own machine (ADR-0005), in about 23 s, unless gehirn-bridge.stamp shows the same command built it from the same inputs (scripts/build.sh).
 bridge: zenoh
-    v -prod -o gehirn-bridge bridge/
+    @scripts/build.sh gehirn-bridge -prod bridge/
 
 # Builds the gamepad bridge, ./gehirn-gamepad, which runs on the pilot's machine and alone needs SDL2 (ADR-0006).
 gamepad:

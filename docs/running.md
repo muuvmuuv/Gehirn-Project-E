@@ -4,7 +4,7 @@ How to run gehirn beyond the first `just demo`: the demo in detail, hosted model
 
 ## The demo
 
-`just demo` builds gehirn and the bridge, which takes about a minute, and on the first run `just zenoh` fetches zenoh-c. Then it starts the mock, the bridge in a window of its own, HQ, the field unit and later a scripted pilot, each a process of its own, and narrates each beat in the terminal with the time since the start:
+`just demo` builds gehirn and the bridge, which on an otherwise idle Mac takes about a minute and a quarter the first time and after a change to what both are built from, such as `wire/` or V itself, about a minute or 23 s after a change to what only gehirn or only the bridge is built from, and about a second otherwise ([CONTRIBUTING.md](../CONTRIBUTING.md#set-up)), and on the first run `just zenoh` fetches zenoh-c. Then it starts the mock, the bridge in a window of its own, HQ, the field unit and later a scripted pilot, each a process of its own, and narrates each beat in the terminal with the time since the start:
 
 1. MAGI approve the goto 3 of 3, and the core steers toward beacon b1.
 2. A scripted pilot, `tools/pilot.py`, takes the seat, steers 45 degrees off the line to the beacon and leaves; the dummy plug, cloned from that pilot, takes the seat.
