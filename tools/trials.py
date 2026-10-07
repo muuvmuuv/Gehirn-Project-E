@@ -49,6 +49,7 @@ POLL = 0.2
 
 print_lock = threading.Lock()
 warned: set[str] = set()
+STOP = threading.Event()  # set by a caller that ends every running mission at once, as tools/worldgen.py does on a signal
 
 
 @dataclass
@@ -142,7 +143,8 @@ def warnings(log: str) -> list[str]:
 
 
 def fly(n: int, args: argparse.Namespace, slots: "queue.Queue[int]") -> Tally:
-    """Run mission n in its own directory on a free plug port and tally it."""
+    """Run mission n in its own directory on a free plug port, until it ends, reaches the limit or
+    STOP is set, and tally it."""
     slot = slots.get()
     try:
         d = os.path.join(args.out, f"run-{n:02d}")
@@ -159,7 +161,7 @@ def fly(n: int, args: argparse.Namespace, slots: "queue.Queue[int]") -> Tally:
         with open(log, "wb") as out:
             proc = subprocess.Popen([args.binary], cwd=d, env=env, stdout=out, stderr=subprocess.STDOUT)
             deadline, seen = start + args.limit, False
-            while proc.poll() is None and time.monotonic() < deadline:
+            while proc.poll() is None and time.monotonic() < deadline and not STOP.is_set():
                 if not seen and release(read_journal(journal)):
                     seen, deadline = True, min(deadline, time.monotonic() + LINGER)
                 time.sleep(POLL)

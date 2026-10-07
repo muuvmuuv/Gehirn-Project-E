@@ -73,7 +73,7 @@ pub fn (e Endpoint) ask(state string, questions string) !Reply {
 		validate:             true
 		verify:               e.ca
 		allow_redirect:       false
-		stop_receiving_limit: 1 << 20
+		stop_receiving_limit: 1 << 20 // tools/worldgen.py MAX_REPLY copies it
 	}
 	req.add_header(.content_type, 'application/json')
 	req.add_header(.authorization, 'Bearer ${e.key}')

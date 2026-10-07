@@ -14,10 +14,12 @@ armor refusal, or any world on which an invariant breaks. The next prompt carrie
 what each check means and what a run costs.
 
 A configuration is the lineup's variables with KEY=VALUE overlays on top, an empty VALUE
-unsetting one: the mock for the core and MAGI, or with --lineup magi hosted MAGI before the
-mock's scripted core, as scripts/stage.sh's magi lineup flies them. The model's key is GEHIRN_KEY,
-which tools/withenv.py hands on from .env, and it goes to OpenRouter only; the mock lineup gives
-gehirn none.
+unsetting one: the mock for the core and MAGI, or with --lineup magi lineup A's MAGI on OpenRouter
+and Jev before the mock's scripted core, at gehirn's default cooldown and pause, unlike the demo's.
+Every mission, gehirn's verdict and the mock get the configuration and PATH, HOME, TMPDIR and
+SSL_CERT_FILE, nothing else of this process's environment. The model's key is GEHIRN_KEY, which
+tools/withenv.py hands on from .env, and it goes to OpenRouter only, with the magi lineup's
+ballots too; the mock lineup gives gehirn none, and no other key of .env reaches a run.
 
 Writes into --out, which must be empty or new: rN/prompt.txt and rN/reply-M.txt, M counting the
 model calls, each world as
@@ -26,7 +28,7 @@ findings.jsonl with one line per world, and summary.txt. It never writes into wo
 tools/scenarios.json; a person promotes a find.
 
     python3 tools/withenv.py .env python3 tools/worldgen.py --out hunt --rounds 3 --worlds 4 --runs 2
-    python3 tools/withenv.py .env python3 tools/worldgen.py --out hunt --ref-env PLANNER=local
+    python3 tools/withenv.py .env python3 tools/worldgen.py --out hunt --ref-env PLANNER=local  # once Task 6 lands
     python3 tools/withenv.py .env python3 tools/worldgen.py --out hunt --lineup magi --jobs 2
 """
 
@@ -37,11 +39,13 @@ import math
 import os
 import queue
 import re
+import signal
 import subprocess
 import sys
 import time
 import urllib.error
 import urllib.request
+from collections.abc import MutableMapping
 from concurrent.futures import ThreadPoolExecutor
 
 import trials
@@ -50,7 +54,8 @@ from pilot import ARRIVE
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OPENROUTER = "https://openrouter.ai/api/v1/chat/completions"
-MAX_REPLY = 1 << 20  # bytes, the cap gehirn's own HTTP clients put on a reply
+MAX_REPLY = 1 << 20  # bytes, oai/oai.v and jev/jev.v stop_receiving_limit: the cap gehirn's clients put on a reply
+KEEP = ("PATH", "HOME", "TMPDIR", "SSL_CERT_FILE")  # what a run gets of this process's environment
 
 # armor/armor.v Limits, which names this file; tools/test_worldgen.py compares the two.
 V_MAX, V_UNMANNED, A_MAX = 1.0, 0.4, 1.5  # m/s with a seat taken, m/s with none, m/s² speeding up
@@ -73,6 +78,8 @@ STALL = 1.0  # s between recorder ticks, or before a run's end, that counts as t
 # a human's own approach would have to hold for about that long to end (PLAN, Known issue 33).
 WALKED = 25
 TEST_KINDS = ("misjudgment", "armor refusal")
+# Characters that would break a line of the prompt's history, Unicode's line breaks included.
+CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]")
 
 # The journal's verdict line, which main.v hq writes and tools/trials.py RELEASE_VOTE reads too.
 VERDICT = re.compile(r"^proposed ([^\s(]+)(?:\((\S+), (\S+)\))? .*, (approved|rejected) (\d+)/(\d+)$", re.S)
@@ -118,7 +125,7 @@ def first_object(text: str) -> dict | None:
             continue
         try:
             obj, _ = dec.raw_decode(text, i)
-        except ValueError:
+        except (ValueError, RecursionError):  # a reply nested deeper than Python's stack holds
             continue
         if isinstance(obj, dict) and "worlds" in obj:
             return obj
@@ -165,7 +172,7 @@ def read_verdict(code: int, stderr: str) -> tuple[str, str]:
     refusal = next((line for line in lines if line.startswith("gehirn: WORLD is ")), "")
     if code == 2 and refusal:
         return "refused", refusal
-    return "crashed", f"exit {code}: {lines[-1] if lines else 'no output'}"
+    return "crashed", f"exit {code}: {ascii(lines[-1]) if lines else 'no output'}"
 
 
 def verdict(binary: str, env: dict[str, str], cwd: str, name: str = "") -> tuple[str, str]:
@@ -492,7 +499,8 @@ def cut(s: str, n: int) -> str:
 
 def feedback(records: list[dict]) -> str:
     """Return the history a prompt carries: each world of records, as findings.jsonl holds them,
-    with gehirn's verdict, how the runs ended and each failure with its evidence, bounded."""
+    with gehirn's verdict, how the runs ended and each failure with its evidence, bounded, each
+    line one line whatever the model or gehirn wrote into it."""
     out = []
     for rec in records:
         out.append(f"- {rec['file']}, idea: {cut(rec['idea'], 300) or 'none given'}")
@@ -515,7 +523,7 @@ def feedback(records: list[dict]) -> str:
             out.append(cut(f"  {c} {r['run'][-6:]} {x['kind']}: {x['what']}{tag}: {'; '.join(x['evidence'][:4])}", 600))
         if len(shown_fails) > 8:
             out.append(f"  and {len(shown_fails) - 8} more failures")
-    return "\n".join(out)
+    return "\n".join(CONTROL.sub(lambda c: ascii(c[0])[1:-1], line) for line in out)
 
 
 def world_format() -> str:
@@ -536,7 +544,7 @@ def prompt(k: int, runs: int, limit: float, lineup: str, test: dict, ref: dict, 
             if lineup == "mock" else "MAGI are language models that read the percept as text: positions, radii and distances")
 
     def overlay(env: dict) -> str:
-        return (" ".join(f"{k}={v}" for k, v in env.items()) or "the defaults") + ("" if env.get("PLANNER") else ", so the reflex steers")
+        return (shown_env(env) or "the defaults") + ("" if env.get("PLANNER") else ", so the reflex steers")
 
     return f"""You write world files for gehirn's 2D simulator to find where its control stack fails.
 
@@ -569,10 +577,17 @@ TASK
 Write {k} new worlds, each probing a different weakness. Learn from the history: vary what found failures, and drop what the reference could not solve or gehirn refused. Answer with one JSON object and nothing else: {{"worlds": [{{"idea": "one sentence on the weakness it probes", "world": {{...}}}}]}}"""
 
 
+def shown_env(env: dict[str, str]) -> str:
+    """Return a configuration's KEY=VALUE overlays as the prompt and the summary show them, with
+    the value of a key or token as <set>."""
+    return " ".join(f"{k}={'<set>' if v and k.endswith(('_KEY', '_TOKEN')) else v}" for k, v in env.items())
+
+
 def lineup_env(lineup: str, mock: str, key: str, typesafe: str) -> dict[str, str]:
     """Return the variables a lineup sets for gehirn, the mock at the URL mock serving the core and
-    MAGI, or with lineup magi hosted MAGI on OpenRouter and Jev before the mock's core, as
-    scripts/stage.sh sets them. An empty value counts as unset, so no unit's own endpoint or key
+    MAGI, or with lineup magi hosted MAGI on OpenRouter and Jev before the mock's core: lineup A's
+    models of docs/running.md, Hosted models, which scripts/stage.sh takes too, unless the
+    environment names others. An empty value counts as unset, so no unit's own endpoint or key
     from the environment reaches a run."""
     env = {f"{u}_{v}": "" for u in ("CORE", "MELCHIOR", "BALTHASAR", "CASPER") for v in ("URL", "KEY")}
     if lineup == "mock":
@@ -592,18 +607,29 @@ def overlay_arg(value: str) -> tuple[str, str]:
     return k, v
 
 
+def scrub(variables: MutableMapping[str, str]) -> None:
+    """Remove every variable but KEEP, so a run gets its configuration and no key or stray
+    variable of this process's environment, which tools/trials.py fly lets win."""
+    for k in [k for k in variables if k not in KEEP]:
+        del variables[k]
+
+
 def start_mock(port: int, log: str) -> subprocess.Popen:
     """Start tools/mock_endpoint.py on 127.0.0.1:port with its stderr in log, once it serves."""
     with open(log, "wb") as out:
         p = subprocess.Popen([sys.executable, os.path.join(HERE, "mock_endpoint.py"), "--listen",
                               f"127.0.0.1:{port}", "--quiet"], stderr=out)
-    for _ in range(50):
-        with open(log, encoding="utf-8", errors="replace") as f:
-            if "mock: serving" in f.read():
-                return p
-        if p.poll() is not None:
-            break
-        time.sleep(0.1)
+    try:
+        for _ in range(50):
+            with open(log, encoding="utf-8", errors="replace") as f:
+                if "mock: serving" in f.read():
+                    return p
+            if p.poll() is not None:
+                break
+            time.sleep(0.1)
+    except BaseException:
+        p.kill()
+        raise
     p.kill()
     sys.exit(f"worldgen: the mock did not start on port {port}; see {log}")
 
@@ -634,7 +660,21 @@ def examine(d: str, ended: float, world: dict, mujoco: bool, t: trials.Tally) ->
             "failures": failures, "tally": vars(t)}
 
 
+def interrupt(signum: int, frame: object) -> None:
+    """End the hunt on SIGTERM or SIGINT: every running mission stops at once, and the hunt
+    unwinds through main's finally, which stops the mock."""
+    trials.STOP.set()
+    raise KeyboardInterrupt
+
+
+def hosted_ballots(records: list[dict], hosted: list[str]) -> int:
+    """Return the ballots the hosted configurations' runs of records cast."""
+    return sum(run["tally"]["ballots"] for r in records for c in hosted for run in r[c])
+
+
 def main() -> None:
+    signal.signal(signal.SIGTERM, interrupt)
+    signal.signal(signal.SIGINT, interrupt)
     ap = argparse.ArgumentParser(description=__doc__ and __doc__.splitlines()[0])  # None under -OO
     ap.add_argument("--out", required=True, help="empty or new directory for the hunt")
     ap.add_argument("--rounds", type=int, default=3, help="rounds of the hunt")
@@ -642,6 +682,8 @@ def main() -> None:
     ap.add_argument("--runs", type=int, default=2, help="missions per world for each configuration")
     ap.add_argument("--history", type=int, default=2, help="past rounds each prompt carries")
     ap.add_argument("--max-calls", type=int, default=6, help="model calls at most, failed ones included")
+    ap.add_argument("--max-ballots", type=int, default=600,
+                    help="hosted MAGI ballots after which no new round starts")
     ap.add_argument("--timeout", type=float, default=180.0, help="seconds a model call may wait")
     ap.add_argument("--model", default="google/gemini-3.8-flash", help="OpenRouter model that writes the worlds")
     ap.add_argument("--effort", choices=("low", "medium", "high"), default="low", help="the model's reasoning effort")
@@ -672,13 +714,14 @@ def main() -> None:
         sys.exit(f"worldgen: {out} is not empty")
     form = world_format()
 
-    lineup = lineup_env(args.lineup, f"http://127.0.0.1:{args.mock_port}", key, typesafe)
+    mock_url = f"http://127.0.0.1:{args.mock_port}"
+    lineup = lineup_env(args.lineup, mock_url, key, typesafe)
     configs = {"test": {**lineup, **dict(args.test_env)}, "ref": {**lineup, **dict(args.ref_env)}}
 
-    # trials.fly lets the environment win over a run's variables, so whatever a configuration
-    # sets leaves this process's environment, and WORLD with it.
-    for k in {"WORLD", *configs["test"], *configs["ref"]}:
-        os.environ.pop(k, None)
+    # A configuration with an endpoint off the mock, or gehirn's default for Jev, casts paid ballots.
+    hosted = [c for c, env in configs.items()
+              if not env.get("TYPESAFE_URL") or any(v and not v.startswith(mock_url) for k, v in env.items() if k.endswith("_URL"))]
+    scrub(os.environ)
     for name, env in configs.items():
         state, line = verdict(args.binary, env, out)
         if state != "accepted":
@@ -689,6 +732,9 @@ def main() -> None:
     calls, usage, asked = 0, {"prompt_tokens": 0, "completion_tokens": 0, "cost": 0.0}, 0
     try:
         for rnd in range(1, args.rounds + 1):
+            if hosted_ballots(records, hosted) >= args.max_ballots:
+                print(f"worldgen: {args.max_ballots} hosted ballots cast, no round {rnd}", flush=True)
+                break
             rdir = os.path.join(out, f"r{rnd}")
             os.makedirs(rdir)
             recent = [r for r in records if r["round"] > rnd - 1 - args.history]
@@ -703,6 +749,8 @@ def main() -> None:
                     reply, used, cut_short = ask(args.model, key, text, args.timeout, args.effort)
                     with open(os.path.join(rdir, f"reply-{calls}.txt"), "w", encoding="utf-8") as f:
                         f.write(reply)
+                    with open(os.path.join(rdir, f"usage-{calls}.json"), "w", encoding="utf-8") as f:
+                        f.write(json.dumps(used) + "\n")
                     for k in usage:
                         usage[k] += used.get(k) or 0
                     if cut_short:
@@ -738,8 +786,9 @@ def main() -> None:
 
             def one(task: tuple) -> None:
                 rec, c, ns, n, mujoco = task
-                t = trials.fly(n, ns, slots)
-                rec[c].append(examine(os.path.join(ns.out, f"run-{n:02d}"), time.time(), rec["world"], mujoco, t))
+                if not trials.STOP.is_set():
+                    t = trials.fly(n, ns, slots)
+                    rec[c].append(examine(os.path.join(ns.out, f"run-{n:02d}"), time.time(), rec["world"], mujoco, t))
 
             with ThreadPoolExecutor(args.jobs) as pool:
                 list(pool.map(one, tasks))
@@ -764,16 +813,16 @@ def main() -> None:
         mock.terminate()
         mock.wait(5)
 
-    text = summary(records, asked, calls, usage, args, configs)
+    text = summary(records, asked, calls, usage, args, hosted_ballots(records, hosted))
     with open(os.path.join(out, "summary.txt"), "w", encoding="utf-8") as f:
         f.write(text)
     print(text, end="")
 
 
-def summary(records: list[dict], asked: int, calls: int, usage: dict, args: argparse.Namespace,
-            configs: dict) -> str:
+def summary(records: list[dict], asked: int, calls: int, usage: dict, args: argparse.Namespace, ballots: int) -> str:
     """Return the hunt's summary: what was asked for, what gehirn refused and why, what flew,
-    the finds by kind, what the audit tagged known or left unchecked and the model's cost."""
+    the finds by kind, what the audit tagged known or left unchecked, the model's cost and the
+    hosted ballots."""
     accepted = [r for r in records if r["gehirn"] == "accepted"]
     kinds: dict[str, int] = {}
     known: dict[str, int] = {}
@@ -790,8 +839,8 @@ def summary(records: list[dict], asked: int, calls: int, usage: dict, args: argp
         f"worldgen: model {args.model}, effort {args.effort}, lineup {args.lineup}, "
         f"{args.rounds} rounds of {args.worlds} worlds, "
         f"{args.runs} runs per world and configuration",
-        f"test: {' '.join(f'{k}={v}' for k, v in args.test_env) or 'the lineup alone'}; "
-        f"reference: {' '.join(f'{k}={v}' for k, v in args.ref_env) or 'the lineup alone'}",
+        f"test: {shown_env(dict(args.test_env)) or 'the lineup alone'}; "
+        f"reference: {shown_env(dict(args.ref_env)) or 'the lineup alone'}",
         f"worlds asked for {asked}, written {len(records)}, refused by gehirn "
         f"{sum(r['gehirn'] == 'refused' for r in records)}, crashed gehirn {sum(r['gehirn'] == 'crashed' for r in records)}, "
         f"accepted {len(accepted)}, solvable {sum(bool(r['solvable']) for r in accepted)}, finds {sum(r['find'] for r in records)}",
@@ -802,9 +851,13 @@ def summary(records: list[dict], asked: int, calls: int, usage: dict, args: argp
     lines.append("known, no find: " + (", ".join(f"{k} {n}" for k, n in sorted(known.items())) or "none"))
     lines.append("unchecked, no find: " + (", ".join(f"{k} {n}" for k, n in sorted(unchecked.items())) or "none"))
     cost = f", cost ${usage['cost']:.4f}" if usage["cost"] else ", no cost reported"
-    lines.append(f"model calls {calls}, tokens {usage['prompt_tokens']} in and {usage['completion_tokens']} out{cost}")
+    lines.append(f"model calls {calls}, tokens {usage['prompt_tokens']} in and {usage['completion_tokens']} out{cost}; "
+                 f"hosted ballots {ballots}")
     return "\n".join(lines) + "\n"
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit("worldgen: interrupted; --out holds the rounds that flew, without summary.txt")

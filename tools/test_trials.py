@@ -8,8 +8,9 @@ import json
 import os
 import queue
 import tempfile
+import time
 
-from trials import fly, tally
+from trials import GRACE, STOP, fly, tally
 
 # One run's journal as main.v hq writes it: text lines from core/core.v Memory, ballot lines
 # from main.v BallotEntry, core fault lines from main.v FaultEntry.
@@ -39,14 +40,21 @@ assert (t.ballots, t.parse_faults, t.other_faults) == (3, 1, 1), t
 assert (t.approved, t.rejected, t.refusals) == (1, 1, 1), t
 assert (t.on_target, t.off_target, t.no_release) == (1, 0, 0), t
 
-# fly counts gehirn exiting on its own, which no journal shows.
+# fly counts gehirn exiting on its own, which no journal shows, and ends a mission at once on STOP.
 with tempfile.TemporaryDirectory() as d, contextlib.redirect_stdout(io.StringIO()):
     slots: queue.Queue[int] = queue.Queue()
     slots.put(0)
-    with open(os.path.join(d, "exits"), "w", encoding="utf-8") as f:
-        f.write("#!/bin/sh\nexit 3\n")
-    os.chmod(os.path.join(d, "exits"), 0o755)
+    for name, body in (("exits", "exit 3"), ("runs", "exec sleep 30")):
+        with open(os.path.join(d, name), "w", encoding="utf-8") as f:
+            f.write(f"#!/bin/sh\n{body}\n")
+        os.chmod(os.path.join(d, name), 0o755)
     run = argparse.Namespace(out=os.path.join(d, "a"), env={}, plug_base=1, binary=os.path.join(d, "exits"), limit=10.0)
     assert fly(1, run, slots).exits == 1
+    STOP.set()
+    start = time.monotonic()
+    assert fly(1, argparse.Namespace(**{**vars(run), "out": os.path.join(d, "b"), "binary": os.path.join(d, "runs")}),
+               slots).exits == 0
+    assert time.monotonic() - start < GRACE, time.monotonic() - start
+    STOP.clear()
 
 print("trials: ok")

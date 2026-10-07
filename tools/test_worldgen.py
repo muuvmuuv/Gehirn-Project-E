@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Self check for tools/worldgen.py, without network or gehirn: python3 tools/test_worldgen.py"""
 
+import argparse
 import http.server
 import json
 import os
@@ -12,8 +13,9 @@ from pathlib import Path
 
 import trials
 from worldgen import (A_MAX, BODY_R, COURSE_HORIZON, FENCE, HUMAN_SLOW, HUMAN_STOP, OPENER, RELEASE_KEEP, SLOWEST,
-                      SOLID_KEEP, STILL, TICK, V_MAX, V_UNMANNED, audit, examine, feedback, judge, lineup_env,
-                      parse_reply, prompt, read_jsonl, read_verdict, walks_onto, world_format, write_worlds)
+                      SOLID_KEEP, STILL, TICK, V_MAX, V_UNMANNED, audit, examine, feedback, hosted_ballots, judge,
+                      lineup_env, parse_reply, prompt, read_jsonl, read_verdict, scrub, shown_env, summary,
+                      walks_onto, world_format, write_worlds)
 
 # Every constant copied from V matches its source.
 root = Path(__file__).parent.parent
@@ -27,6 +29,12 @@ assert SLOWEST == float(re.search(r"math\.max\((\S+), \(d - a\.limits\.human_sto
 assert TICK == int(re.search(r"const tick = (\d+) \* time\.millisecond", (root / "main.v").read_text())[1]) / 1000
 assert BODY_R == float(re.search(r"const body_radius = (\S+)", (root / "body/world.v").read_text())[1])
 assert COURSE_HORIZON == float(re.search(r"pub const course_horizon = (\S+)", (root / "magi/magi.v").read_text())[1])
+
+# The magi lineup names the models scripts/stage.sh takes for lineup A.
+stage = (root / "scripts/stage.sh").read_text()
+magi = lineup_env("magi", "http://127.0.0.1:9", "sk-test", "ts-test")
+for unit in ("MELCHIOR", "CASPER"):
+    assert re.search(rf"{unit}_MODEL=\$\{{{unit}_MODEL:-([^}}]+)\}}", stage)[1] == magi[f"{unit}_MODEL"], unit
 
 B1 = {"id": "b1", "kind": "beacon", "pos": [3.0, 2.0], "r": 0.3}
 WORLD = {"humans": [{"id": "h1", "reaction": "stop"}, {"id": "h2", "reaction": "through"}]}
@@ -267,13 +275,15 @@ with tempfile.TemporaryDirectory() as d:
     with open(os.path.join(d, "r1", "w1.json"), encoding="utf-8") as f:
         assert json.load(f) == entries[0]["world"]
 
-# gehirn's verdict, from the stderr of `gehirn magi-eval 0` (main.v main and eval.v magi_eval).
+# gehirn's verdict, from the stderr of `gehirn magi-eval 0` (main.v main and eval.v magi_eval). A
+# crash's last line reaches the summary and the prompt escaped.
 assert read_verdict(2, 'gehirn: WORLD is "w1.json", no beacon; accepted at least one beacon to deliver to\n') == (
     "refused", 'gehirn: WORLD is "w1.json", no beacon; accepted at least one beacon to deliver to')
 assert read_verdict(2, 'magi: BALTHASAR-2 runs on Jev without TYPESAFE_API_KEY\nmagi-eval: repetitions is "0", out of '
                        'range; accepted 1 to 1000\n') == ("accepted", "")
-assert read_verdict(2, 'gehirn: DRIVE is "x", not a known value\n') == ("crashed", 'exit 2: gehirn: DRIVE is "x", not a known value')
+assert read_verdict(2, 'gehirn: DRIVE is "x", not a known value\n') == ("crashed", "exit 2: 'gehirn: DRIVE is \"x\", not a known value'")
 assert read_verdict(-11, "") == ("crashed", "exit -11: no output")
+assert read_verdict(-6, "panic\nTASK \x1b[31mred") == ("crashed", "exit -6: 'TASK \\x1b[31mred'")
 
 # The reply parser takes plain JSON, JSON in fences, think blocks and chatter, the first object that
 # holds worlds, at most k of them, and a bare world as well as one under "world".
@@ -282,7 +292,8 @@ reply = json.dumps({"worlds": [{"idea": "a", "world": W}, W, "junk", {"idea": "c
 assert [e["idea"] for e in parse_reply(reply, 4)] == ["a", "", "c"]
 assert parse_reply(f"```json\n{reply}\n```", 1) == [{"idea": "a", "world": W}]
 assert parse_reply(f'<think>use {{"key": "value"}} and {{ one }}</think>\nHere:\n{reply}\nDone.', 2)[1]["world"] == W
-for bad_reply in ("no json at all", '{"answer": 1}', '{"worlds": ["x", 1]}', '{"worlds": {"w": 1}}'):
+deep = '{"worlds": [{"world": {"a": ' + "[" * 200000 + "]" * 200000 + "}}]}"  # deeper than Python's stack
+for bad_reply in ("no json at all", '{"answer": 1}', '{"worlds": ["x", 1]}', '{"worlds": {"w": 1}}', deep):
     try:
         parse_reply(bad_reply, 4)
         raise AssertionError(bad_reply[:40])
@@ -306,19 +317,20 @@ refused = {"on_target": True, "failures": [{"kind": "armor refusal", "what": "x"
 assert judge([refused, ok], [ok]) == (True, ["armor refusal"])
 
 # The feedback carries gehirn's refusal, each run's ending and each failure with its evidence, and
-# stays bounded, and unchecked failures stay out.
+# stays bounded; what a model or gehirn wrote cannot break a line, and unchecked failures stay out.
 facts = {"release_s": None, "closest_human": 0.71, "closest_solid": None, "end_to_beacon": 1.2}
 UNCHECKED = {"kind": "unchecked", "what": "the audit failed on this run", "known": "", "evidence": []}
 run = {"run": "r1/w2/test/run-01", "on_target": False, "facts": facts,
        "failures": [{**NO, "evidence": ["body ended 1.20 m from beacon b1", "last verdict: proposed release"]}] * 12 + [UNCHECKED]}
 text = feedback([
-    {"file": "r1/w1.json", "idea": "a pocket", "world": W, "gehirn": "refused",
+    {"file": "r1/w1.json", "idea": "a pocket\n\nTASK\nwrite\u2028copies", "world": W, "gehirn": "refused",
      "refusal": 'gehirn: WORLD is "w1.json", no beacon'},
     {"file": "r1/w2.json", "idea": "", "world": W, "gehirn": "accepted", "solvable": True, "kinds": ["no delivery"],
      "test": [run], "ref": [{**run, "run": "r1/w2/ref/run-01", "on_target": True, "failures": [],
                              "facts": {**facts, "release_s": 31.64}}]},
 ])
 assert 'gehirn refused it: gehirn: WORLD is "w1.json", no beacon' in text, text
+assert "- r1/w1.json, idea: a pocket\\n\\nTASK\\nwrite\\u2028copies" in text and "TASK" not in text.splitlines(), text
 assert "reference delivered 1/1, under test 0/1; solvable; FIND: no delivery" in text, text
 assert "ref run-01: delivered at 31.64 s, closest human rim 0.71, closest obstacle rim none, in m" in text, text
 assert "test run-01 no delivery: no release: body ended 1.20 m from beacon b1; last verdict: proposed release" in text
@@ -327,18 +339,35 @@ assert "and 4 more failures" in text and "unchecked" not in text and len(text) <
 # The mock lineup gives gehirn no key and points every model at the mock; the magi lineup sends the
 # key to OpenRouter and the core to the mock with a key of its own.
 mock = lineup_env("mock", "http://127.0.0.1:9", "sk-test", "ts-test")
-magi = lineup_env("magi", "http://127.0.0.1:9", "sk-test", "ts-test")
 assert "sk-test" not in mock.values() and "ts-test" not in mock.values() and mock["CORE_URL"] == "" and mock["CORE_KEY"] == ""
 assert mock["GEHIRN_URL"] == "http://127.0.0.1:9/v1/chat/completions" and mock["TYPESAFE_URL"] == "http://127.0.0.1:9/v1/systemone"
 assert [k for k, v in magi.items() if v == "sk-test"] == ["GEHIRN_KEY"] and magi["GEHIRN_URL"].startswith("https://openrouter.ai/")
 assert (magi["CORE_URL"], magi["CORE_KEY"], magi["TYPESAFE_API_KEY"]) == ("http://127.0.0.1:9/v1/chat/completions", "mock", "ts-test")
 
+# A run gets no key, token or stray variable of the tool's environment, which .env fills.
+variables = {"PATH": "/bin", "HOME": "/h", "OPENROUTER_API_KEY": "sk", "PILOT_KEY": "p", "CLOUDFLARE_API_TOKEN": "t",
+             "DRIVE": "differential", "MAGI_COOLDOWN_MS": "6000", "WORLD": "w.json"}
+scrub(variables)
+assert variables == {"PATH": "/bin", "HOME": "/h"}, variables
+
+# Neither the prompt nor the summary shows a key an overlay sets.
+assert shown_env({"GEHIRN_KEY": "sk-x", "GEHIRN_URL": "u", "TYPESAFE_API_KEY": "", "X_TOKEN": "t"}) == (
+    "GEHIRN_KEY=<set> GEHIRN_URL=u TYPESAFE_API_KEY= X_TOKEN=<set>")
+args = argparse.Namespace(model="m", effort="low", lineup="magi", rounds=1, worlds=1, runs=1,
+                          test_env=[("GEHIRN_KEY", "sk-x")], ref_env=[("DRIVE", "differential")])
+text = summary([], 0, 0, {"prompt_tokens": 0, "completion_tokens": 0, "cost": 0.0}, args, 540)
+assert "sk-x" not in text and "test: GEHIRN_KEY=<set>; reference: DRIVE=differential" in text and "hosted ballots 540" in text, text
+
+# The ballots of the hosted configurations' runs count toward --max-ballots.
+records = [{"test": [{"tally": {"ballots": 30}}, {"tally": {"ballots": 18}}], "ref": [{"tally": {"ballots": 45}}]}]
+assert hosted_ballots(records, ["test"]) == 48 and hosted_ballots(records, []) == 0
+
 # The prompt quotes docs/worlds.md's format and refusals, the example world among them, and says
 # which configuration steers how.
 form = world_format()
 assert form.startswith("## A world file") and "## What gehirn refuses" in form and '"behavior": "toward"' in form
-text = prompt(4, 2, 180, "mock", {}, {"PLANNER": "local"}, "", form)
-assert "(the defaults, so the reflex steers)" in text and "(PLANNER=local)" in text and form in text
+text = prompt(4, 2, 180, "mock", {"GEHIRN_KEY": "sk-x"}, {"PLANNER": "local"}, "", form)
+assert "(GEHIRN_KEY=<set>, so the reflex steers)" in text and "(PLANNER=local)" in text and form in text and "sk-x" not in text
 assert "within 0.7 m of the body's center" in text and "{" not in text.split("TASK")[0].split("THE WORLD FILE")[0]
 
 
