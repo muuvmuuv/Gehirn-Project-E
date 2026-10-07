@@ -26,11 +26,12 @@ fn test_complete() {
 }
 
 // describe gives every entity of the scene one line in the scene's layout, a moving obstacle as an
-// obstacle and a ditch as any kind, and leaves out every velocity.
+// obstacle and a ditch as any kind, and leaves out every velocity; a patch of ground gets a line
+// after them with the share of its speed the body keeps there.
 fn test_describe() {
 	p := Percept{
-		pose:  [0.0, 0.0]
-		scene: [
+		pose:   [0.0, 0.0]
+		scene:  [
 			Entity{
 				id:   'b1'
 				kind: 'beacon'
@@ -51,9 +52,23 @@ fn test_describe() {
 				r:    0.5
 			},
 		]
+		ground: [
+			Entity{
+				id:     'lake'
+				kind:   'ground'
+				pos:    [1.8, 0.8]
+				r:      1.4
+				factor: 0.5
+			},
+		]
 	}
 	assert p.describe() == 'self at (0.00, 0.00), carrying payload: false, in contact: false
 beacon b1 at (3.00, 4.00), radius 0.30, distance 5.00
 obstacle boat at (0.00, -1.00), radius 0.35, distance 1.00
-ditch trench at (-1.60, 1.20), radius 0.50, distance 2.00'
+ditch trench at (-1.60, 1.20), radius 0.50, distance 2.00
+ground lake at (1.80, 0.80), radius 1.40, slows the body to 50%'
+	assert Percept{
+		...p
+		ground: []
+	}.describe() == p.describe().all_before('\nground')
 }

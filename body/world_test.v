@@ -42,6 +42,16 @@ fn with_ditches(ds string) string {
 	return base.all_before_last('}') + ', "ditches": [${ds}]}'
 }
 
+// lake is a patch of ground, which the cases of test_load_world add to base.
+const lake = '{"id": "lake", "pos": [1.8, 0.9], "r": 1.4, "factor": 0.5}'
+
+const accepted_factor = 'accepted 0.1 to 0.9'
+
+// with_ground is base with the patches gs, a comma separated list.
+fn with_ground(gs string) string {
+	return base.all_before_last('}') + ', "ground": [${gs}]}'
+}
+
 // with_boat is base with obstacle o after its pillar.
 fn with_boat(o string) string {
 	return base.replace('"r": 0.8}]', '"r": 0.8}, ${o}]')
@@ -71,6 +81,24 @@ fn test_load_world() {
 		LoadCase{'17 entities over every list', with_ditches(
 			'{"id": "d1", "pos": [4, -4], "r": 0.1}, '.repeat(12) + trench).replace('"r": 0.8}]',
 			'"r": 0.8}, ${boat}]'), '17 entities; accepted at most 16 in all'},
+		LoadCase{'17 entities with ground', with_ground(
+			'{"id": "g1", "pos": [4, -4], "r": 0.1, "factor": 0.5}, '.repeat(13) + lake), '17 entities; accepted at most 16 in all'},
+		LoadCase{'a patch of ground', with_ground(lake), 'ok'},
+		LoadCase{'a start inside a patch of ground', with_ground(lake).replace('[-3, -3]',
+			'[1.8, 2.0]'), 'ok'},
+		LoadCase{'ground at the least factor', with_ground(lake.replace('0.5}', '0.1}')), 'ok'},
+		LoadCase{'ground at the most factor', with_ground(lake.replace('0.5}', '0.9}')), 'ok'},
+		LoadCase{'ground that all but holds the body', with_ground(lake.replace('0.5}', '0.05}')), 'ground lake slows the body to 0.05 of its speed; ${accepted_factor}'},
+		LoadCase{'ground that slows nearly nothing', with_ground(lake.replace('0.5}', '0.95}')), 'ground lake slows the body to 0.95 of its speed; ${accepted_factor}'},
+		LoadCase{'ground that speeds the body up', with_ground(lake.replace('0.5}', '1.5}')), 'ground lake slows the body to 1.5 of its speed; ${accepted_factor}'},
+		LoadCase{'ground without a factor', with_ground(lake.replace(', "factor": 0.5', '')), 'ground lake slows the body to 0.0 of its speed; ${accepted_factor}'},
+		LoadCase{'ground with a factor past any finite number', with_ground(lake.replace('0.5}',
+			'1e999}')), 'ground lake slows the body to +inf of its speed; ${accepted_factor}'},
+		LoadCase{'ground with a factor below any finite number', with_ground(lake.replace('0.5}',
+			'-1e999}')), 'ground lake slows the body to -inf of its speed; ${accepted_factor}'},
+		LoadCase{'ground outside the fence', with_ground(lake.replace('1.8', '6.8')), 'ground lake lies outside the fence; ${accepted_fence}'},
+		LoadCase{'ground of radius 0', with_ground(lake.replace('1.4', '0')), 'ground lake has radius 0.0; ${accepted_radius}'},
+		LoadCase{'ground and a human with one id', with_ground(lake.replace('"lake"', '"h1"')), 'ground has id h1, which another entity has; accepted an id per entity'},
 		LoadCase{'a ditch', with_ditches(trench), 'ok'},
 		LoadCase{'a cliff, the rim of a ditch of radius 5 at the fence', with_ditches('{"id": "cliff", "pos": [5, -5], "r": 5}'), 'ok'},
 		LoadCase{'a ditch outside the fence', with_ditches(trench.replace('-1.6', '-5.6')), 'ditch trench lies outside the fence; ${accepted_fence}'},

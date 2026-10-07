@@ -129,8 +129,9 @@ pub fn (mut a Armor) drive(u []f64, p lcl.Percept, dt f64, manned bool) []f64 {
 		a.last = []f64{len: a.last.len}
 		return a.last.clone()
 	}
-	vmax := if manned { a.limits.v_max } else { a.limits.v_unmanned }
-	mut v := lcl.clamp_norm(u, a.top_speed(p, manned))
+	vmax := (if manned { a.limits.v_max } else { a.limits.v_unmanned }) * ground_factor(p, coast +
+		speed * dt)
+	mut v := lcl.clamp_norm(u, vmax * a.separation(p))
 
 	// Nothing pushes into anything solid, whoever is steering. What is left of the command
 	// slides along the surface, so a pilot leaning into a pillar gets walked around it. A
@@ -295,15 +296,30 @@ pub fn (a Armor) closeness(p lcl.Percept) f64 {
 	return math.min(1.0, math.max(0.0, k))
 }
 
-// top_speed is the fastest drive lets the body move at p, in m/s: v_max with a pilot or the dummy
-// plug seated, else v_unmanned, slowed by separation near a human, and 0 on a percept the armor
-// cannot measure. main.v's field loop hands it to the local planner, which plans at that speed.
+// top_speed is the fastest drive lets the body move at p off ground, in m/s: v_max with a pilot or
+// the dummy plug seated, else v_unmanned, slowed by separation near a human, and 0 on a percept
+// the armor cannot measure. main.v's field loop hands it to the local planner, which plans at that
+// speed and wades through ground, where drive slows the body further (ADR-0010).
 pub fn (a Armor) top_speed(p lcl.Percept, manned bool) f64 {
 	if !a.measurable(p) {
 		return 0.0
 	}
 	vmax := if manned { a.limits.v_max } else { a.limits.v_unmanned }
 	return vmax * a.separation(p)
+}
+
+// ground_factor is the least factor of the patches of ground in p whose rim lies within margin of
+// its pose, the body inside one included, or 1 with none. drive multiplies the top speed by it
+// with margin the body's stopping distance plus a tick of travel, so the body has slowed to the
+// patch's speed by the time its center crosses the rim, and leaving it speeds up within a_max.
+fn ground_factor(p lcl.Percept, margin f64) f64 {
+	mut k := 1.0
+	for g in p.ground {
+		if lcl.dist(p.pose, g.pos) - g.r < margin {
+			k = math.min(k, g.factor)
+		}
+	}
+	return k
 }
 
 // separation scales speed down between human_slow and human_stop. Inside human_stop the
@@ -318,13 +334,17 @@ fn (a Armor) separation(p lcl.Percept) f64 {
 }
 
 // measurable reports whether p has a finite pose with one coordinate per degree of freedom and a
-// finite heading, and every entity a finite position of the same length and a finite radius. A
-// NaN fails every comparison, so a human at a NaN position would pass the release_keep check, and
-// a NaN heading every check of a differential body's motion. A position shorter than the pose
-// would panic lcl.dist, and a longer one the lcl.sub(e.pos, p.pose) in drive.
+// finite heading, every entity a finite position of the same length and a finite radius, and every
+// patch of ground those and a factor above 0 and at most 1. A NaN fails every comparison, so a
+// human at a NaN position would pass the release_keep check, and a NaN heading every check of a
+// differential body's motion. A position shorter than the pose would panic lcl.dist, and a longer
+// one the lcl.sub(e.pos, p.pose) in drive. A factor above 1 would raise the top speed, and a lost
+// one decodes as 0.
 fn (a Armor) measurable(p lcl.Percept) bool {
 	return p.pose.len == a.last.len && finite(p.pose) && math.is_finite(p.heading)
 		&& p.scene.all(it.pos.len == p.pose.len && finite(it.pos) && math.is_finite(it.r))
+		&& p.ground.all(it.pos.len == p.pose.len && finite(it.pos) && math.is_finite(it.r)
+		&& it.factor > 0.0 && it.factor <= 1.0)
 }
 
 fn finite(v []f64) bool {

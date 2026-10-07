@@ -334,8 +334,9 @@ struct ContactCase {
 }
 
 // Sim holds the body still while it touches anything solid, a human, a standing obstacle, a
-// moving one or a ditch, whoever moves, but not a beacon, which the body delivers to. At a ditch the
-// contact stands in for the fall the armor keeps the body from.
+// moving one or a ditch, whoever moves, but not a beacon, which the body delivers to, nor a patch
+// of ground, which lies outside the scene. At a ditch the contact stands in for the fall the armor
+// keeps the body from.
 fn test_sim_counts_contact() {
 	b1 := Spot{
 		id:  'b1'
@@ -362,6 +363,10 @@ fn test_sim_counts_contact() {
 		}, true},
 		ContactCase{'a beacon', World{
 			beacons: [b1, Spot{'b2', near, 0.3}]
+		}, false},
+		ContactCase{'ground under the body', World{
+			beacons: [b1]
+			ground:  [Patch{'lake', near, 1.0, 0.5}]
 		}, false},
 	]
 	for c in cases {
@@ -408,6 +413,36 @@ fn test_scene_lists_every_kind_in_order() {
 	assert scene[5].vel == lcl.scale(lcl.sub(scene[5].pos, w.moving[0].path(0)), 1000.0 / 20.0)
 	assert scene.filter(it.id != 'boat').all(it.vel.len == 0)
 	assert scene[7].pos == [-1.6, 1.2] && scene[7].r == 0.5
+}
+
+// Sim reports the world's ground in every percept, apart from the scene, as entities of kind ground
+// with their factors in the world's order, and no ground in a world without it.
+fn test_sim_reports_ground_apart_from_the_scene() {
+	w := World{
+		...apart()
+		ground: [Patch{'lake', [1.8, 0.9], 1.4, 0.5}, Patch{'mud', [-2.0, 3.0], 0.6, 0.3}]
+	}
+	mut s := new_sim(w, .holonomic)
+	p := s.sense()
+	assert p.ground == [
+		lcl.Entity{
+			id:     'lake'
+			kind:   'ground'
+			pos:    [1.8, 0.9]
+			r:      1.4
+			factor: 0.5
+		},
+		lcl.Entity{
+			id:     'mud'
+			kind:   'ground'
+			pos:    [-2.0, 3.0]
+			r:      0.6
+			factor: 0.3
+		},
+	]
+	assert p.scene.map(it.id) == ['b1', 'o1', 'h1']
+	mut plain := new_sim(apart(), .holonomic)
+	assert plain.sense().ground.len == 0
 }
 
 // An obstacle that walks walks as a human of its behavior walks, and with stop it stands while the

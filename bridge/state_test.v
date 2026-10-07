@@ -34,6 +34,22 @@ fn test_take_view() {
 	assert s.samples.len == 8 && s.samples[7].sync == 0.1 * 7
 	assert s.trail.len == 8 && s.trail[7] == [7.0, -1.0]
 	assert s.span == [0.0, -1.0, 7.0, 3.3]
+
+	// The scene's span holds ground too, which lies outside the percept's scene.
+	s.take_view(lcl.FieldView{
+		percept: lcl.Percept{
+			pose:   [0.0, 0.0]
+			ground: [
+				lcl.Entity{
+					kind:   'ground'
+					pos:    [9.0, 0.0]
+					r:      1.0
+					factor: 0.5
+				},
+			]
+		}
+	}, 1008)
+	assert s.span == [0.0, -1.0, 10.0, 3.3]
 }
 
 fn test_tail_keeps_the_newest_history() {

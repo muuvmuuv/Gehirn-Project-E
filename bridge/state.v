@@ -95,6 +95,11 @@ fn (mut s State) take_view(v lcl.FieldView, now i64) {
 			s.span = grow(s.span, e.pos[0], e.pos[1], e.r)
 		}
 	}
+	for g in p.ground {
+		if g.pos.len >= 2 {
+			s.span = grow(s.span, g.pos[0], g.pos[1], g.r)
+		}
+	}
 	if v.goal.target.len >= 2 {
 		s.span = grow(s.span, v.goal.target[0], v.goal.target[1], 0)
 	}

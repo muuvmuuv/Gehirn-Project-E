@@ -29,30 +29,34 @@ pub const arrive = 0.35
 pub const beacon_reach = 0.5
 
 // Entity is one thing in a percept's scene: an obstacle, a beacon, a human or a ditch, with its
-// position and radius in meters and, for a walking human or a moving obstacle, its velocity.
-// body.Sim reports them, and the armor, the reflex, the local planner and MAGI read them; the
-// planner reads every velocity, magi.walks_onto a human's, and the bridge draws an obstacle's.
-// Every reader that keeps the body off something keeps it off every kind but a beacon, so a kind
-// no code names counts as solid.
+// position and radius in meters and, for a walking human or a moving obstacle, its velocity, or a
+// patch of ground in Percept.ground with its factor. body.Sim reports them, and the armor, the
+// reflex, the local planner and MAGI read them; the planner reads every velocity, magi.walks_onto
+// a human's, and the bridge draws an obstacle's. Every reader that keeps the body off something
+// keeps it off every kind of the scene but a beacon, so a kind no code names counts as solid.
 pub struct Entity {
 pub:
-	id   string
-	kind string // obstacle, beacon, human or ditch
-	pos  []f64
-	r    f64
-	vel  []f64 @[omitempty] // m/s, a walking human's or a moving obstacle's; empty for anything that stands, a stopped one included, never [0, 0]
+	id     string
+	kind   string // obstacle, beacon, human or ditch in a scene; ground in Percept.ground
+	pos    []f64
+	r      f64
+	vel    []f64 @[omitempty] // m/s, a walking human's or a moving obstacle's; empty for anything that stands, a stopped one included, never [0, 0]
+	factor f64   @[omitempty] // ground only: the share of its top speed the armor leaves the body there, 0.1 to 0.9
 }
 
-// Percept is one reading of the body: pose, velocity, scene, payload, contact and heading.
+// Percept is one reading of the body: pose, velocity, scene, ground, payload, contact and heading.
 // armor.Armor passes it from the body to main.v's field loop, which hands it to HQ inside a
 // Context. The heading matters only to a differential body, which armor.Armor.drive steers by it;
-// describe leaves it out, so no model reads it.
+// describe leaves it out, so no model reads it. ground holds the patches of ground that slow the
+// body, water, mud or a slope, outside the scene, so nothing keeps the body off them: the armor
+// slows the body there, describe gives each a line and the bridge draws them (ADR-0010).
 pub struct Percept {
 pub:
 	t_ms    i64
 	pose    []f64
 	vel     []f64 // m/s, the planar velocity the body moves with
 	scene   []Entity
+	ground  []Entity @[omitempty]
 	payload bool
 	contact bool
 	heading f64 @[omitempty] // rad, counterclockwise from +x; a holonomic body reports 0, which JSON leaves out
@@ -193,10 +197,11 @@ pub fn (i Intent) label() string {
 	return i.verb
 }
 
-// describe renders a percept as text for language backends. It leaves out every velocity, which
-// only magi.walks_onto, the local planner and the bridge read, so a model reads the same text
-// whether a human or an obstacle walks or stands. tools/mock_endpoint.py parses this layout, and
-// tools/worldgen.py shown rounds a distance as it does.
+// describe renders a percept as text for language backends: the body, a line per entity of the
+// scene, then a line per patch of ground, which a percept without ground leaves out. It leaves out
+// every velocity, which only magi.walks_onto, the local planner and the bridge read, so a model
+// reads the same text whether a human or an obstacle walks or stands. tools/mock_endpoint.py
+// parses this layout, and tools/worldgen.py shown rounds a distance as it does.
 pub fn (p Percept) describe() string {
 	mut lines := [
 		'self at (${p.pose[0]:.2f}, ${p.pose[1]:.2f}), carrying payload: ${p.payload}, in contact: ${p.contact}',
@@ -204,6 +209,10 @@ pub fn (p Percept) describe() string {
 	for e in p.scene {
 		d := dist(p.pose, e.pos)
 		lines << '${e.kind} ${e.id} at (${e.pos[0]:.2f}, ${e.pos[1]:.2f}), radius ${e.r:.2f}, distance ${d:.2f}'
+	}
+	for g in p.ground {
+		pct := g.factor * 100.0
+		lines << '${g.kind} ${g.id} at (${g.pos[0]:.2f}, ${g.pos[1]:.2f}), radius ${g.r:.2f}, slows the body to ${pct:.0f}%'
 	}
 	return lines.join('\n')
 }

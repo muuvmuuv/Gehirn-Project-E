@@ -120,6 +120,15 @@ assert mission_beacon(TERRAIN, entities)["id"] == "b1"
 assert propose(read_percept(TERRAIN), TERRAIN)["target"] == [3.0, 2.0]
 for unit in ("melchior", "balthasar", "casper"):
     assert answer(unit, TERRAIN, 1, None, {})["vote"] == "approve", unit
+# A patch of ground, whose line ends in the share of its speed the armor leaves the body, reads as
+# ground with that share and no distance, and changes no verdict.
+GROUND = GOTO.replace("human h1 at (1.00, 1.00), radius 0.30, distance 5.70",
+                      "ground lake at (3.00, 1.00), radius 1.40, slows the body to 50%")
+_, entities = read_percept(GROUND)
+assert entities[1] == {"kind": "ground", "id": "lake", "pos": [3.0, 1.0], "r": 1.4, "factor": 0.5}, entities
+assert propose(read_percept(GROUND), GROUND)["target"] == [3.0, 2.0]
+for unit in ("melchior", "balthasar", "casper"):
+    assert answer(unit, GROUND, 1, None, {})["vote"] == "approve", unit
 
 lcl = (Path(__file__).parent.parent / "lcl" / "lcl.v").read_text()
 assert ARRIVE == float(re.search(r"pub const arrive = (\S+)", lcl)[1]), "lcl.arrive"

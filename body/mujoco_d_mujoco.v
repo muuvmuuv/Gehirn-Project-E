@@ -130,6 +130,7 @@ pub fn (mut b Mujoco) sense() lcl.Percept {
 		pose:    b.pose()
 		vel:     [v[0], v[1]]
 		scene:   b.world.scene(b.walkers)
+		ground:  b.world.patches()
 		payload: b.payload
 		contact: b.contact
 		heading: b.heading
@@ -193,7 +194,8 @@ fn (mut b Mujoco) walk() {
 // static cylinder of its radius, so the base stops at a ditch's rim as at a pillar and may back
 // away, every human a mocap capsule and every moving obstacle a mocap cylinder of its radius where
 // its walk starts, all at one height, with no thread, plugin or floor, and autoreset off. A beacon
-// is no geom, since nothing touches it, and a mocap body takes part in no contact: it pushes with
+// is no geom, since nothing touches it, nor is a patch of ground, on which the armor alone slows
+// the base (ADR-0010), and a mocap body takes part in no contact: it pushes with
 // no limit on its force, so a human walking through a base beside a pillar would squeeze the base
 // into the pillar and fling it out at about 8 m/s. The base weighs base_mass, so slide_gain gives
 // the slides a time constant of 0.05 s, and the hinge's gain of 62.5 one of 0.01 s on the

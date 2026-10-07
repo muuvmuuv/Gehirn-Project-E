@@ -65,6 +65,14 @@ fn boat(pos []f64, vel []f64) lcl.Entity {
 	}
 }
 
+// patch is a patch of ground with radius r m at pos that leaves the body factor of its top speed.
+fn patch(pos []f64, r f64, factor f64) lcl.Entity {
+	return lcl.Entity{
+		...ent('ground', pos, r)
+		factor: factor
+	}
+}
+
 // at is a percept with the body at pose and the given scene.
 fn at(pose []f64, scene ...lcl.Entity) lcl.Percept {
 	return lcl.Percept{
@@ -614,6 +622,86 @@ fn test_toward() {
 		assert (got.len == 1) == c.want, c.name
 		if c.want {
 			assert same(got[0], e.pos), '${c.name}: ${got}'
+		}
+	}
+}
+
+struct GroundCase {
+	name   string
+	ground []lcl.Entity
+	scene  []lcl.Entity
+	manned bool = true
+	want   f64 // the speed drive leaves a command east at 3 m/s from rest over 1 s
+}
+
+// On ground drive lowers the top speed by the least factor of the patches within reach, the body
+// inside one included, times separation near a human, seated or not; past the reach, its stopping
+// distance plus a tick of travel, 1.5 m from rest over a tick of 1 s, a patch slows nothing.
+fn test_drive_on_ground() {
+	o := [0.0, 0.0]
+	north := [ent('human', [0.0, 1.85], 0.5)] // 1.35 m off, halfway between human_stop and human_slow
+	cases := [
+		GroundCase{'inside a patch', [patch(o, 1.0, 0.5)], [], true, 0.5},
+		GroundCase{'inside a patch, unmanned', [patch(o, 1.0, 0.5)], [], false, 0.2},
+		GroundCase{'inside a patch with a human halfway in', [
+			patch(o, 1.0, 0.5)], north, true, 0.25},
+		GroundCase{'inside two patches', [patch(o, 1.0, 0.5),
+			patch([0.5, 0.0], 1.0, 0.3)], [], true, 0.3},
+		GroundCase{'inside one and within reach of another', [
+			patch(o, 1.0, 0.5), patch([0.0, -3.0], 1.6, 0.2)], [], true, 0.2},
+		GroundCase{'a rim just within reach', [patch([0.0, -3.0], 1.51, 0.5)], [], true, 0.5},
+		GroundCase{'a rim just past reach', [patch([0.0, -3.0], 1.49, 0.5)], [], true, 1.0},
+	]
+	for c in cases {
+		mut f := &Fake{}
+		mut a := restrain(f, Limits{})
+		got := a.drive([3.0, 0.0], lcl.Percept{ pose: o, scene: c.scene, ground: c.ground }, 1.0,
+			c.manned)
+		assert math.abs(lcl.norm(got) - c.want) < 1e-9, '${c.name}: got ${got}'
+		assert same(got, [c.want, 0.0]), '${c.name}: got ${got}'
+	}
+}
+
+// A body driven east at 1 m/s through a patch of 0.5 has slowed to half the top speed when its
+// center crosses the rim, since the cap starts within its stopping distance plus a tick of travel
+// of the rim and not before, stays on until it is that far out again, and on the way out speeds up
+// by no more than a_max a tick, on either drive, whether it stops at once or coasts a Sim tick or
+// 0.1 s at its speed.
+fn test_drive_slows_the_body_through_a_patch_of_ground() {
+	lake := patch([2.0, 0.0], 1.0, 0.5) // from x 1 to x 3
+	limits := Limits{}
+	dt := 0.02
+	for base in [body.Drive.holonomic, .differential] {
+		for coast in [0.0, 0.02, 0.1] {
+			name := '${base}, coasting ${coast} s'
+			mut f := &Fake{
+				base:  base
+				coast: coast
+			}
+			mut a := restrain(f, limits)
+			mut pose := [-1.0, 0.0]
+			mut last := [0.0, 0.0]
+			mut slow := 0
+			for pose[0] < 4.0 {
+				v := a.drive([1.0, 0.0], lcl.Percept{
+					pose:   pose
+					vel:    last
+					ground: [
+						lake,
+					]
+				}, dt, true)
+				reach := lcl.norm(last) + limits.a_max * dt
+				gap := lcl.dist(pose, lake.pos) - lake.r
+				if gap < f.stopping(reach) + reach * dt {
+					assert lcl.norm(v) <= 0.5 + 1e-9, '${name}: ${lcl.norm(v)} m/s at ${pose}'
+					slow++
+				} else {
+					assert same(v, [math.min(1.0, reach), 0.0]), '${name}: ${v} at ${pose}'
+				}
+				pose = lcl.add(pose, lcl.scale(v, dt))
+				last = v.clone()
+			}
+			assert slow > 2.0 / 0.5 / dt, '${name}: ${slow} ticks slowed'
 		}
 	}
 }
@@ -1417,6 +1505,38 @@ fn test_unmeasurable_percept_permits_nothing_and_halts() {
 		'NaN human behind a far one':            at(o, far, ent('human', [nan, 0.0], 0.3))
 		'obstacle at a NaN position':            at(o, ent('obstacle', [nan, 0.0], 0.8))
 		'beacon at an infinite position':        at(o, ent('beacon', [inf, 2.0], 0.3))
+		'ground that slows to nothing':          lcl.Percept{
+			pose:   o
+			ground: [patch(o, 1.0, 0.0)]
+		}
+		'ground with a negative factor':         lcl.Percept{
+			pose:   o
+			ground: [patch(o, 1.0, -0.3)]
+		}
+		'ground that speeds the body up':        lcl.Percept{
+			pose:   o
+			ground: [patch(o, 1.0, 1.5)]
+		}
+		'ground with a NaN factor':              lcl.Percept{
+			pose:   o
+			ground: [patch(o, 1.0, nan)]
+		}
+		'ground with an infinite factor':        lcl.Percept{
+			pose:   o
+			ground: [patch(o, 1.0, inf)]
+		}
+		'ground at a NaN position':              lcl.Percept{
+			pose:   o
+			ground: [patch([nan, 0.0], 1.0, 0.5)]
+		}
+		'ground with a long position':           lcl.Percept{
+			pose:   o
+			ground: [patch([3.0, 0.0, 0.0], 1.0, 0.5)]
+		}
+		'ground with an infinite radius':        lcl.Percept{
+			pose:   o
+			ground: [patch([3.0, 0.0], inf, 0.5)]
+		}
 	}
 	for name, p in cases {
 		mut f := &Fake{}

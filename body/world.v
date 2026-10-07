@@ -39,9 +39,15 @@ const keep_max = 3.0
 // and the two never touch; a human's keep_min would leave 0.18 m. armor.Limits names it back.
 const mover_keep_min = 0.5
 
+// factor_min and factor_max bound the share of its top speed a patch of ground leaves the body:
+// below 0.1 a patch would all but hold the body, and at 1 it would slow nothing.
+const factor_min = 0.1
+const factor_max = 0.9
+
 // World is a stage Sim plays: where the body starts, the beacons to deliver to, the obstacles,
-// standing and moving, the humans and the ditches. main.v's load_config takes default_world, or the
-// file WORLD names through load_world, and new_sim plays it. docs/worlds.md describes the file.
+// standing and moving, the humans, the ditches and the ground that slows the body. main.v's
+// load_config takes default_world, or the file WORLD names through load_world, and new_sim plays
+// it. docs/worlds.md describes the file.
 pub struct World {
 pub:
 	start     []f64 // x, y in meters
@@ -50,6 +56,17 @@ pub:
 	humans    []Human
 	moving    []Human // obstacles that walk as a human walks, each with reaction stop
 	ditches   []Spot  // ditches and cliffs, which the body is kept out of as off a solid
+	ground    []Patch // water, mud or a slope, which the armor slows the body on
+}
+
+// Patch is a patch of ground of a World, water, mud or a slope, a circle the body may enter and
+// the armor slows it on (ADR-0010).
+pub struct Patch {
+pub:
+	id     string
+	pos    []f64 // x, y in meters
+	r      f64   // meters
+	factor f64   // the share of its top speed the body keeps there, factor_min to factor_max
 }
 
 // Spot is a beacon, a standing obstacle or a ditch of a World, a circle that never moves.
@@ -103,6 +120,7 @@ struct WorldFile {
 	obstacles []HumanFile // one without a behavior stands
 	humans    []HumanFile
 	ditches   []Spot
+	ground    []Patch
 }
 
 // HumanFile is one human or obstacle of a WorldFile, with its behavior and reaction still text.
@@ -186,7 +204,7 @@ pub fn load_world(path string, fence []f64) !World {
 
 // world checks f into a World.
 fn (f WorldFile) world(fence []f64) !World {
-	n := f.beacons.len + f.obstacles.len + f.humans.len + f.ditches.len
+	n := f.beacons.len + f.obstacles.len + f.humans.len + f.ditches.len + f.ground.len
 	if n > max_entities {
 		return error('${n} entities; accepted at most ${max_entities} in all')
 	}
@@ -220,6 +238,12 @@ fn (f WorldFile) world(fence []f64) !World {
 	for d in f.ditches {
 		spot('ditch', d, fence, mut ids)!
 	}
+	for g in f.ground {
+		spot('ground', Spot{g.id, g.pos, g.r}, fence, mut ids)!
+		if !(g.factor >= factor_min && g.factor <= factor_max) {
+			return error('ground ${g.id} slows the body to ${g.factor} of its speed; accepted ${factor_min} to ${factor_max}')
+		}
+	}
 	for o in obstacles {
 		if touches(f.start, o.pos, o.r) {
 			return error('start touches obstacle ${o.id}; accepted a start more than ${body_radius} m from every solid rim')
@@ -247,6 +271,7 @@ fn (f WorldFile) world(fence []f64) !World {
 		humans:    humans
 		moving:    moving
 		ditches:   f.ditches
+		ground:    f.ground
 	}
 }
 

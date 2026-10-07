@@ -120,6 +120,7 @@ pub fn (mut s Sim) sense() lcl.Percept {
 		pose:    s.pose.clone()
 		vel:     s.vel.clone()
 		scene:   scene
+		ground:  s.world.patches()
 		payload: s.payload
 		contact: s.contact
 		heading: s.heading
@@ -249,4 +250,16 @@ fn (w World) scene(walkers []Walker) []lcl.Entity {
 		}
 	}
 	return scene
+}
+
+// patches is w's ground as a percept carries it, apart from the scene: entities of kind ground,
+// each with its factor, in the world's order.
+fn (w World) patches() []lcl.Entity {
+	return w.ground.map(lcl.Entity{
+		id:     it.id
+		kind:   'ground'
+		pos:    it.pos.clone()
+		r:      it.r
+		factor: it.factor
+	})
 }

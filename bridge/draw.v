@@ -906,6 +906,15 @@ fn draw_scene(ctx &gg.Context, s State, unit string, x f32, y f32, w f32, h f32)
 		k:  f32(math.min(f64(aw) / sw, f64(ah) / sh))
 	}
 	ctx.scissor_rect(int(ax), int(ay), int(aw), int(ah))
+
+	// Ground the body wades through lies under everything, the grid included.
+	for patch in s.view.percept.ground {
+		if patch.pos.len >= 2 {
+			gx, gy, gr := m.px(patch.pos[0]), m.py(patch.pos[1]), f32(patch.r) * m.k
+			ctx.draw_circle_filled(gx, gy, gr, fade(thinking_dim, 0.6))
+			ctx.draw_circle_empty(gx, gy, gr, thinking_dim)
+		}
+	}
 	x0, x1 := math.floor(m.mx - f64(aw / 2 / m.k)), math.ceil(m.mx + f64(aw / 2 / m.k))
 	y0, y1 := math.floor(m.my - f64(ah / 2 / m.k)), math.ceil(m.my + f64(ah / 2 / m.k))
 	for gx := x0; gx <= x1; gx += 1 {
@@ -1033,6 +1042,13 @@ fn draw_scene(ctx &gg.Context, s State, unit string, x f32, y f32, w f32, h f32)
 				'ditch' { ember }
 				else { dim }
 			})
+		}
+	}
+	for patch in p.ground {
+		if patch.pos.len >= 2 {
+			pct := patch.factor * 100.0
+			taken << label(ctx, taken, m.px(patch.pos[0]), m.py(patch.pos[1]), f32(patch.r) * m.k +
+				4, '${patch.id} ${pct:.0f}%'.to_upper(), dim)
 		}
 	}
 

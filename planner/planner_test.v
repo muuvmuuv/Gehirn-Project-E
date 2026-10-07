@@ -413,3 +413,26 @@ fn test_the_same_percept_and_state_give_the_same_command() {
 		assert u[1] * side > 0.0, '${side}: ${u}'
 	}
 }
+
+// The planner wades through ground as through open floor and leaves the armor to slow the body
+// there, so a patch on the way or under the body changes no command (ADR-0010).
+fn test_ground_is_waded() {
+	scene := [solid(2.0, 0.3, 0.6), person(3.0, -1.5, [0.0, 0.3])]
+	lake := lcl.Entity{
+		id:     'lake'
+		kind:   'ground'
+		pos:    [1.5, 0.0]
+		r:      1.4
+		factor: 0.5
+	}
+	for pose in [[0.0, 0.0], [1.2, -0.4]] {
+		mut a := fresh()
+		mut b := fresh()
+		dry := a.next(lcl.Percept{ pose: pose, scene: scene }, heading_to([4.5, 0.0]), top)
+		wet := b.next(lcl.Percept{ pose: pose, scene: scene, ground: [lake] }, heading_to([
+			4.5,
+			0.0,
+		]), top)
+		assert dry == wet && lcl.norm(dry) > 0.0, '${pose}: ${dry} ${wet}'
+	}
+}

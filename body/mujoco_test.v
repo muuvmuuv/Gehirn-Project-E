@@ -199,8 +199,8 @@ fn test_a_stall_pauses_the_mujoco_body() {
 }
 
 // A MuJoCo body reports the world Sim reports, in Sim's order, with its human where the human's
-// walk puts it on the model's clock and the velocity of its last step, and carries and releases
-// its payload as Sim does.
+// walk puts it on the model's clock and the velocity of its last step, and its ground as Sim does,
+// and carries and releases its payload as Sim does.
 fn test_a_mujoco_body_reports_its_world_like_sim() {
 	$if mujoco ? {
 		mut b := new_mujoco(default_world())!
@@ -222,6 +222,7 @@ fn test_a_mujoco_body_reports_its_world_like_sim() {
 			...far()
 			moving:  [boat([-2.0, 3.0])]
 			ditches: [Spot{'trench', [-1.6, -3.0], 0.5}]
+			ground:  [Patch{'lake', [1.8, 0.9], 1.4, 0.5}]
 		}
 		mut bw := new_mujoco(w)!
 		mut sw := new_sim(w, .differential)
@@ -230,7 +231,9 @@ fn test_a_mujoco_body_reports_its_world_like_sim() {
 			bw.t0_ms -= 40
 			q = bw.sense()
 		}
-		assert q.scene.map('${it.id} ${it.kind} ${it.r}') == sw.sense().scene.map('${it.id} ${it.kind} ${it.r}')
+		ps := sw.sense()
+		assert q.scene.map('${it.id} ${it.kind} ${it.r}') == ps.scene.map('${it.id} ${it.kind} ${it.r}')
+		assert q.ground == ps.ground && q.ground.len == 1
 		assert q.scene[3].pos == w.moving[0].path(bw.steps * step_ms)
 		before := w.moving[0].path((bw.steps - 1) * step_ms)
 		assert q.scene[3].vel == lcl.scale(lcl.sub(q.scene[3].pos, before), 1000.0 / f64(step_ms))
@@ -439,13 +442,17 @@ fn boat(center []f64) Human {
 	}
 }
 
-// mjcf writes every obstacle, human and ditch of a world with its radius, and no beacon: a standing
-// obstacle and then a ditch as a static cylinder, a human as a mocap capsule and a moving obstacle
-// as a mocap cylinder after the humans, both without contacts. The default world's model is as it
-// was.
+// mjcf writes every obstacle, human and ditch of a world with its radius, and no beacon or ground:
+// a standing obstacle and then a ditch as a static cylinder, a human as a mocap capsule and a
+// moving obstacle as a mocap cylinder after the humans, both without contacts. The default world's
+// model is as it was.
 fn test_mjcf() {
 	$if mujoco ? {
 		assert mjcf(default_world()) == default_mjcf
+		assert mjcf(World{
+			...default_world()
+			ground: [Patch{'lake', [1.8, 0.9], 1.4, 0.5}]
+		}) == default_mjcf
 		with_boat := mjcf(World{
 			...default_world()
 			moving: [boat([-2.0, 3.0])]

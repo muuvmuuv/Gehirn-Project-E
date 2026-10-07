@@ -52,7 +52,11 @@ UNITS = {"MELCHIOR-1": "melchior", "BALTHASAR-2": "balthasar", "CASPER-3": "casp
 SELF = re.compile(
     r"^self at \((\S+), (\S+)\), carrying payload: (true|false), in contact: (true|false)$", re.M
 )
-ENTITY = re.compile(r"^(\w+) (\S+) at \((\S+), (\S+)\), radius (\S+), distance (\S+)$", re.M)
+# A patch of ground's line ends in the share of its top speed the armor leaves the body there
+# instead of a distance.
+ENTITY = re.compile(
+    r"^(\w+) (\S+) at \((\S+), (\S+)\), radius (\S+), (?:distance (\S+)|slows the body to (\S+)%)$", re.M
+)
 MISSION = re.compile(r"^MISSION\n(.*?)\n\nPERCEPT$", re.M | re.S)
 PROPOSAL = re.compile(r"^PROPOSAL \(\w+\)\n([^\s(]+)(?:\((\S+), (\S+)\))? from ", re.M)
 # The COURSE section magi/magi.v Unit.llm_vote puts before PROPOSAL, from magi Crossing.fact.
@@ -101,7 +105,7 @@ def read_percept(user: str) -> tuple[bool, list[dict]] | None:
         return None
     entities = [
         {"kind": m[1], "id": m[2], "pos": [float(m[3]), float(m[4])], "r": float(m[5]),
-         "distance": float(m[6])}
+         **({"distance": float(m[6])} if m[6] else {"factor": float(m[7]) / 100})}
         for m in ENTITY.finditer(user)
     ]
     return me[3] == "true", entities
