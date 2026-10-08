@@ -424,7 +424,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         if "Origin" in self.headers or not LOCAL_HOST.fullmatch(self.headers.get("Host", "")):
             self.refuse("POST /stage is served to no web page: it refuses an Origin and a Host but "
-                        "127.0.0.1 or localhost", 403)
+                        "127.0.0.1, localhost or [::1]", 403)
             return
         body, problem = self.read_body()
         with lock:
