@@ -66,8 +66,10 @@ _body:
     @{{ if body == "mujoco" { "scripts/mujoco.sh" } else { "true" } }}
 
 # Builds the bridge, ./gehirn-bridge, which runs on its own machine (ADR-0005), in about 23 s, unless gehirn-bridge.stamp shows the same command built it from the same inputs (scripts/build.sh).
+# LARGE_CONFIG: V 0.5.2's release archive compiles its bundled Boehm GC into a -prod binary, whose
+# 2048 root sets the frameworks a window loads on macOS exceed (`Too many root sets`); scripts/record.sh repeats it.
 bridge: zenoh
-    @scripts/build.sh gehirn-bridge -prod bridge/
+    @scripts/build.sh gehirn-bridge -prod -cflags -DLARGE_CONFIG bridge/
 
 # Builds the gamepad bridge, ./gehirn-gamepad, which runs on the pilot's machine and alone needs SDL2 (ADR-0006).
 gamepad:

@@ -33,8 +33,9 @@ trap 'rm -rf "$out/frames" "$out/caption.ppm" "$out/gehirn-bridge"' EXIT
 # OpenGL, because sokol's screenshot readback fails on Metal (CONTRIBUTING.md, V 0.5.2
 # rule 6). gg saves frames 1 to 9000, 150 s at 60 fps, as gehirn-bridge_<n>.png, and bridge_1x
 # draws them at 1x, since at 2x a Retina Mac saves 7 a second (bridge/main.v). Keep the window
-# uncovered, since macOS slows a covered window's frames.
-v -prod -d gg_record -d bridge_1x -d darwin_sokol_glcore33 -o "$out/gehirn-bridge" bridge/
+# uncovered, since macOS slows a covered window's frames. LARGE_CONFIG as the justfile's bridge recipe
+# gives it, or the bundled GC runs out of root sets on macOS.
+v -prod -cflags -DLARGE_CONFIG -d gg_record -d bridge_1x -d darwin_sokol_glcore33 -o "$out/gehirn-bridge" bridge/
 VGG_SCREENSHOT_FOLDER="$out/frames" VGG_SCREENSHOT_FRAMES=$(seq -s, 1 9000) \
     "$root/scripts/scenes/$scene.sh" "$out/gehirn-bridge" \
     "$mock" "$umbilical" "$watch" "$plug" "$out/run" "$lineup"
