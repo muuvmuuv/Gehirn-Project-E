@@ -186,8 +186,8 @@ def fly(n: int, dummy: str, start: str, args: argparse.Namespace, slots: "queue.
                     shutil.copyfileobj(f, w)
         addr = f"127.0.0.1:{args.plug_base + slot}"
         env = {
-            "PLANNER": "reflex",
             **os.environ,
+            "PLANNER": os.environ.get("PLANNER") or "reflex",
             "START": start,
             "CORE_JOURNAL": journal,
             "PLUG_RECORDER": recorder,
