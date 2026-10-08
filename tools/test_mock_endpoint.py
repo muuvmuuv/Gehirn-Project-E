@@ -12,7 +12,7 @@ import threading
 from collections.abc import Callable
 from pathlib import Path
 
-from mock_endpoint import (ARRIVE, Handler, Server, answer, forced, goto_arg, judge, mission_beacon, propose,
+from mock_endpoint import (ARRIVE, Handler, Server, answer, forced, goto_arg, judge, live, mission_beacon, propose,
                            propose_arg, read_percept, served, vote_arg)
 
 # A unit's request as magi/magi.v Unit.llm_vote asks it, on lcl/lcl.v Context.situation.
@@ -165,10 +165,10 @@ assert answer("casper", USER, 3, None, OFF)["why"] == "forced reject (--vote)"
 assert answer("casper", USER, 4, None, OFF) == judge("casper", USER, read_percept(USER))
 
 
-def stage(port: int, body: object) -> tuple[int, dict]:
+def stage(port: int, body: object, headers: dict | None = None) -> tuple[int, dict]:
     """POST body to the mock's /stage as tools/staging.py does, and return the status and reply."""
     conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
-    conn.request("POST", "/stage", json.dumps(body))
+    conn.request("POST", "/stage", json.dumps(body), headers or {})
     res = conn.getresponse()
     return res.status, json.loads(res.read())
 
@@ -183,6 +183,11 @@ Handler.quiet = True
 with contextlib.redirect_stderr(log):
     assert stage(port, {"vote": "casper=reject"})[0] == 403, "without --stage"
     Handler.staging = True
+
+    # A web page's POST names its Origin, and a DNS rebinding page's its own Host.
+    for headers in ({"Origin": "https://example.com"}, {"Host": "example.com"}):
+        assert stage(port, {"vote": "casper=approve"}, headers)[0] == 403, headers
+    assert stage(port, {}, {"Host": "localhost"})[0] == 200
     Handler.votes["casper"] = {1: "reject", 5: "approve"}  # --vote casper=reject --vote casper=approve@5
     served.update(casper=2, core=4)
     assert stage(port, {}) == (200, {"vote": {"melchior": None, "balthasar": None, "casper": "reject"},
@@ -195,8 +200,15 @@ with contextlib.redirect_stderr(log):
     assert now["goto"] == [6.0, 0.0] and now["propose"] == "self_destruct"
     assert answer("core", USER, 5, Handler.staged, {}, Handler.gotos)["verb"] == "self_destruct"
     assert answer("core", USER, 5, None, {}, Handler.gotos)["target"] == [6.0, 0.0]
+
+    # bridge/state.v State.staged shows STAGED on what a live stage names so, and on no flag's.
+    assert answer("melchior", USER, 1, None, Handler.votes)["why"] == "forced approve (staged live)"
+    assert answer("core", USER, 5, None, {}, Handler.gotos)["why"] == "Staged live."
+    assert Handler.staged["why"] == "Staged live."
+    assert answer("balthasar", USER, 1, None, {"balthasar": {1: "approve"}})["why"] == "forced approve (--vote)"
     for bad in ([], {"veto": "casper"}, {"vote": "casper=approve@3"}, {"goto": 6}, {"propose": "goto"},
-                {"vote": "melchior=reject", "goto": "here"}):
+                {"vote": "melchior=reject", "goto": "here"}, {"propose": "release:The human is clear."},
+                {"vote": "balthasar=approve"}):
         assert stage(port, bad)[0] == 400, bad
     assert Handler.votes["melchior"] == {1: "approve"}, "a refused body changes nothing"
     status, now = stage(port, {"clear": True})
@@ -204,11 +216,13 @@ with contextlib.redirect_stderr(log):
     server.shutdown()
 assert log.getvalue().count("mock: stage ") == 4, log.getvalue()
 
-# bridge/state.v State.staged shows STAGED on what names itself so.
+live.clear()
+
+# bridge/state.v State.staged reads the live stage's markers, which no flag writes.
 state = (Path(__file__).parent.parent / "bridge" / "state.v").read_text()
-assert "ends_with('(--vote)')" in state and answer("casper", USER, 1, None, OFF)["why"].endswith("(--vote)")
-assert "starts_with('Staged by --')" in state
-assert goto_arg("1,2")[1]["why"].startswith("Staged by --") and propose_arg("x")["why"].startswith("Staged by --")
+assert "ends_with('(staged live)')" in state and "== 'Staged live.'" in state
+assert "(staged live)" not in answer("casper", USER, 1, None, OFF)["why"]
+assert goto_arg("1,2")[1]["why"] != "Staged live." and propose_arg("x")["why"] != "Staged live."
 
 lcl = (Path(__file__).parent.parent / "lcl" / "lcl.v").read_text()
 assert ARRIVE == float(re.search(r"pub const arrive = (\S+)", lcl)[1]), "lcl.arrive"

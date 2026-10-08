@@ -38,16 +38,18 @@ fi
 mkdir -p "$run/hq" "$run/field"
 run=$(cd "$run" && pwd)
 
-# Every variable of docs/configuration.md but SSL_CERT_FILE, DRIVE, BODY and PLANNER, so nothing
-# hosted or personal leaks in; above all CORE_JOURNAL, PLUG_RECORDER and DUMMY_WEIGHTS, the
-# pilot's data. Hosted models keep their variables, their endpoints and keys among them. WORLD goes
-# too, since every beat above is timed on the default world; a scene that plays another world
-# exports WORLD after sourcing this file, as an absolute path since HQ and the field unit each run
-# in a directory of their own, times its own beats and sets field_note, which up says in place of
-# the default world's walking human. DRIVE, BODY and PLANNER only say how the body moves, so
-# `DRIVE=differential just demo`, `just body=mujoco demo` and `PLANNER=local just demo` fly the
-# stage on a differential body, on the MuJoCo base and on the local planner; the beats above are
-# timed on the default body and the reflex.
+# Every variable of docs/configuration.md that gehirn reads but SSL_CERT_FILE, DRIVE, BODY and
+# PLANNER, and those below sets anew, so nothing hosted or personal leaks in; above all
+# CORE_JOURNAL, PLUG_RECORDER and DUMMY_WEIGHTS, the pilot's data. The bridge's VUI_FONT and
+# BRIDGE_MOUSE pass, the second for stills of a scene flown by hand (bridge/README.md). Hosted
+# models keep their variables, their endpoints and keys among them. WORLD goes too, since every beat
+# above is timed on the default world; a scene that plays another world exports WORLD after sourcing
+# this file, as an absolute path since HQ and the field unit each run in a directory of their own,
+# times its own beats and sets field_note, which up says in place of the default world's walking
+# human. DRIVE, BODY and PLANNER only say how the body moves, so `DRIVE=differential just demo`,
+# `just body=mujoco demo` and `PLANNER=local just demo` fly the stage on a differential body, on the
+# MuJoCo base and on the local planner; the beats above are timed on the default body and the
+# reflex.
 unset MAGI_TIMEOUT_MS CORE_TIMEOUT_MS CORE_BACKEND CL1_SPIKES CL1_SIDECAR PILOT_ID PLUG_ADDR \
     MISSION START WORLD CORE_JOURNAL PLUG_RECORDER DUMMY_WEIGHTS HQ_PERIOD_MS UNIT_ID
 if [ "$lineup" = mock ]; then
@@ -136,12 +138,13 @@ start() {
 # the bridge, HQ and the field unit, and narrates each. It leaves bridge, hq and field set to
 # their process IDs.
 up() {
-    # On lineup mock alone the mock serves POST /stage, which tools/staging.py drives by key: on
-    # magi it serves the core for real MAGI, and forcing those votes would be the commander
-    # override docs/decisions.md rules out.
-    if [ "$lineup" = mock ]; then
-        set -- --stage "$@"
-    fi
+    # On lineup mock with a simulated body alone the mock serves POST /stage, which
+    # tools/staging.py drives by key: on magi it serves the core for real MAGI, and forcing those
+    # votes, or a vote on a body that is not simulated, would be the commander override
+    # docs/decisions.md rules out.
+    case "$lineup ${BODY:-sim}" in
+        "mock sim" | "mock mujoco") set -- --stage "$@" ;;
+    esac
     if [ "$lineup" != hosted ]; then
         # The units answer after 0.9, 1.7 and 0.5 s, so the bridge shows each one deliberating,
         # 審議中, until its ballot lands, and the core after 2 s, which paces HQ as timed above; the

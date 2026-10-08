@@ -46,7 +46,7 @@ Each binary reads its variables from the environment. Keys go into `.env`, which
 | `WATCH_KEY` | empty | Key of the watch streams to the bridge, 64 hex digits, the same on HQ, the field unit and the bridge, and never the same as `UMBILICAL_KEY` or `PILOT_KEY`. It shows, it cannot approve or pulse; without it neither tier publishes them ([ADR 0005](adr/0005-the-bridge.md)) |
 | `BRIDGE_ENDPOINT` | `tcp/127.0.0.1:7448` | Zenoh locator the bridge listens on, which `hq` and `field` dial when `WATCH_KEY` is set, each from a session of its own |
 | `UMBILICAL_ENDPOINT` | `tcp/127.0.0.1:7447` | Zenoh locator that `hq` listens on and `field` dials, such as `tcp/0.0.0.0:7447` on HQ and `tcp/hq.local:7447` on the field unit |
-| `BRIDGE_MOUSE` | empty | Read only by a `gehirn-bridge` built with `-d gg_record`: the mouse it replays, so saved frames show a readout or a pinned vote ([bridge/README.md](../bridge/README.md#recording-frames)). A step it cannot read stops that bridge with one line and exit 2 |
+| `BRIDGE_MOUSE` | empty | Read only by a `gehirn-bridge` built with `-d gg_record`: the mouse it replays, so saved frames show a readout or a pinned vote ([bridge/README.md](../bridge/README.md#recording-frames)); `just demo-record` unsets it, so a take never replays one. A step it cannot read stops that bridge with one line and exit 2 |
 | `VUI_FONT` | Arial Unicode where macOS keeps it | A font file `gehirn-bridge` draws the glyphs from that its built-in fonts lack, such as Japanese in a model's why; set it where Arial Unicode is missing, as on Linux |
 
 ## Refusals

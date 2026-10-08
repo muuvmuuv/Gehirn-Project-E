@@ -19,13 +19,15 @@ import sys
 import termios
 import tty
 
+from mock_endpoint import FENCE
+
 # ponytail: no key for BALTHASAR-2, since on Jev, the default, the mock forces nothing and Jev's
 # reasons could not say they were forced; a b key for BALTHASAR_BACKEND=llm when a show needs it.
 UNITS = {"m": "melchior", "c": "casper"}
 NEXT = {None: "approve", "approve": "reject", "reject": "off"}
 
-# Past tools/mock_endpoint.py FENCE, 5 m, so MELCHIOR-1 and BALTHASAR-2 refuse it on any world.
-OUTSIDE = "6,0"
+# Past the fence the mock's units hold, so MELCHIOR-1 and BALTHASAR-2 refuse it on any world.
+OUTSIDE = f"{FENCE + 1:g},0"
 
 
 def press(key: str, now: dict) -> dict | None:

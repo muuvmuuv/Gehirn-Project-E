@@ -679,12 +679,13 @@ fn test_staged() {
 	veto := 'course veto: human h1 reaches the target in 0.9 s; the model voted reject: '
 	cases := [
 		StagedCase{'the script', 'Head for beacon b1.', 'Nothing to object to.', false},
-		StagedCase{'a forced ballot', 'Head for beacon b1.', 'forced approve (--vote)', true},
-		StagedCase{'a forced ballot behind a course veto', 'Head for beacon b1.', veto +
-			'forced reject (--vote)', true},
-		StagedCase{'a staged goto', 'Staged by --goto.', 'Nothing to object to.', true},
-		StagedCase{'a staged proposal', 'Staged by --propose.', '', true},
-		StagedCase{'a why that only names the flag', 'Do not use --goto.', '(--vote) is no reason', false},
+		StagedCase{'a ballot forced live', 'Head for beacon b1.', 'forced approve (staged live)', true},
+		StagedCase{'a ballot forced live behind a course veto', 'Head for beacon b1.', veto +
+			'forced reject (staged live)', true},
+		StagedCase{'a goto or proposal staged live', 'Staged live.', 'Nothing to object to.', true},
+		StagedCase{"a scene's forced ballot", 'Head for beacon b1.', 'forced approve (--vote)', false},
+		StagedCase{"a scene's goto", 'Staged by --goto.', 'Nothing to object to.', false},
+		StagedCase{'a why that only names the marker', 'Staged live. Or not.', '(staged live) is no reason', false},
 	]
 	for c in cases {
 		mut s := State{}
@@ -711,7 +712,7 @@ fn test_a_pinned_staged_vote_stays_staged() {
 	s.take_event(lcl.HqEvent{
 		proposal: lcl.Intent{
 			...reach
-			why: 'Staged by --goto.'
+			why: 'Staged live.'
 		}
 		needed:   2
 		votes:    [lcl.Vote{

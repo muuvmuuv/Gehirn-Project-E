@@ -211,7 +211,7 @@ Around the body sit eight range rings a meter apart, every second one brighter, 
 
 ### STAGED
 
-`State.staged` says whether the vote MAGI's block shows was staged on the mock, from what `tools/mock_endpoint.py` writes into it: a forced ballot's why ends in `(--vote)`, after a course veto's fact too, and a proposal its `--goto` or `--propose` made starts its why with `Staged by --`. `draw_magi` then sets STAGED ON THE MOCK in `caution` at 15 on `ink`, in a 1 px `caution` frame between still `caution` hazard stripes 22 px wide on each side, where the PINNED tab goes or 24 px under it, so the GIF of MAGI carries it too. It comes and goes with the vote it marks.
+`State.staged` says whether the vote MAGI's block shows was staged live on the mock, from what `tools/mock_endpoint.py` writes into it for `POST /stage`: a ballot forced live ends its why in `(staged live)`, after a course veto's fact too, and a goto or proposal staged live has the why `Staged live.`. The `(--vote)` and `Staged by --` of a scene's flags stay unmarked, since a scene says what it stages. `draw_magi` then sets STAGED ON THE MOCK in `caution` at 15 on `ink`, in a 1 px `caution` frame between still `caution` hazard stripes 22 px wide on each side, where the PINNED tab goes or 24 px under it, so the GIF of MAGI carries it too. It comes and goes with the vote it marks.
 
 ### Harmonics
 

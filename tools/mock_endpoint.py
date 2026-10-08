@@ -24,15 +24,18 @@ support would. --goto makes the core propose a goto to a given target from its N
 on, and --goto off@N returns it to its script from its N-th request, as --vote UNIT=off@N does a
 unit. --garbage wins over all three, and --propose over --goto.
 
-A show stages them live: with --stage the mock also serves POST /stage, to loopback clients only,
-which tools/staging.py sends by key. Its JSON object sets what the flags set, from each role's
-next request on and in place of what the flags staged for later ones: "vote" as UNIT=VOTE or
-UNIT=off, "propose" as VERB[:WHY] or off, "goto" as X,Y or off, and "clear": true for all of them,
-none with @N. It answers what each role answers at its next request, null where the script does,
-and {} asks only that. scripts/stage.sh gives --stage on lineup mock alone, so a mock that serves
-the core for real MAGI refuses it, since forcing a vote in the stack would be the commander
-override docs/decisions.md rules out. The forced ballot's why, "forced approve (--vote)", and the
-staged proposal's, "Staged by --goto.", are how the bridge knows to show STAGED.
+A show stages them live: with --stage the mock also serves POST /stage, to a loopback client
+that sends no Origin and a loopback Host, so no web page can stage, which tools/staging.py sends
+by key. Its JSON object sets what the flags set, from each role's next request on and in place of
+what the flags staged for later ones: "vote" as UNIT=VOTE or UNIT=off for melchior and casper,
+"propose" as VERB or off, "goto" as X,Y or off, and "clear": true for all of them, none with @N.
+It answers what each role answers at its next request, null where the script does, and {} asks
+only that. scripts/stage.sh gives --stage on lineup mock with a simulated body alone, so a mock
+that serves the core for real MAGI refuses it, since forcing a vote in the stack would be the
+commander override docs/decisions.md rules out. A ballot forced live says "forced approve (staged
+live)" and a goto or proposal staged live "Staged live.", which the bridge shows as STAGED; a
+scene's flags write "(--vote)" and "Staged by --" instead, which it leaves unmarked, since a scene
+says in its terminal what it stages.
 
     python3 tools/mock_endpoint.py --slow balthasar=12000 --garbage casper
     python3 tools/mock_endpoint.py --propose self_destruct --vote casper=reject --vote casper=approve@3
@@ -103,10 +106,18 @@ JEV_IDS = ("goes_to_person", "leaves_area", "drops_payload", "person_close",
 CLOSE_BANDS = ("(in contact)", "(very close)", "(close)")
 HIGH, LOW = 0.95, 0.05
 
-# served counts each role's requests; lock guards it and every stage, which POST /stage changes
-# while requests are answered.
+# served counts each role's requests; live holds the units whose ballot POST /stage forced last,
+# which answer names so. lock guards both and every stage, which POST /stage changes while requests
+# are answered.
 served = dict.fromkeys(ROLES, 0)
+live: set[str] = set()
 lock = threading.Lock()
+
+# The why of what POST /stage stages, which bridge/state.v State.staged reads to show STAGED.
+LIVE_BALLOT = "(staged live)"
+LIVE_PROPOSAL = "Staged live."
+# A host name that only this machine resolves to itself; a DNS rebinding page sends its own.
+LOCAL_HOST = re.compile(r"(?:127\.0\.0\.1|localhost|\[::1\])(?::[0-9]+)?")
 
 
 def role_of(system: str) -> str:
@@ -211,8 +222,7 @@ def answer(role: str, user: str, n: int, staged: dict | None,
         return staged or forced(gotos or {}, n) or propose(percept, user)
     vote = forced(votes.get(role, {}), n)
     if vote:
-        # bridge/state.v State.staged shows STAGED for a ballot whose why ends in (--vote).
-        return {"vote": vote, "why": f"forced {vote} (--vote)"}
+        return {"vote": vote, "why": f"forced {vote} {LIVE_BALLOT if role in live else '(--vote)'}"}
     return judge(role, user, percept)
 
 
@@ -402,10 +412,19 @@ class Handler(BaseHTTPRequestHandler):
         self.log(f"jev high {high}")
 
     def stage(self) -> None:
-        """Answer POST /stage: restage from loopback with --stage, and refuse it otherwise."""
-        if not self.staging or not ipaddress.ip_address(self.client_address[0]).is_loopback:
+        """Answer POST /stage: restage for a loopback client with --stage, and refuse it otherwise.
+        A browser names the page's Origin on every POST, and a page that rebinds its name to
+        127.0.0.1 its own Host, so either is refused; tools/staging.py and curl send neither."""
+        if not self.staging:
             self.refuse("staging is off: the mock runs without --stage, which scripts/stage.sh gives "
-                        "lineup mock alone", 403)
+                        "lineup mock on a simulated body alone", 403)
+            return
+        if not ipaddress.ip_address(self.client_address[0]).is_loopback:
+            self.refuse("POST /stage is served to loopback alone", 403)
+            return
+        if "Origin" in self.headers or not LOCAL_HOST.fullmatch(self.headers.get("Host", "")):
+            self.refuse("POST /stage is served to no web page: it refuses an Origin and a Host but "
+                        "127.0.0.1 or localhost", 403)
             return
         body, problem = self.read_body()
         with lock:
@@ -478,7 +497,12 @@ def restage(body: object) -> str | None:
     try:
         if any("@" in str(v) for v in body.values()):
             raise argparse.ArgumentTypeError("a live stage holds from the next request, so no @N")
+        if ":" in str(body.get("propose")):
+            raise argparse.ArgumentTypeError("a live stage names itself, so no :WHY")
         vote = vote_arg(body["vote"]) if "vote" in body else None
+        if vote and vote[0] == "balthasar":
+            raise argparse.ArgumentTypeError("melchior and casper stage live, not balthasar, since on "
+                                             "Jev, the default, the mock forces nothing")
         goto = goto_arg(body["goto"])[1] if "goto" in body else None
         propose = body.get("propose")
         propose = None if propose in (None, "off") else propose_arg(propose)
@@ -489,13 +513,16 @@ def restage(body: object) -> str | None:
             renew(Handler.votes.setdefault(unit, {}), served[unit] + 1, None)
         renew(Handler.gotos, served["core"] + 1, None)
         Handler.staged = None
+    # renew drops what the flags staged for later requests, so from the next request on every
+    # forced ballot of a unit in live is the stage's.
     if vote:
         unit, _, ballot = vote
         renew(Handler.votes.setdefault(unit, {}), served[unit] + 1, ballot)
+        live.add(unit)
     if "goto" in body:
-        renew(Handler.gotos, served["core"] + 1, goto)
+        renew(Handler.gotos, served["core"] + 1, goto and {**goto, "why": LIVE_PROPOSAL})
     if "propose" in body:
-        Handler.staged = propose
+        Handler.staged = propose and {**propose, "why": LIVE_PROPOSAL}
     return None
 
 
@@ -549,7 +576,6 @@ def goto_arg(value: str) -> tuple[int, dict | None]:
     if m[1] is None:
         return int(m[3] or 1), None
 
-    # bridge/state.v State.staged shows STAGED for a proposal whose why starts with Staged by --.
     return int(m[3] or 1), {"verb": "goto", "target": [float(m[1]), float(m[2])],
                             "why": "Staged by --goto."}
 
@@ -560,9 +586,6 @@ def propose_arg(value: str) -> dict:
     verb, _, why = value.partition(":")
     if not re.fullmatch(r"\S+", verb) or verb.lower() == "goto":
         raise argparse.ArgumentTypeError("expected VERB[:WHY], one word other than goto")
-
-    # bridge/state.v State.staged shows STAGED for a proposal whose why starts with Staged by --,
-    # so a scene's own WHY leaves it to the forced ballots.
     return {"verb": verb, "target": [], "why": why or "Staged by --propose."}
 
 
@@ -583,7 +606,7 @@ def main() -> None:
                          "return it to its script")
     ap.add_argument("--stage", action="store_true",
                     help="serve POST /stage to loopback, which sets what --vote, --propose and --goto "
-                         "set while the mock runs")
+                         "set while the mock runs; for lineup mock on a simulated body alone")
     ap.add_argument("--quiet", action="store_true", help="no log line per request")
     args = ap.parse_args()
 

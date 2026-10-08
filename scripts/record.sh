@@ -36,7 +36,8 @@ trap 'rm -rf "$out/frames" "$out/caption.ppm" "$out/gehirn-bridge"' EXIT
 # uncovered, since macOS slows a covered window's frames. LARGE_CONFIG as the justfile's bridge recipe
 # gives it, or the bundled GC runs out of root sets on macOS.
 v -prod -cflags -DLARGE_CONFIG -d gg_record -d bridge_1x -d darwin_sokol_glcore33 -o "$out/gehirn-bridge" bridge/
-VGG_SCREENSHOT_FOLDER="$out/frames" VGG_SCREENSHOT_FRAMES=$(seq -s, 1 9000) \
+# A BRIDGE_MOUSE left in the shell from making stills would replay its hover into the take.
+VGG_SCREENSHOT_FOLDER="$out/frames" VGG_SCREENSHOT_FRAMES=$(seq -s, 1 9000) env -u BRIDGE_MOUSE \
     "$root/scripts/scenes/$scene.sh" "$out/gehirn-bridge" \
     "$mock" "$umbilical" "$watch" "$plug" "$out/run" "$lineup"
 
@@ -111,8 +112,8 @@ fi
 # b plays at 8x.
 clip() { awk -v t="$1" -v s="$s" -v a="$a" -v b="$b" 'BEGIN { if (t > b) t -= (b - a) * 7 / 8; else if (t > a) t = a + (t - a) / 8; print t - s }'; }
 
-# The GIF shows the MAGI block alone, large enough to read on a phone (bridge/draw.v draw
-# lays it out at 16, 58, 736 by 412).
+# The GIF shows the MAGI block alone, large enough to read on a phone (bridge/draw.v magi_box,
+# 16, 58, 736 by 412).
 gif="no gehirn-magi.gif, since the scene showed no vote on an irreversible proposal"
 if [ -n "$r" ]; then
     f=$(clip $((r - $(lead "$(votes | awk 'NR == 1 { sub(/^[0-9]+ ballots /, ""); print }')"))))

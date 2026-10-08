@@ -249,13 +249,15 @@ fn (s State) shown() State {
 	}
 }
 
-// staged says whether s's vote was staged on the mock, as tools/mock_endpoint.py names what it
-// forces: a ballot whose why ends in (--vote), also after a course veto's fact, or a proposal its
-// --goto or --propose staged, whose why starts with Staged by --. The bridge reads it of the vote
-// MAGI's block shows, since that is all the watch streams tell of a stage.
+// staged says whether s's vote was staged live on the mock, as tools/mock_endpoint.py LIVE_BALLOT
+// and LIVE_PROPOSAL name what POST /stage sets: a ballot whose why ends in (staged live), also
+// after a course veto's fact, or a proposal whose why is Staged live. A scene's flags write
+// (--vote) and Staged by -- instead, which stay unmarked, since the scene says what it stages. The
+// bridge reads it of the vote MAGI's block shows, since that is all the watch streams tell of a
+// stage.
 fn (s State) staged() bool {
-	return s.proposal.why.starts_with('Staged by --')
-		|| s.ballots.values().any(it.why.ends_with('(--vote)'))
+	return s.proposal.why == 'Staged live.'
+		|| s.ballots.values().any(it.why.ends_with('(staged live)'))
 }
 
 // listed is the index in verdicts of the verdict in 決議's list at x, y, or -1.
