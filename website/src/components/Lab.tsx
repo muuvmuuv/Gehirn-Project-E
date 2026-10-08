@@ -18,7 +18,7 @@ const TOOLS = [
 		title: "Steers around people's paths",
 		text: "It plans the way around solids and each walker's predicted course, 32 headings a tick, with no model in it. The armor still checks every command.",
 		fact: 'It keeps people at least 0.69 m away where the bare reflex let a walker come to 0.27 m, and it delivered on every trap world where the reflex stalled.',
-		run: 'PLANNER=local',
+		run: 'just demo',
 	},
 	{
 		label: 'Physics body',
