@@ -41,7 +41,7 @@ jobs:
           fi
       - name: Install V, just, shellcheck and shfmt
         run: scripts/toolchain.sh >>"$GITHUB_PATH"
-      - run: just build bridge gamepad
+      - run: just binaries gamepad
       - name: Pack the binaries with the licenses
         env:
           TARGET: ${{ matrix.target }}

@@ -57,7 +57,7 @@ jobs:
         run: scripts/toolchain.sh >>"$GITHUB_PATH"
       - run: just check
       - name: Build gehirn, the bridge and the gamepad
-        run: just build bridge gamepad
+        run: just binaries gamepad
 
   # Builds MuJoCo from its pinned source, runs the tests with -d mujoco and builds gehirn with it,
   # all of which `just check` never compiles (ADR-0008).

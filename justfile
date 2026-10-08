@@ -71,6 +71,14 @@ _body:
 bridge: zenoh
     @scripts/build.sh gehirn-bridge -prod -cflags -DLARGE_CONFIG bridge/
 
+# The gamepad stays out of binaries: its -prod build caches the bundled GC under the same key as
+# gehirn's, and V compiles a cached object in place, so two builds at once could link a
+# half-written one (CONTRIBUTING.md, V 0.5.2 rule 10).
+
+# Builds gehirn and the bridge at once, so a fresh pair takes about as long as gehirn alone.
+[parallel]
+binaries: build bridge
+
 # Builds the gamepad bridge, ./gehirn-gamepad, which runs on the pilot's machine and alone needs SDL2 (ADR-0006).
 gamepad:
     v -prod -o gehirn-gamepad gamepad/
@@ -99,7 +107,7 @@ scene := "demo"
 # Flies one narrated mission, or the scene that scene names, with HQ, the field unit and the
 # bridge apart, on lineup's models.
 [no-exit-message]
-demo mock="8081" umbilical="7447" watch="7448" plug="7777" dir="": _lineup build bridge
+demo mock="8081" umbilical="7447" watch="7448" plug="7777" dir="": _lineup binaries
     @{{ quote("scripts/scenes/" + scene + ".sh") }} {{ quote(justfile_directory() / "gehirn-bridge") }} {{ quote(mock) }} {{ quote(umbilical) }} {{ quote(watch) }} {{ quote(plug) }} {{ quote(dir) }} {{ quote(lineup) }}
 
 # Records `just demo`, or the scene that scene names, from the bridge's frames into an MP4 and
