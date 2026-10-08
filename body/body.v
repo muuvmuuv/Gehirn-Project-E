@@ -39,6 +39,7 @@ const stride_s = 0.03
 pub struct Sim {
 	world World
 	drive Drive
+	clock fn () i64 = lcl.now_ms // ms on the clock new_sim_on names, lcl.now_ms through new_sim
 mut:
 	pose      []f64
 	heading   f64 // rad, counterclockwise from +x
@@ -58,10 +59,18 @@ mut:
 // sets, and drive from DRIVE. It faces +x, east, the zero heading of a planar robot and the one a
 // holonomic body keeps, which from the default world's start lies 35 degrees off the beacon.
 pub fn new_sim(w World, drive Drive) &Sim {
-	now := lcl.now_ms()
+	return new_sim_on(w, drive, lcl.now_ms)
+}
+
+// new_sim_on is new_sim on clock, which returns milliseconds and which every sense and command
+// reads in place of the wall clock. main_test.v hands it a clock it advances by a tick at a time,
+// so a closed loop through the armor runs ticks of the length it names whatever the host's load.
+pub fn new_sim_on(w World, drive Drive, clock fn () i64) &Sim {
+	now := clock()
 	return &Sim{
 		world:     w
 		drive:     drive
+		clock:     clock
 		pose:      w.start.clone()
 		t0_ms:     now
 		last_ms:   now
@@ -92,9 +101,9 @@ pub fn (s &Sim) stopping(speed f64) f64 {
 // armor.Armor.drive checked, then turns, which a round body may do wherever it stands, even in
 // contact.
 pub fn (mut s Sim) sense() lcl.Percept {
-	now := lcl.now_ms()
+	now := s.clock()
 
-	// lcl.now_ms reads the wall clock, which can step back.
+	// lcl.now_ms, the default clock, reads the wall clock, which can step back.
 	dt := math.min(stride_s, math.max(0.0, f64(now - s.last_ms) / 1000.0))
 	s.last_ms = now
 	if now - s.cmd_ms > 200 {
@@ -148,7 +157,7 @@ pub fn (mut s Sim) actuate(u []f64) ! {
 		}
 	}
 
-	s.cmd_ms = lcl.now_ms()
+	s.cmd_ms = s.clock()
 }
 
 // effect runs the effector behind a verb.
@@ -191,7 +200,7 @@ pub fn (mut s Sim) halt() {
 // world's clock. On default_world it is beacon b1, pillar o1 and human h1 on its loop at every
 // time.
 fn (mut s Sim) scene(now i64) []lcl.Entity {
-	// lcl.now_ms reads the wall clock, which can step back.
+	// lcl.now_ms, the default clock, reads the wall clock, which can step back.
 	dt_ms := math.max(i64(0), now - s.walked_ms)
 	for i, h in s.world.humans {
 		s.walkers[i].step(h, now - s.t0_ms, dt_ms, s.pose)

@@ -1174,50 +1174,69 @@ fn powers(drive body.Drive) {
 	}
 }
 
+// Ticks is the virtual clock a closed loop hands body.new_sim_on and advances by a tick at a time.
+struct Ticks {
+mut:
+	ms i64
+}
+
 // The local planner flies the body from the default world's start to b1 through the armor on
-// `Sim`, at the top speed a seat allows, without contact and never inside the armor's keeps: the
-// pillar's solid_keep and the walking human's human_stop. It runs in real time, since `Sim` reads
-// the wall clock, about 12 s, paced as the field loop is: `Sim` moves body/body.v stride_s of a
-// sense at most while its walker walks all of it, so ticks that each late sleep lengthened, rather
-// than the next tick shortening, let the walker catch the body on a loaded host.
+// `Sim`, at the top speed a seat allows, on a virtual clock, so each tick lasts what it names on
+// any host: the field loop's 20 ms, and 60 ms, a loaded host's, on which main.v still hands the
+// armor the field loop's dt. On both the body touches nothing, stays outside the pillar's
+// solid_keep and never steps toward a human inside human_stop, the armor's promise, counted as
+// tools/trials.py counts it. On 20 ms ticks the planner's berth also keeps the walking human
+// outside human_stop; on longer ones the walker walks all of each tick while `Sim` moves the body
+// body/body.v stride_s of it at most, so the walker may come inside by its own walk, as it did on
+// CI's macOS runners when this test ran on the wall clock.
 fn test_the_planner_brings_the_body_to_b1() {
-	limits := armor.Limits{}
-	w := body.default_world()
-	mut ar := armor.restrain(body.new_sim(w, .holonomic), limits)
-	mut way := planner.Planner{
-		solid_keep: limits.solid_keep
-		human_stop: limits.human_stop
-		bounds:     limits.bounds
-	}
-	goal := lcl.Intent{
-		verb:   'goto'
-		target: w.beacons[0].pos
-	}
-	mut at := 0.0
-	mut deadline := time.sys_mono_now()
-	for n in 0 .. 1500 {
-		p := ar.sense()
-		assert !p.contact, 'tick ${n} at ${p.pose}'
-		for e in p.scene {
-			gap := lcl.dist(p.pose, e.pos) - e.r
-			match e.kind {
-				'obstacle' { assert gap >= limits.solid_keep, 'tick ${n} at ${p.pose}' }
-				'human' { assert gap >= limits.human_stop, 'tick ${n} at ${p.pose}' }
-				else {}
+	for tick_ms in [i64(20), 60] {
+		limits := armor.Limits{}
+		w := body.default_world()
+		mut clock := &Ticks{}
+		mut ar := armor.restrain(body.new_sim_on(w, .holonomic, fn [clock] () i64 {
+			return clock.ms
+		}), limits)
+		mut way := planner.Planner{
+			solid_keep: limits.solid_keep
+			human_stop: limits.human_stop
+			bounds:     limits.bounds
+		}
+		goal := lcl.Intent{
+			verb:   'goto'
+			target: w.beacons[0].pos
+		}
+		mut at := 0.0
+		mut last := lcl.Percept{}
+		for n in 0 .. 1500 {
+			p := ar.sense()
+			assert !p.contact, '${tick_ms} ms ticks, tick ${n} at ${p.pose}'
+			for e in p.scene {
+				gap := lcl.dist(p.pose, e.pos) - e.r
+				if e.kind == 'obstacle' {
+					assert gap >= limits.solid_keep, '${tick_ms} ms ticks, tick ${n} at ${p.pose}'
+				}
+				if e.kind == 'human' && tick_ms == 20 {
+					assert gap >= limits.human_stop, '${tick_ms} ms ticks, tick ${n} at ${p.pose}'
+				}
 			}
+			for e in last.scene {
+				gap := lcl.dist(last.pose, e.pos)
+				if e.kind == 'human' && gap - e.r < limits.human_stop && gap > 0 {
+					ahead := lcl.dot(lcl.sub(p.pose, last.pose), lcl.sub(e.pos, last.pose)) / gap
+					assert ahead <= 1e-9, '${tick_ms} ms ticks, tick ${n} at ${p.pose}'
+				}
+			}
+			last = p
+			at = lcl.dist(p.pose, goal.target)
+			if at < lcl.beacon_reach {
+				break
+			}
+			ar.drive(way.next(p, goal, ar.top_speed(p, true)), p, 0.02, true)
+			clock.ms += tick_ms
 		}
-		at = lcl.dist(p.pose, goal.target)
-		if at < lcl.beacon_reach {
-			break
-		}
-		ar.drive(way.next(p, goal, ar.top_speed(p, true)), p, 0.02, true)
-		next, nap := pace(deadline, time.sys_mono_now())
-		deadline = next
-		if nap > 0 {
-			time.sleep(time.Duration(nap))
-		}
+		assert at < lcl.beacon_reach, '${tick_ms} ms ticks'
 	}
-	assert at < lcl.beacon_reach
 }
 
 struct ComparedCase {
