@@ -29,6 +29,20 @@ const history = 300
 const hold_ms = 3000
 const fade_ms = 1000
 
+// click_ms is how long a press of the left button may last, in milliseconds, and still be a click
+// that pins a vote: a drag anywhere moves the window (window_darwin.m), and AppKit may hand the
+// bridge the press that starts one.
+const click_ms = 300
+
+// hover_ms is how long the cursor waits on a target, in milliseconds, before its readout shows, so
+// a cursor that crosses MAGI or the radar on its way elsewhere shows none; from one target to the
+// next the readout follows at once.
+const hover_ms = 300
+
+// readout_lines is the most lines a readout holds: wire's 64 KiB payload carries a why of a
+// thousand lines, which no window holds.
+const readout_lines = 30
+
 // Sample is one view's sync ratio and the core's share of the controls, for the harmonics graph.
 struct Sample {
 	sync      f64
@@ -78,7 +92,9 @@ mut:
 	outcomes     []Entry // every other outcome, newest first
 	dropped      string  // why the newest dropped message was dropped
 	cursor       []f32   // the mouse in window pixels, x and y; empty while it is outside the window
-	pinned       i64     // the arrival of the verdict pinned to MAGI's block; 0 while it shows the newest
+	hover_at     i64     // when the cursor last moved while it pointed at no target
+	pressed      i64     // when the left button went down in the window; 0 once it is up
+	pinned       int     // the CODE of the vote pinned to MAGI's block; 0 while it shows the newest
 }
 
 // take_view folds in a view from the field unit, which arrived at now.
@@ -203,7 +219,7 @@ fn (s State) contact(unit string, now i64) (string, f64) {
 fn (s State) pin() int {
 	if s.pinned != 0 {
 		for i, p in s.verdicts {
-			if p.at == s.pinned {
+			if p.code == s.pinned {
 				return i
 			}
 		}
@@ -260,32 +276,51 @@ fn (s State) staged() bool {
 		|| s.ballots.values().any(it.why.ends_with('(staged live)'))
 }
 
-// listed is the index in verdicts of the verdict in 決議's list at x, y, or -1.
-fn (s State) listed(x f32, y f32) int {
-	for row in 0 .. 3 {
-		i := s.showing() + 1 + row
-		if i < s.verdicts.len && verdict_row(row).holds(x, y) {
-			return i
-		}
-	}
-	return -1
-}
-
-// click is a click at x, y: on a verdict in 決議's list it pins that one, elsewhere in MAGI's block
-// it pins the newest verdict or unpins the pinned one, so the block follows the votes again.
-// Paging is clicking the list's first line, which holds the verdict before the one pinned.
+// click is a click at x, y: on a line of 決議's list it pins that line's verdict, and does nothing
+// on a line the list leaves empty; elsewhere in MAGI's block it pins the verdict 決議 shows, none
+// while MAGI deliberate, or unpins the pinned one, so the block follows the votes again. Paging is
+// clicking the list's first line, which holds the verdict before the one pinned.
 fn (mut s State) click(x f32, y f32) {
 	if !magi_box.holds(x, y) {
 		return
 	}
-	i := s.listed(x, y)
-	s.pinned = if i >= 0 {
-		s.verdicts[i].at
-	} else if s.pin() < 0 && s.verdicts.len > 0 {
-		s.verdicts[0].at
-	} else {
-		0
+	for row in 0 .. 3 {
+		if verdict_row(row).holds(x, y) {
+			i := s.showing() + 1 + row
+			if i < s.verdicts.len {
+				s.pinned = s.verdicts[i].code
+			}
+			return
+		}
 	}
+	s.pinned = if s.pin() < 0 && s.showing() >= 0 { s.verdicts[0].code } else { 0 }
+}
+
+// release is the left button going up at x, y at now: a click if it went down in the window
+// within click_ms, so a press that starts a drag of the window pins nothing.
+fn (mut s State) release(x f32, y f32, now i64) {
+	if s.pressed > 0 && now - s.pressed <= click_ms {
+		s.click(x, y)
+	}
+	s.pressed = 0
+}
+
+// move puts the cursor at x, y at now. From where it pointed at no target, the readout waits
+// hover_ms from now.
+fn (mut s State) move(x f32, y f32, now i64) {
+	if s.cursor.len != 2 || s.hover(s.cursor[0], s.cursor[1]).len == 0 {
+		s.hover_at = now
+	}
+	s.cursor = [x, y]
+}
+
+// readout is what draw shows beside the cursor at now: State.hover at the cursor once the cursor
+// has waited hover_ms on its target, else none.
+fn (s State) readout(now i64) []string {
+	if s.cursor.len != 2 || now - s.hover_at < hover_ms {
+		return []
+	}
+	return s.hover(s.cursor[0], s.cursor[1])
 }
 
 // hover is the readout for what the cursor at x, y points at, as lines, its title first: the
@@ -339,7 +374,7 @@ fn entity_lines(e lcl.Entity, pose []f64) []string {
 		lines << 'LANDS IN ${e.lands_in:.1f} S'
 	}
 	if e.kind == 'ground' {
-		lines << 'FACTOR ${e.factor:.2f}, ${e.factor * 100:.0f}% OF ITS SPEED'
+		lines << 'FACTOR ${e.factor:.2f}, THE BODY KEEPS ${e.factor * 100:.0f}% OF ITS SPEED'
 	}
 	return lines
 }
@@ -358,6 +393,10 @@ fn ballot_lines(i int, v lcl.Vote) []string {
 		lines << wrap(said.all_after(': '), 56)
 	} else {
 		lines << wrap(v.why, 56)
+	}
+	if lines.len > readout_lines {
+		lines.trim(readout_lines - 1)
+		lines << '...'
 	}
 	return lines
 }

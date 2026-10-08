@@ -162,8 +162,10 @@ fn init(mut app App) {
 // on_event quits on Esc, as Cmd-Q does, since the borderless window has no close button. It exits
 // instead of calling gg's quit, which on macOS asks the window to close as its close button would,
 // and AppKit only beeps at a window without one. The bridge only watches, so quitting changes
-// nothing. It also keeps the cursor for State.hover and hands a left click to State.click, which
-// change only what the bridge shows.
+// nothing, also while a vote is pinned. It also keeps the cursor for State.readout and hands a left
+// click to State.click through State.release, which change only what the bridge shows. sokol stops
+// tracking the cursor once the window is no longer key, so losing the keyboard clears it as leaving
+// the window does.
 fn on_event(e &gg.Event, mut app App) {
 	match e.typ {
 		.key_down {
@@ -172,14 +174,19 @@ fn on_event(e &gg.Event, mut app App) {
 			}
 		}
 		.mouse_move {
-			app.state.cursor = [e.mouse_x, e.mouse_y]
+			app.state.move(e.mouse_x, e.mouse_y, lcl.now_ms())
 		}
-		.mouse_leave {
+		.mouse_leave, .unfocused {
 			app.state.cursor = []
 		}
 		.mouse_down {
 			if e.mouse_button == .left {
-				app.state.click(e.mouse_x, e.mouse_y)
+				app.state.pressed = lcl.now_ms()
+			}
+		}
+		.mouse_up {
+			if e.mouse_button == .left {
+				app.state.release(e.mouse_x, e.mouse_y, lcl.now_ms())
 			}
 		}
 		else {}
@@ -188,9 +195,9 @@ fn on_event(e &gg.Event, mut app App) {
 
 // mouse_script reads BRIDGE_MOUSE, the mouse a gg_record build replays through on_event, since a
 // frame saved without a hand on the mouse would show no hover (CONTRIBUTING.md, V 0.5.2 rule 6):
-// steps apart by spaces, each x,y to move there in window pixels, click to click where it last
-// moved, or out to leave the window, then @ and the milliseconds since the bridge started, as in
-// `900,420@9000 click@9500 out@12000`.
+// steps apart by spaces, each x,y to move there in window pixels, click to press and release the
+// left button where it last moved, or out to leave the window, then @ and the milliseconds since
+// the bridge started, as in `900,420@9000 click@9500 out@12000`.
 fn mouse_script(spec string) ![]Step {
 	mut steps := []Step{}
 	mut x, mut y := f32(0), f32(0)
@@ -201,11 +208,16 @@ fn mouse_script(spec string) ![]Step {
 		what := word.all_before('@')
 		xy := what.split(',')
 		if what == 'click' {
-			steps << Step{at, gg.Event{
+			down := gg.Event{
 				typ:          .mouse_down
 				mouse_button: .left
 				mouse_x:      x
 				mouse_y:      y
+			}
+			steps << Step{at, down}
+			steps << Step{at, gg.Event{
+				...down
+				typ: .mouse_up
 			}}
 		} else if what == 'out' {
 			steps << Step{at, gg.Event{

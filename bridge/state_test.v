@@ -465,8 +465,8 @@ fn test_wrap() {
 	}
 }
 
-// scene is a state whose radar holds one entity of each kind around the body at the origin,
-// with h1 inside rock's landing zone.
+// scene is a state whose radar holds one entity of each kind around the body at the origin, with
+// h1 inside rock's landing zone, b1 on mud and o2 smaller than the 8 px a mark answers within.
 fn scene() State {
 	mut s := State{}
 	s.take_view(lcl.FieldView{
@@ -499,6 +499,12 @@ fn scene() State {
 					pos:  [-3.0, 0.0]
 					r:    0.3
 				},
+				lcl.Entity{
+					id:   'o2'
+					kind: 'obstacle'
+					pos:  [1.0, -2.0]
+					r:    0.1
+				},
 			]
 			ground: [
 				lcl.Entity{
@@ -507,6 +513,13 @@ fn scene() State {
 					pos:    [-3.0, 3.0]
 					r:      1.0
 					factor: 0.5
+				},
+				lcl.Entity{
+					id:     'mud'
+					kind:   'ground'
+					pos:    [-3.0, 0.0]
+					r:      0.8
+					factor: 0.4
 				},
 			]
 		}
@@ -527,15 +540,21 @@ fn test_hover() {
 	cases := [
 		HoverCase{'a walking human, over the zone it stands in', [2.0, 0.0], 0, ['HUMAN H1',
 			'DISTANCE 2.00 M', 'VELOCITY 0.80 M/S (0.80, 0.00)']},
-		HoverCase{'a small mark answers 8 px from its center', [2.0, 0.0], 7.5, ['HUMAN H1',
-			'DISTANCE 2.00 M', 'VELOCITY 0.80 M/S (0.80, 0.00)']},
+		HoverCase{'a mark answers within its disc', [2.0, 0.0], 7.5, ['HUMAN H1', 'DISTANCE 2.00 M',
+			'VELOCITY 0.80 M/S (0.80, 0.00)']},
+		HoverCase{'a small mark answers 8 px from its center', [1.0, -2.0], 7.5, ['OBSTACLE O2',
+			'DISTANCE 2.24 M', 'STANDING']},
+		HoverCase{'and no further', [1.0, -2.0], 8.5, []string{}},
 		HoverCase{'a falling object', [2.0, 1.0], 0, ['IMPACT ROCK', 'DISTANCE 2.24 M',
 			'LANDS IN 12.3 S']},
 		HoverCase{'a standing obstacle', [0.0, -3.0], 0, ['OBSTACLE O1', 'DISTANCE 3.00 M',
 			'STANDING']},
-		HoverCase{'a beacon', [-3.0, 0.0], 0, ['BEACON B1', 'DISTANCE 3.00 M']},
+		HoverCase{'a beacon before the ground it lies on', [-3.0, 0.0], 0, ['BEACON B1',
+			'DISTANCE 3.00 M']},
+		HoverCase{'the ground around it', [-3.0, 0.0], 15, ['GROUND MUD', 'DISTANCE 3.00 M',
+			'FACTOR 0.40, THE BODY KEEPS 40% OF ITS SPEED']},
 		HoverCase{'ground', [-3.0, 3.0], 0, ['GROUND LAKE', 'DISTANCE 4.24 M',
-			'FACTOR 0.50, 50% OF ITS SPEED']},
+			'FACTOR 0.50, THE BODY KEEPS 50% OF ITS SPEED']},
 		HoverCase{'open floor', [-1.0, -1.5], 0, []string{}},
 	]
 	for c in cases {
@@ -572,6 +591,10 @@ fn test_ballot_lines() {
 		assert got[..3] == ['CASPER • 3 否決', 'MODEL MOCK-CASPER', 'LATENCY 512 MS'], why
 		assert got[3..] == want, why
 	}
+	long := ballot_lines(2, lcl.Vote{
+		why: 'word '.repeat(2000)
+	})
+	assert long.len == readout_lines && long.last() == '...', 'a why of thousands of words'
 }
 
 fn test_hover_reads_the_unit_under_the_cursor() {
@@ -598,12 +621,15 @@ fn test_hover_reads_the_unit_under_the_cursor() {
 	m := center(0)
 	assert s.hover(m[0], m[1]) == []string{}, 'MELCHIOR-1 has no ballot yet'
 	assert s.hover(c[0], magi_box.y + 2) == []string{}, 'above the units'
+	b := unit_box(2)
+	assert s.hover(b.x + b.w - 1, c[1]).len > 0 && s.hover(b.x + b.w, c[1]) == []string{}, 'a box ends before its right edge'
 }
 
 struct ClickCase {
 	name   string
+	open   bool    // MAGI deliberate on a fifth proposal
 	clicks [][]f32 // x, y in window pixels
-	pinned i64
+	pinned int     // the CODE pinned
 }
 
 fn test_click() {
@@ -612,19 +638,24 @@ fn test_click() {
 		300,
 	]
 	cases := [
-		ClickCase{'outside MAGI nothing pins', [away], 0},
-		ClickCase{'the block pins the newest', [block], 4000},
-		ClickCase{'a second click unpins', [block, block], 0},
-		ClickCase{'the first line pins the verdict before the newest', [row0], 3000},
-		ClickCase{'the first line pages back from a pinned one', [row0, row0], 2000},
-		ClickCase{'the second line skips one', [row0, row1], 1000},
-		ClickCase{'a line past the oldest is the block', [row0, row0, row0, row0], 0},
+		ClickCase{'outside MAGI nothing pins', false, [away], 0},
+		ClickCase{'the block pins the newest', false, [block], 4},
+		ClickCase{'a second click unpins', false, [block, block], 0},
+		ClickCase{'the first line pins the verdict before the newest', false, [row0], 3},
+		ClickCase{'the first line pages back from a pinned one', false, [row0, row0], 2},
+		ClickCase{'the second line skips one', false, [row0, row1], 1},
+		ClickCase{'a line past the oldest does nothing', false, [row0, row0, row0, row0], 1},
+		ClickCase{'a click while MAGI deliberate pins nothing', true, [block], 0},
+		ClickCase{'the list then starts with the newest verdict', true, [row0], 4},
 	]
 	for c in cases {
 		mut s := State{}
 		for i in 1 .. 5 {
 			s.take_event(verdict(if i % 2 == 0 { release } else { reach }, i % 2 + 1, 2,
 				'CASPER-3=approve'), 1000 * i)
+		}
+		if c.open {
+			s.take_event(opened(reach), 5000)
 		}
 		for xy in c.clicks {
 			s.click(xy[0], xy[1])
@@ -641,7 +672,7 @@ fn test_shown() {
 	s.take_event(opened(release), 2000)
 	s.take_event(ballot(release, 'CASPER-3', 'reject'), 2500)
 	assert s.shown().deliberating, 'nothing pinned shows the vote under way'
-	s.pinned = 1000
+	s.pinned = 1
 	shown := s.shown()
 	assert !shown.deliberating && shown.code == 1 && shown.proposal == reach
 	assert shown.verdict_at == 1000 && shown.verdict.approved && shown.landed.len == 0
@@ -657,15 +688,58 @@ fn test_shown() {
 
 fn test_mouse_script() {
 	steps := mouse_script('900,420@9000 click@9500 out@12000') or { panic(err) }
-	assert steps.map(it.at) == [i64(9000), 9500, 12000]
+	assert steps.map(it.at) == [i64(9000), 9500, 9500, 12000]
 	assert steps[1].e.typ == .mouse_down && steps[1].e.mouse_x == 900 && steps[1].e.mouse_y == 420
-	assert steps[2].e.typ == .mouse_leave
+	assert steps[2].e.typ == .mouse_up && steps[2].e.mouse_x == 900
+		&& steps[2].e.mouse_button == .left
+	assert steps[3].e.typ == .mouse_leave
 	assert (mouse_script('') or { panic(err) }).len == 0
 	for bad in ['900,420', 'click@soon', '1,2,3@5', 'x,1@5', 'wiggle@5'] {
 		if _ := mouse_script(bad) {
 			assert false, bad
 		}
 	}
+}
+
+struct ReleaseCase {
+	name    string
+	pressed i64 // when the button went down; 0 for never
+	up      i64 // when it went up, on MAGI's block
+	pinned  int
+}
+
+fn test_release() {
+	cases := [
+		ReleaseCase{'a click pins', 1000, 1100, 1},
+		ReleaseCase{'a press as long as a click pins', 1000, 1000 + click_ms, 1},
+		ReleaseCase{'a longer press, as a drag of the window, pins nothing', 1000, 1001 + click_ms, 0},
+		ReleaseCase{'a release without a press pins nothing', 0, 1100, 0},
+	]
+	for c in cases {
+		mut s := State{}
+		s.take_event(verdict(reach, 2, 2, 'CASPER-3=approve'), 500)
+		s.pressed = c.pressed
+		s.release(100, 120, c.up)
+		assert s.pinned == c.pinned, c.name
+		assert s.pressed == 0, c.name
+	}
+}
+
+fn test_readout_waits_on_the_first_target() {
+	mut s := scene()
+	m, _ := s.radar()
+	s.move(m.px(-1.0), m.py(-1.5), 900)
+	s.move(m.px(2.0), m.py(0.0), 1000)
+	assert s.readout(1000 + hover_ms - 1) == []string{}, 'the cursor just came onto h1'
+	assert s.readout(1000 + hover_ms)[0] == 'HUMAN H1'
+	s.move(m.px(0.0), m.py(-3.0), 1400)
+	assert s.readout(1400)[0] == 'OBSTACLE O1', 'from one target to the next at once'
+	s.move(m.px(-1.0), m.py(-1.5), 1500)
+	assert s.readout(1500) == []string{}, 'open floor'
+	s.move(m.px(2.0), m.py(0.0), 1600)
+	assert s.readout(1700) == []string{}, 'back onto a target it waits again'
+	s.cursor = []
+	assert s.readout(5000) == []string{}, 'outside the window'
 }
 
 struct StagedCase {
@@ -722,6 +796,6 @@ fn test_a_pinned_staged_vote_stays_staged() {
 	}, 1000)
 	s.take_event(verdict(release, 3, 3, 'CASPER-3=approve'), 2000)
 	assert !s.shown().staged(), 'the newest vote was the script'
-	s.pinned = 1000
+	s.pinned = 1
 	assert s.shown().staged()
 }

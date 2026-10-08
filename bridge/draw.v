@@ -128,7 +128,7 @@ fn draw(ctx &gg.Context, s State, unit string, at string, now i64) {
 		draw_emergency(ctx, s, now)
 	}
 	if s.cursor.len == 2 {
-		draw_hover(ctx, s.hover(s.cursor[0], s.cursor[1]), s.cursor[0], s.cursor[1])
+		draw_hover(ctx, s.readout(now), s.cursor[0], s.cursor[1])
 	}
 	edge(ctx)
 	scanlines(ctx)
@@ -1182,9 +1182,9 @@ fn label(ctx &gg.Context, taken []Rect, x f32, y f32, gap f32, s string, c gg.Co
 	return pick
 }
 
-// draw_hover draws lines, State.hover's readout, beside the cursor at x, y, on the side that keeps
-// it inside the window: a panel's ground, frame and corners, the title in orange and the rest in
-// paper. It comes and goes with the cursor in one frame, a hard step like every change here.
+// draw_hover draws lines, State.readout, beside the cursor at x, y, on the side that keeps it inside
+// the window: a panel's ground, frame and corners, the title in orange and the rest in paper. It
+// comes and goes in one frame, a hard step like every change here.
 fn draw_hover(ctx &gg.Context, lines []string, x f32, y f32) {
 	if lines.len == 0 {
 		return
