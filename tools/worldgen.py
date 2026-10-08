@@ -572,6 +572,7 @@ def prompt(k: int, runs: int, limit: float, lineup: str, test: dict, ref: dict, 
             f"the body, MELCHIOR-1 with a human's center within {HUMAN_CLEARANCE} m. CASPER-3 approves everything"
             if lineup == "mock" else "MAGI are language models that read the percept as text: positions, radii and distances")
 
+    # overlay, stands and the Steering line repeat main.v load_config's PLANNER default.
     def overlay(env: dict) -> str:
         return (shown_env(env) or "the defaults") + ("" if env.get("PLANNER") else ", so the local planner steers")
 

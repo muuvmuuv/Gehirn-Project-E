@@ -492,7 +492,7 @@ fn load_config() !Config {
 			body.Drive.holonomic
 		}
 		body_kind:   body_kind()!
-		steering:    if env_choice('PLANNER', 'local', ['local', 'reflex'])! == 'reflex' {
+		steering:    if env_choice('PLANNER', 'local', ['local', 'reflex'])! == 'reflex' { // tools/worldgen.py prompt overlay repeats the default
 			Steering.reflex
 		} else {
 			Steering.local

@@ -434,6 +434,7 @@ assert "pocket" not in text and "pocket" not in reflex
 
 # The reference is the reflex unless an overlay sets PLANNER, and the configuration under test is
 # the default stack, which the local planner steers.
+assert re.search(r"env_choice\('PLANNER', 'local', ", (root / "main.v").read_text()), "main.v load_config's PLANNER default"
 assert (arguments(["--out", "x"]).ref_env, arguments(["--out", "x"]).test_env) == ([("PLANNER", "reflex")], [])
 assert dict(arguments(["--out", "x", "--ref-env", "PLANNER=local", "--ref-env", "DRIVE=differential"]).ref_env) == {
     "PLANNER": "local", "DRIVE": "differential"}
