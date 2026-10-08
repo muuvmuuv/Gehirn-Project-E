@@ -575,12 +575,13 @@ def prompt(k: int, runs: int, limit: float, lineup: str, test: dict, ref: dict, 
     def overlay(env: dict) -> str:
         return (shown_env(env) or "the defaults") + ("" if env.get("PLANNER") else ", so the reflex steers")
 
-    # PLAN, Known issue 38: the planner holds off a person who stands on or beside its target, and an
-    # aside walker who paces across its way.
-    stands = (f"With PLANNER=local the body plans its way around a human who stands and keeps further off than {HUMAN_STOP} m, "
-              f"but neither a stop human nor an aside one moves first, so one who stands on or beside the beacon, or stops "
-              f"there for the body, holds it short of the beacon for good, and an aside walker who paces back and forth "
-              f"across the way holds it there for good, though a way around stands open"
+    # PLAN, Known issue 38: held short of its target, the planner backs off once and then presses on
+    # as the reflex does.
+    stands = (f"With PLANNER=local the body plans its way around a human who stands and keeps further off than {HUMAN_STOP} m. "
+              f"Held short of the beacon for some seconds, it backs off once, so a stop human who stood for it walks on, "
+              f"then presses on to {HUMAN_STOP} m as the reflex does, so an aside human or an aside walker pacing across "
+              f"its way steps out of it; a stop human who stands on or beside the beacon for good holds it short of the beacon "
+              f"for good"
               if ref.get("PLANNER") == "local" else
               f"A stop human who stands on the body's way, or walks to it and waits, holds the body {HUMAN_STOP} m off for "
               f"good; an aside human steps out of the way")

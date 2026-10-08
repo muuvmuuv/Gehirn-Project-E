@@ -58,6 +58,41 @@ const crowd = 10.0
 const press = 20.0
 const wall = 10.0
 
+// patience is how long, in ms of the percept's clock, the way may go without shrinking by progress
+// under the same goto before the planner counts itself held while a human who stands is within
+// nearby of the berth, as a person who stops for the body, or one who steps aside for it but
+// stands on or beside the target, holds it there.
+const patience = i64(3000)
+
+// wait is patience while no human who stands is near: a walker who paces across the way holds the
+// body too, but one who passes can keep the way from shrinking for up to 9.9 s, as a sweep of
+// starts on worlds/crossing.json showed (PLAN, Known issue 38).
+const wait = i64(10000)
+
+// nearby is how far, in meters, beyond the berth a human who stands counts as near.
+const nearby = 0.5
+
+// progress is how much, in meters, the way must shrink to count as progress, or grow while the
+// planner backs off.
+const progress = 0.1
+
+// retreat is how far, in meters, the planner backs off along the way once held, or less where the
+// way stops growing by progress for patience, which takes the body beyond the keep of a person who
+// stops for it at the berth, so they walk on.
+const retreat = 1.0
+
+// Mode is how the planner goes for its target: keeping the berth, backing off along the way, or
+// pressing on as main.v's reflex does, without the berth and without following anyone's course,
+// so a person who steps aside for the body clears the way and the armor's human_stop alone holds
+// the body off the rest. Held the first time under a goto, it backs off by retreat, or until the
+// way stops growing for patience, then plans again; held again, it presses until the goto changes
+// (PLAN, Known issue 38).
+enum Mode {
+	plan
+	back
+	press
+}
+
 // Planner is the field tier's local planner, which main.v's field loop asks for the core's
 // command each tick under PLANNER=local. main.v builds it from armor.Limits, the keeps and the
 // fence it plans around, and only the field loop's thread holds it.
@@ -69,6 +104,12 @@ pub:
 mut:
 	last  []f64 = [0.0, 0.0] // m/s, the command next returned last
 	stood map[string]int // by id, ticks each one walked since it last stood, under settle
+	goal  []f64          // the target of the goto that mode, mark, since, from and held follow
+	mode  Mode
+	mark  f64 // m, the way's length progress counts from: its shortest, or backing off its longest
+	from  f64 // m, the way's length when the planner was last held
+	since i64 // ms, the percept's clock when mark last moved by progress or mode last changed
+	held  int // times the planner was held under this goto
 }
 
 // Circle is a solid as the planner sees it, a center and a radius in meters.
@@ -100,7 +141,8 @@ struct Ahead {
 	dy        f64
 	length    f64 // m, the whole way
 	last_leg  bool
-	top       f64 // m/s
+	top       f64  // m/s
+	pressing  bool // the mode is press
 	humans    []Mover
 	obstacles []Mover
 }
@@ -113,7 +155,8 @@ struct Ahead {
 // most on that way against how close it would bring the body over the next 2 s to each human and
 // each solid, walkers and moving obstacles followed in a straight line. Inside a human's berth a
 // step toward that human costs it, though with several humans near it may step toward one to
-// clear another.
+// clear another. Where the way stops shrinking, as a person who stops or steps aside for the body
+// or a walker who paces across its way holds it, it backs off once and then presses on (watch).
 // It closes on the target as the reflex does, at 1.5 times the distance, and gives zero on it. A
 // percept or goal it cannot measure gives zero; a human or an obstacle whose velocity it cannot
 // measure counts as standing.
@@ -124,9 +167,55 @@ pub fn (mut pl Planner) next(p lcl.Percept, goal lcl.Intent, top f64) []f64 {
 		return []f64{len: p.pose.len}
 	}
 	pl.track(p)
-	u := pl.choose(p, goal, top)
+	u, length := pl.choose(p, goal, top)
+	pl.watch(p.t_ms, goal, length, if pl.stands_near(p) { patience } else { wait })
 	pl.last = u.clone()
 	return u
+}
+
+// stands_near reports whether a human of p who stands, or who stood within settle, has its rim
+// within nearby of the berth around the body.
+fn (pl Planner) stands_near(p lcl.Percept) bool {
+	for e in p.scene {
+		if e.kind == 'human' && e.pos.len == 2 && (!walks(e.vel) || e.id in pl.stood)
+			&& lcl.dist(p.pose, e.pos) - e.r < pl.human_stop + berth + nearby {
+			return true
+		}
+	}
+	return false
+}
+
+// watch follows the way's length under one goto, t on the percept's clock, and switches the mode
+// for the ticks after. Held, where the way has not shrunk by progress for hold ms, patience or
+// wait, while the body is beyond beacon_reach of the target, it backs off the first time and
+// presses the second. It stops backing off once the way has grown by retreat since it was held,
+// or has not grown by progress for patience. A new goto, none, or a length that is not a number,
+// as when choose gives zero on what it cannot measure, starts over in plan.
+fn (mut pl Planner) watch(t i64, goal lcl.Intent, length f64, hold i64) {
+	if goal.verb != 'goto' || goal.target != pl.goal || !math.is_finite(length) {
+		pl.goal = if goal.verb == 'goto' { goal.target.clone() } else { []f64{} }
+		pl.mode, pl.held, pl.mark, pl.since = .plan, 0, length, t
+		return
+	}
+	match pl.mode {
+		.back {
+			if length > pl.mark + progress {
+				pl.mark, pl.since = length, t
+			}
+			if length >= pl.from + retreat || t - pl.since >= patience {
+				pl.mode, pl.mark, pl.since = .plan, length, t
+			}
+		}
+		.plan, .press {
+			if length < pl.mark - progress || length <= lcl.beacon_reach {
+				pl.mark, pl.since = math.min(pl.mark, length), t
+			} else if pl.mode == .plan && t - pl.since >= hold {
+				pl.held++
+				pl.mode = if pl.held == 1 { Mode.back } else { Mode.press }
+				pl.mark, pl.from, pl.since = length, length, t
+			}
+		}
+	}
 }
 
 // track counts, by id, the ticks each human and obstacle of p has walked since it last stood, as
@@ -150,17 +239,20 @@ fn (mut pl Planner) track(p lcl.Percept) {
 	pl.stood = stood.move()
 }
 
-// choose is next's command without the bookkeeping: zero on anything it cannot measure.
-fn (pl Planner) choose(p lcl.Percept, goal lcl.Intent, top f64) []f64 {
+// choose is next's command without the bookkeeping, in the planner's mode, and the way's length:
+// zero and an infinite length on anything it cannot measure.
+fn (pl Planner) choose(p lcl.Percept, goal lcl.Intent, top f64) ([]f64, f64) {
 	if goal.verb != 'goto' || goal.target.len != 2 || !finite(goal.target) || !finite(p.pose)
 		|| !(top > 0.0) || !math.is_finite(top) || pl.bounds.len != 4 || pl.last.len != 2 {
-		return [0.0, 0.0]
+		return [0.0, 0.0], math.inf(1)
 	}
 	x, y := p.pose[0], p.pose[1]
 	tx, ty := goal.target[0], goal.target[1]
 	if x == tx && y == ty {
-		return [0.0, 0.0]
+		return [0.0, 0.0], 0.0
 	}
+	pressing := pl.mode == .press
+	room := if pressing { 0.0 } else { berth }
 	mut solids := []Circle{}
 	mut obstacles := []Mover{}
 	mut humans := []Mover{}
@@ -173,7 +265,7 @@ fn (pl Planner) choose(p lcl.Percept, goal lcl.Intent, top f64) []f64 {
 			m := mover(e)
 			humans << m
 			if !m.walks || e.id in pl.stood {
-				solids << widened(m.x, m.y, e.r + pl.human_stop + berth, x, y, tx, ty)
+				solids << widened(m.x, m.y, e.r + pl.human_stop + room, x, y, tx, ty)
 			}
 			continue
 		}
@@ -183,7 +275,10 @@ fn (pl Planner) choose(p lcl.Percept, goal lcl.Intent, top f64) []f64 {
 			solids << widened(o.x, o.y, e.r + pl.solid_keep + margin, x, y, tx, ty)
 		}
 	}
-	dx, dy, length, last_leg := pl.way(x, y, tx, ty, solids.filter(it.r > 0.0))
+	mut dx, mut dy, length, mut last_leg := pl.way(x, y, tx, ty, solids.filter(it.r > 0.0))
+	if pl.mode == .back {
+		dx, dy, last_leg = -dx, -dy, false
+	}
 	a := Ahead{
 		x:         x
 		y:         y
@@ -194,13 +289,14 @@ fn (pl Planner) choose(p lcl.Percept, goal lcl.Intent, top f64) []f64 {
 		length:    length
 		last_leg:  last_leg
 		top:       top
+		pressing:  pressing
 		humans:    humans
 		obstacles: obstacles
 	}
 
 	// Rest comes first and a candidate must beat the best so far, so equal scores keep the earlier
 	// one and a score that is not a number never wins.
-	mut best := pl.score(a, 0.0, 0.0)
+	mut best := pl.score(a, 0.0, 0.0) + smooth * hyp(pl.last[0], pl.last[1])
 	mut bx, mut by := 0.0, 0.0
 	approach := if last_leg { math.min(top, length / lead) } else { top }
 	s := pl.score(a, dx * approach, dy * approach)
@@ -219,9 +315,9 @@ fn (pl Planner) choose(p lcl.Percept, goal lcl.Intent, top f64) []f64 {
 		}
 	}
 	if !math.is_finite(bx) || !math.is_finite(by) {
-		return [0.0, 0.0]
+		return [0.0, 0.0], length
 	}
-	return [bx, by]
+	return [bx, by], length
 }
 
 // mover is human or obstacle e as the planner follows it: walking at its velocity when walks
@@ -349,7 +445,8 @@ fn clear(ax f64, ay f64, bx f64, by f64, solids []Circle) bool {
 // for differing from the last command, for coming close to a human or a solid within horizon, and
 // for stepping toward a human inside the berth; the armor keeps the fence. The gain is its speed
 // along the first leg, or on the last leg how much nearer the target it brings the body within
-// lead, so it slows onto the target instead of passing it.
+// lead, so it slows onto the target instead of passing it. Pressing, it keeps no berth and follows
+// no human over the horizon, as main.v's reflex does.
 fn (pl Planner) score(a Ahead, vx f64, vy f64) f64 {
 	gain := if a.last_leg {
 		(a.length - hyp(a.tx - a.x - vx * lead, a.ty - a.y - vy * lead)) / lead
@@ -357,16 +454,17 @@ fn (pl Planner) score(a Ahead, vx f64, vy f64) f64 {
 		vx * a.dx + vy * a.dy
 	}
 	mut cost := smooth * hyp(vx - pl.last[0], vy - pl.last[1])
+	sight := if a.pressing { 0.0 } else { horizon }
+	want := pl.human_stop + (if a.pressing { 0.0 } else { berth })
 	for h in a.humans {
 		rx, ry := a.x - h.x, a.y - h.y
-		cx, cy := closest(rx, ry, vx - h.wx, vy - h.wy, horizon)
+		cx, cy := closest(rx, ry, vx - h.wx, vy - h.wy, sight)
 		gap := hyp(cx, cy) - h.r
-		want := pl.human_stop + berth
 
 		// How far ahead of a walker, along its course, the body is at the closest approach, as a
 		// cosine; NaN, which adds nothing, for a human that stands or where they would meet.
 		ahead := (cx * h.wx + cy * h.wy) / (hyp(cx, cy) * hyp(h.wx, h.wy))
-		short := want + (if ahead > 0.0 { front * ahead } else { 0.0 }) - gap
+		short := want + (if ahead > 0.0 && !a.pressing { front * ahead } else { 0.0 }) - gap
 		if short > 0.0 {
 			cost += crowd * a.top * short * short
 		}

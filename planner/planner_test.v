@@ -77,43 +77,70 @@ mut:
 // walking human straight on at its velocity, with no armor in between, and stops once the body
 // is within 0.05 m of the target.
 fn fly(pose []f64, target []f64, scene []lcl.Entity, seconds f64) Flight {
-	return fly_by(pose, target, scene, seconds, 0.0)
+	return fly_by(pose, target, scene, seconds, Flying{})
 }
 
-// fly_by is fly with walkers that stop for the body as a world's stop reaction does, when stop is
-// above 0: a walker stands, and shows no velocity, while the body's center is within stop of its
-// rim or would be after its next step, and walks on once it is clear.
-fn fly_by(pose []f64, target []f64, scene []lcl.Entity, seconds f64, stop f64) Flight {
+// Flying is how fly_by flies: at top, the speed the armor allows, and with humans that react to
+// the body as a world's reactions do, when stop or aside is above 0.
+struct Flying {
+	top   f64 = top
+	stop  f64  // m: a walker stands, and shows no velocity, while the body's center is within stop of its rim or would be after its next step, and walks on once it is clear
+	aside f64  // m: a human steps straight away from the body to keep its rim at least aside from the body's center
+	armor bool // the armor's human_stop holds the body: no motion toward a human inside it
+}
+
+// fly_by is fly as how says, on the percept's clock of one tick a step.
+fn fly_by(pose []f64, target []f64, scene []lcl.Entity, seconds f64, how Flying) Flight {
 	mut pl := fresh()
 	mut f := Flight{}
 	mut at := pose.clone()
 	mut now := scene.clone()
 	mut last := [0.0, 0.0]
-	for _ in 0 .. int(seconds / tick) {
+	for k in 0 .. int(seconds / tick) {
 		f.poses << at.clone()
 		f.scenes << now
 		if lcl.dist(at, target) < 0.05 {
 			break
 		}
-		u := pl.next(lcl.Percept{ pose: at, scene: now }, heading_to(target), top)
-		assert lcl.norm(u) <= top + 1e-12
+		mut u := pl.next(lcl.Percept{
+			t_ms:  i64(k) * i64(tick * 1000.0)
+			pose:  at
+			scene: now
+		}, heading_to(target), how.top)
+		assert lcl.norm(u) <= how.top + 1e-12
 		if lcl.norm(u) > 0.05 && lcl.norm(last) > 0.05 && lcl.dot(u, last) < 0.0 {
 			f.flips++
 		}
 		last = u.clone()
+		if how.armor {
+			for e in now {
+				away := lcl.sub(at, e.pos)
+				toward := -lcl.dot(u, away) / lcl.norm(away)
+				if e.kind == 'human' && lcl.norm(away) - e.r < human_stop && toward > 0.0 {
+					u = lcl.add(u, lcl.scale(away, toward / lcl.norm(away)))
+				}
+			}
+		}
 		at = [at[0] + u[0] * tick, at[1] + u[1] * tick]
 		mut then := []lcl.Entity{}
 		for i, e in scene {
-			step := if e.vel.len == 2 {
+			mut step := if e.vel.len == 2 {
 				[now[i].pos[0] + e.vel[0] * tick, now[i].pos[1] + e.vel[1] * tick]
 			} else {
 				now[i].pos
 			}
-			stands := stop > 0.0 && (lcl.dist(at, now[i].pos) - e.r < stop
-				|| lcl.dist(at, step) - e.r < stop)
+			stands := how.stop > 0.0 && (lcl.dist(at, now[i].pos) - e.r < how.stop
+				|| lcl.dist(at, step) - e.r < how.stop)
+			if stands {
+				step = now[i].pos.clone()
+			}
+			if how.aside > 0.0 && lcl.dist(at, step) - e.r < how.aside {
+				away := lcl.sub(step, at)
+				step = lcl.add(at, lcl.scale(away, (how.aside + e.r) / lcl.norm(away)))
+			}
 			then << lcl.Entity{
 				...e
-				pos: if stands { now[i].pos } else { step }
+				pos: step
 				vel: if stands { []f64{} } else { e.vel }
 			}
 		}
@@ -229,10 +256,178 @@ fn test_a_gap_the_margins_close_is_passed_at_solid_keep() {
 // alternate ticks, 597 turns in this flight.
 fn test_a_walker_who_stops_for_the_body_does_not_flip_its_way() {
 	f := fly_by([0.0, 0.0], [3.5, 2.5], [person(1.8, 0.0, [0.0, 0.5]),
-		solid(2.0, -2.5, 0.6)], 120.0, human_stop + berth)
+		solid(2.0, -2.5, 0.6)], 120.0, Flying{ stop: human_stop + berth })
 	assert f.arrived([3.5, 2.5]), 'ended at ${f.poses.last()}'
 	assert f.flips <= 10, '${f.flips} turns'
 	assert f.nearest('human') >= human_stop
+}
+
+// Watch is one tick that watch sees: the way's length, the patience in force and the goal's
+// target, for seconds of ticks, the way changing by grow meters a second.
+struct Watch {
+	seconds f64
+	length  f64
+	grow    f64
+	hold    i64   = patience
+	target  []f64 = [4.5, 0.0]
+}
+
+struct WatchCase {
+	name  string
+	ticks []Watch
+	mode  Mode
+	held  int
+}
+
+// The way's length under one goto sets the mode: progress keeps the berth, a way that has not
+// shrunk for patience near a person who stands, or wait elsewhere, backs off, which ends after
+// retreat or patience, and held again the planner presses until the goto changes; within
+// beacon_reach of the target it is never held.
+fn test_watch() {
+	cases := [
+		WatchCase{'progress keeps the berth', [
+			Watch{20.0, 5.0, -0.2, patience, [4.5, 0.0]},
+		], .plan, 0},
+		WatchCase{'held beside a person who stands, it backs off', [
+			Watch{3.1, 3.0, 0.0, patience, [4.5, 0.0]},
+		], .back, 1},
+		WatchCase{'beside a walker it waits longer', [
+			Watch{9.9, 3.0, 0.0, wait, [4.5, 0.0]},
+		], .plan, 0},
+		WatchCase{'held beside a walker, it backs off', [
+			Watch{10.1, 3.0, 0.0, wait, [4.5, 0.0]},
+		], .back, 1},
+		WatchCase{'within beacon_reach it is never held', [
+			Watch{30.0, 0.4, 0.0, patience, [4.5, 0.0]},
+		], .plan, 0},
+		WatchCase{'backing off ends after retreat', [
+			Watch{3.1, 3.0, 0.0, patience, [4.5, 0.0]},
+			Watch{2.1, 3.0, 0.5, patience, [4.5, 0.0]},
+		], .plan, 1},
+		WatchCase{'backing off ends after patience without gain', [
+			Watch{3.1, 3.0, 0.0, patience, [4.5, 0.0]},
+			Watch{3.1, 3.0, 0.0, patience, [4.5, 0.0]},
+		], .plan, 1},
+		WatchCase{'held again, it presses', [
+			Watch{3.1, 3.0, 0.0, patience, [4.5, 0.0]},
+			Watch{3.1, 3.0, 0.0, patience, [4.5, 0.0]},
+			Watch{3.1, 3.0, 0.0, patience, [4.5, 0.0]},
+		], .press, 2},
+		WatchCase{'pressing lasts while the goto does', [
+			Watch{3.1, 3.0, 0.0, patience, [4.5, 0.0]},
+			Watch{3.1, 3.0, 0.0, patience, [4.5, 0.0]},
+			Watch{30.0, 3.0, 0.0, patience, [4.5, 0.0]},
+		], .press, 2},
+		WatchCase{'a new goto starts over', [
+			Watch{3.1, 3.0, 0.0, patience, [4.5, 0.0]},
+			Watch{3.1, 3.0, 0.0, patience, [4.5, 0.0]},
+			Watch{3.1, 3.0, 0.0, patience, [4.5, 0.0]},
+			Watch{0.1, 3.0, 0.0, patience, [2.0, 0.0]},
+		], .plan, 0},
+		WatchCase{'no goto starts over', [
+			Watch{3.1, 3.0, 0.0, patience, [4.5, 0.0]},
+			Watch{0.1, 3.0, 0.0, patience, []f64{}},
+		], .plan, 0},
+	]
+	for c in cases {
+		mut pl := fresh()
+		mut t := i64(0)
+		for w in c.ticks {
+			goal := if w.target.len == 2 {
+				heading_to(w.target)
+			} else {
+				lcl.Intent{
+					verb: 'hold'
+				}
+			}
+			for k in 0 .. int(w.seconds / tick) {
+				pl.watch(t, goal, w.length + w.grow * f64(k) * tick, w.hold)
+				t += i64(tick * 1000.0)
+			}
+		}
+		assert pl.mode == c.mode, '${c.name}: ${pl.mode}'
+		assert pl.held == c.held, '${c.name}: held ${pl.held}'
+	}
+}
+
+// A person who stops for the body on its way to the target, as Toji does on ep18-bardiel, holds a
+// planner that keeps the berth there for good, since they stand while the body is within their
+// keep; backing off lets them walk on, and the body reaches the target.
+fn test_a_person_who_stops_on_the_way_walks_on_once_it_backs_off() {
+	f := fly_by([0.0, 0.0], [3.0, 0.0], [person(3.4, 2.6, [0.0, -0.5])], 120.0, Flying{
+		stop:  human_stop + berth
+		armor: true
+	})
+	assert f.arrived([3.0, 0.0]), 'ended at ${f.poses.last()}'
+	assert f.nearest('human') >= human_stop
+}
+
+// A person who steps aside for the body but stands on the target, as Ritsuko does at the hatch on
+// ep13-iruel, holds a planner that keeps the berth for good; pressing on, as the reflex does, moves
+// them off it, and the body reaches the target without a step toward them inside human_stop.
+fn test_a_person_who_steps_aside_on_the_target_is_pressed_off_it() {
+	f := fly_by([0.0, 0.0], [3.0, 0.0], [person(3.0, 0.0, [])], 120.0, Flying{
+		aside: human_stop + berth
+		armor: true
+	})
+	assert f.arrived([3.0, 0.0]), 'ended at ${f.poses.last()}'
+}
+
+// A walker who paces across a gap, there and back, holds a planner that follows its course for
+// good; after wait and a retreat it presses through, as the reflex does, and the walker, stepping
+// aside, lets it pass.
+fn test_a_walker_who_paces_across_a_gap_is_pressed_past() {
+	mut scene := []lcl.Entity{}
+	for y in [-2.75, -1.65, 1.65, 2.75] {
+		scene << solid(2.0, y, 0.6)
+	}
+	mut f := Flight{}
+	mut pl := fresh()
+	mut at := [0.0, 0.0]
+	mut walker := [2.0, -0.4]
+	mut dy := 0.4
+	for k in 0 .. int(120.0 / tick) {
+		if lcl.dist(at, [4.5, 0.0]) < 0.05 {
+			break
+		}
+		f.poses << at.clone()
+		h := person(walker[0], walker[1], [0.0, dy])
+		f.scenes << [h]
+		mut seen := [h]
+		seen << scene
+		u := pl.next(lcl.Percept{
+			t_ms:  i64(k) * i64(tick * 1000.0)
+			pose:  at
+			scene: seen
+		}, heading_to([4.5, 0.0]), top)
+		at = [at[0] + u[0] * tick, at[1] + u[1] * tick]
+		walker = [walker[0], walker[1] + dy * tick]
+		if math.abs(walker[1]) >= 0.4 {
+			dy = -dy
+		}
+		if lcl.dist(at, walker) - 0.3 < 0.35 {
+			away := lcl.sub(walker, at)
+			walker = lcl.add(at, lcl.scale(away, 0.65 / lcl.norm(away)))
+		}
+	}
+	assert lcl.dist(at, [4.5, 0.0]) < 0.05, 'ended at ${at}'
+	assert f.nearest('human') >= 0.35 - 1e-9
+}
+
+// Seated, at the speed a seat allows, a body whose target a person stands on for good comes to
+// rest at the armor's human_stop rather than circling them, as it did at the berth while what it
+// paid for leaving the last command made coasting on cheaper than stopping.
+fn test_a_person_who_stands_on_the_target_for_good_is_waited_for_at_rest() {
+	f := fly_by([-3.0, 0.0], [2.0, 0.0], [person(2.0, 0.0, [])], 90.0, Flying{
+		top:   1.0
+		armor: true
+	})
+	n := f.poses.len
+	assert lcl.dist(f.poses[n - 500], f.poses.last()) < 0.01, 'moved from ${f.poses[n - 500]} to ${f.poses.last()}'
+
+	// fly's armor stops only what points at a human already inside human_stop, so the body ends
+	// up to a tick of travel inside it, where the armor's stopping distance keeps it outside.
+	assert f.nearest('human') >= human_stop - tick
 }
 
 // The way leaves out the corners within margin of the fence, so where the shorter side of a pillar
@@ -388,13 +583,13 @@ fn test_an_empty_scene_heads_straight_and_slows_onto_the_target() {
 // A walking human's velocity that is not two finite numbers, or slower than walking, counts as
 // standing, and the command stays finite and within the top speed.
 fn test_a_velocity_it_cannot_measure_counts_as_standing() {
-	standing := fresh().choose(lcl.Percept{
+	standing, _ := fresh().choose(lcl.Percept{
 		pose:  [0.0, 0.0]
 		scene: [person(2.0, 0.5, [])]
 	}, heading_to([4.5, 0.0]), top)
 	for vel in [[math.nan(), 0.0], [0.4], [0.1, 0.2, 0.3], [math.inf(-1), 0.0],
 		[1e200, 1e200], [0.0, 0.0], [1e-300, 0.0], [0.04, 0.0]] {
-		u := fresh().choose(lcl.Percept{
+		u, _ := fresh().choose(lcl.Percept{
 			pose:  [0.0, 0.0]
 			scene: [person(2.0, 0.5, vel)]
 		}, heading_to([4.5, 0.0]), top)

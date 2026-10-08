@@ -420,11 +420,11 @@ text = prompt(4, 2, 180, "mock", {"GEHIRN_KEY": "sk-x"}, {"PLANNER": "local"}, "
 assert "(GEHIRN_KEY=<set>, so the reflex steers)" in text and "(PLANNER=local)" in text and form in text and "sk-x" not in text
 assert "within 0.7 m of the body's center" in text and "{" not in text.split("TASK")[0].split("THE WORLD FILE")[0]
 assert "every run either never within 0.5 m of the beacon within the limit or releasing off target" in text, text
-# What the reference can solve follows the reference's steering: the planner stalls before a person
-# who stands on or beside the beacon and beside an aside walker pacing across its way (PLAN, Known
-# issue 38), the reflex before a person on its way.
-assert "who stands on or beside the beacon, or stops there for the body, holds it short" in text, text
-assert "an aside walker who paces back and forth across the way holds it there for good" in text, text
+# What the reference can solve follows the reference's steering: the planner, held, backs off once
+# and then presses on (PLAN, Known issue 38), and the reflex stalls before a person on its way.
+assert "it backs off once, so a stop human who stood for it walks on" in text, text
+assert "then presses on to 0.7 m as the reflex does" in text, text
+assert "a stop human who stands on or beside the beacon for good holds it short" in text, text
 reflex = prompt(4, 2, 180, "mock", {}, {"PLANNER": ""}, "", form)
 assert "(PLANNER=, so the reflex steers)" in reflex and "holds the body 0.7 m off for good" in reflex and "beside the" not in reflex
 # Where to look names no weakness of one steering, which would seed a hunt's finds.
