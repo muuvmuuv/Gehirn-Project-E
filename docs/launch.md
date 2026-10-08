@@ -1,6 +1,6 @@
 # Launch
 
-This page is for the owner, taking gehirn public: the steps in order, what the scan before it found, the thread for X with its media, the replies to expect and what to watch afterwards. Every number in the posts comes from PLAN's State or an ADR, with the day it was measured, so a reply that questions one can be answered from the repository.
+This page is for the owner, taking gehirn public: the steps in order, what the scan before it found, the thread for X with its media, the teaser for X and Instagram, the replies to expect and what to watch afterwards. Every number in the posts comes from PLAN's State or an ADR, with the day it was measured, so a reply that questions one can be answered from the repository.
 
 ## Steps
 
@@ -16,6 +16,7 @@ This page is for the owner, taking gehirn public: the steps in order, what the s
 6. Paste the website link into a draft on X first to see the card, then post [the thread](#the-thread). Its posts link only the website, which Vercel serves whatever the repository's visibility.
 7. Make the repository public right after posting, as [decisions.md](decisions.md#project) records (visibility, 2026-10-04), and open its link in a private window to confirm it no longer shows a 404.
 8. Reply to the thread with [the code post](#9-the-code-reply), and post [the Japanese post](#the-japanese-post) if you like; both link the repository, so they wait for step 7.
+9. Schedule [the teaser](#the-teaser-for-x-and-instagram) in Buffer for after step 7, once its domain check passes.
 
 ## Scan results
 
@@ -158,6 +159,110 @@ https://github.com/muuvmuuv/Gehirn-Project-E
 
 - Alt: gehirnの発令所画面のMAGI。人が1.04 mの距離にいる間、荷物投下の提訴は1/3で否決され、人が離れた後に3/3で可決される。
 - Counts 275.
+
+## The teaser for X and Instagram
+
+A post of its own beside the thread, for readers who have never heard of MAGI: a 28 s video in two cuts with Japanese captions and English below, and a text for each platform, ready to paste into Buffer. It goes out after step 7, since the website it links links the repository, which is a 404 until then: a few hours after the thread or the next day, so it reaches people the thread missed, and the Reel the same day.
+
+Before scheduling:
+
+- **Check the domain.** Both end cards show `gehirn-project-e.vercel.app`, the domain step 4 expects, and both X posts link it. Open it and `/social.png` in a private window before scheduling. If Vercel gave another domain, the end cards need a new render, and the posts and the Instagram bio a new link; X counts any link as 23, so the counts stay.
+- **Check what Buffer passes on.** Buffer publishes a Reel only for an Instagram business or creator account. If it offers no alt text field for the X video or no cover for the Reel, post that one by hand: X takes no alt text once a post is up.
+- **Have the Japanese read once** by a native speaker if you can, above all 人のすぐそばに、荷物を落としていいか？ and 取り返しのつかないことには、全会一致が必要。, which the video burns in.
+- **Do not boost the posts.** A paid promotion would make gehirn commercial ([decisions](decisions.md#project)).
+
+### The media
+
+| File | For | Facts |
+| --- | --- | --- |
+| [gehirn-teaser-16x9.mp4](../assets/media/social/gehirn-teaser-16x9.mp4) | X | 1920 by 1080, 30 fps, H.264 High, 28.0 s, no audio track, 3.7 MB |
+| [gehirn-teaser-9x16.mp4](../assets/media/social/gehirn-teaser-9x16.mp4) | Instagram Reels | 1080 by 1920, 30 fps, H.264 High, 28.0 s, a silent AAC track, since Instagram and Buffer may refuse a video without one, 2.4 MB |
+| [gehirn-teaser-16x9.png](../assets/media/social/gehirn-teaser-16x9.png) | X's thumbnail, where Buffer or X offers one | The refusal at 1.3 s, 否決 1/3 with the caption; without a thumbnail X shows the first frame, which carries the same question |
+| [gehirn-teaser-9x16.png](../assets/media/social/gehirn-teaser-9x16.png) | The Reel's cover | The same frame in the Reel's layout, everything inside Instagram's safe area and the profile grid's 3:4 crop |
+
+Both cuts work without sound, as both platforms autoplay muted. Every shot names what it shows: a tab (REAL AI JUDGES 本物のAI, SIMULATED シミュレーション or EP.6 RESTAGED 第6話 再現), a line at the bottom saying what is real, scripted and simulated, and the fan project line.
+
+| Time | Shows | Caption |
+| --- | --- | --- |
+| 0:00 | magi.gif's take: hosted judges refuse the scripted drop 2 to 1, the radar at the refusal, then a new vote passes 3/3 once the person has moved away | 人のすぐそばに、荷物を落としていいか？ … 3つそろって、はじめて可決。 |
+| 0:09 | A card | では、2対1で賛成なら？ |
+| 0:11 | Operation Yashima's second shot on the mock: two yes, CASPER-3's forced no, 否決 2/3, then a pull back to the whole bridge | 賛成2、反対1。それでも否決。 … 本編では、司令が承認した。 |
+| 0:19 | A card | ここでは、司令にも覆せない。 止めることは、いつでもできる。 |
+| 0:22 | The end card: the lockup, 否決は、覆らない。, what is real and what is scripted, the website and the fan project line in Japanese and English | |
+
+### On X
+
+```text
+Evangelion's MAGI for a robot: irreversible acts need all three AIs.
+2 yes, 1 no: 否決. No commander overrules it.
+否決は、覆らない。
+
+Real AI, scripted request, then a scripted scene. Simulated robot. Fan project, not affiliated with khara or Gehirn Inc.
+https://gehirn-project-e.vercel.app
+```
+
+- Media: the 16:9 cut, with its PNG as the thumbnail where one can be set.
+- Alt: A 28 second silent clip of gehirn's bridge, a fan-made screen in the style of Evangelion's MAGI, with Japanese captions and English below. First, real AI judges weigh a scripted request to drop a payload right next to a person. Three panels flicker blue, 審議中, deliberating. Two turn red, 否決, rejected, and one green, 可決, approved, so the verdict is 否決. A simulated radar shows the person 1.04 m from the robot. Six seconds later the person has moved away, a new vote turns all three green, and the verdict reads 可決, 3 of 3. Then a scripted restaging of Episode 6, Operation Yashima: two panels green, one red by the script, and the verdict still reads 否決, 2 of 3, need 3. Captions: anything irreversible needs all three; in the show, the commander approved; here, not even the commander can overrule a no; stopping is always allowed. End card: 否決は、覆らない, a no stays a no; the gehirn logo; the website; fan project, not affiliated with khara or Gehirn Inc.
+- Counts 279, with the link.
+
+A Japanese only variant, as a post of its own or instead of the English one:
+
+```text
+エヴァのMAGIをロボットに。3つのAIが審議し、不可逆なら全会一致。
+賛成2・反対1でも否決。司令にも覆せない。
+
+前半の判定は本物のAI、提訴と後半は台本。機体はシミュレーション。
+非公式のファンプロジェクトで、株式会社カラー、ゲヒルン株式会社とは関係ありません。
+https://gehirn-project-e.vercel.app
+```
+
+- In English: Eva's MAGI, for a robot. Three AIs deliberate, and anything irreversible needs a unanimous vote. Even two yes and one no is rejected, and not even the commander can overturn it. In the first half the judges are real AI; the proposal and the second half are scripted. The body is simulated. Fan project, not affiliated with khara or Gehirn Inc.
+- Media: as above.
+- Alt: gehirnの発令所画面（ファン制作）のMAGI。人のすぐそばに荷物を落とすという台本の提訴を本物のAIが審議し、反対2・賛成1で否決。6秒後、人が離れると改めて3/3で可決。続いて第6話ヤシマ作戦の台本どおりの再現で、賛成2・反対1でも否決。「本編では、司令が承認した。」「ここでは、司令にも覆せない。」ロボットはシミュレーション。非公式のファンプロジェクトで、株式会社カラー、ゲヒルン株式会社とは関係ありません。
+- Counts 277, with the link.
+
+A reply to keep ready for "an AI nobody can override?", which leaves out the hardware e-stop, since Phase 5 has not built it:
+
+```text
+Stopping always works: the pilot can eject, and the armor, with no AI in it, holds every command. What nobody can do is force a yes past MAGI's no. That's the whole design.
+```
+
+- Counts 172.
+
+### On Instagram
+
+```text
+Drop a payload right next to a person? Three AIs vote: 否決, rejected.
+
+Like the MAGI in Evangelion, three AI judges vote on every goal this robot gets, and anything it can't undo needs all three. With the person close, two say no and one says yes: 否決. Six seconds later the person has moved away, and a new vote passes 3/3: 可決, approved.
+
+Then Episode 6, Operation Yashima, restaged: two yes, one no, and it is still 否決. In the show the commander approved. Here nobody can overrule a no, not even the commander. Stopping is always allowed; forcing a yes never is.
+
+否決は、覆らない。
+
+人のすぐそばに荷物を落としていいか、3つのAIが審議します。取り返しのつかない操作は、全会一致でなければ可決されません。賛成2・反対1でも否決で、司令にも覆せません。止めることは、いつでもできます。
+
+What's real: both votes on the drop, cast by hosted AI models (gpt-oss-20b, Jev and Llama 3.1 8B). What isn't: the drop request is scripted, the Yashima scene runs on scripted models with CASPER-3's no forced by the scene, and the robot is a simulation.
+前半の判定は本物のAIで、投下の要求は台本です。ヤシマ作戦の再現はすべて台本どおりで、ロボットはシミュレーションです。
+
+Website: link in bio.
+
+Fan project, not affiliated with khara or Gehirn Inc.
+非公式のファンプロジェクトで、株式会社カラー、ゲヒルン株式会社とは関係ありません。
+
+#evangelion #エヴァンゲリオン #MAGI #robotics #AIsafety
+```
+
+- Media: the 9:16 cut as a Reel, with its PNG as the cover.
+- Instagram links no URL in a caption, so the bio carries the website, the domain checked above.
+- Alt, where Instagram's advanced settings offer the field: A vertical, silent clip of gehirn's fan-made bridge in the style of Evangelion's MAGI, with Japanese and English captions. Real AI judges vote on a scripted request to drop a payload next to a person on a simulated radar: two red 否決, rejected, one green 可決, approved, so it is rejected. Six seconds later, with the person clear, a new vote passes 3 of 3. In a scripted restaging of Operation Yashima, two vote yes and one no, and it is still 否決. Captions: in the show, the commander approved; here, not even the commander can overrule a no. End card: 否決は、覆らない, a no stays a no; fan project, not affiliated with khara or Gehirn Inc.
+- 1158 characters and five hashtags, inside Instagram's 2200 and 30.
+
+### Replies to the teaser
+
+- **Is it staged?** Partly, and every shot says which part. The two votes on the drop are hosted models; the request is the mock core's script. The Yashima scene runs wholly on the mock, and its deciding no is CASPER-3 forced by the scene, which the frame shows as `forced reject (--vote)`. The take of the real judges has no refusal with two yes votes, which is why the rule's proof comes from the labeled scene. The rest is [Is the video staged?](#replies-to-expect) below.
+- **In canon the third vote was a conditional yes.** True. A gehirn ballot reads approve or reject, and anything else counts as a no (`magi.read_reply`), so the scene casts it as a no ([scenes](scenes.md#ep06-yashima-operation-yashimas-vote)). The teaser says only that the commander approved, which is canon.
+- **Which model said yes?** Llama 3.1 8B in this take. It is one take, so no reply calls any model the reckless one.
 
 ## Replies to expect
 

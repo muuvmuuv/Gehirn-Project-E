@@ -47,6 +47,17 @@ One take of each scene on its world, recorded with `just scene=<id> demo-record`
 | [assets/media/scenes/ep19-bench-magi.gif](media/scenes/ep19-bench-magi.gif) | The MAGI block of Episode 19's release vote, which passes at the first try | docs/scenes.md, Recordings | The `gehirn-magi.gif` of the same take, unchanged | EUPL 1.2 |
 | [assets/media/scenes/ep12-sahaquiel-magi.gif](media/scenes/ep12-sahaquiel-magi.gif) | The MAGI block of Episode 12's release vote at Matsushiro, which passes at the first try | docs/scenes.md, Recordings | The `gehirn-magi.gif` of the same take, unchanged | EUPL 1.2 |
 
+## Teaser
+
+The teaser 否決は、覆らない for X and Instagram, 28 s in two cuts that share one timeline ([docs/launch.md](../docs/launch.md#the-teaser-for-x-and-instagram) lists its shots and posts). A page in the bridge's colors set the captions, tabs, cards and end card over frames of three recordings, magi.gif, bridge/scene.png and scenes/ep06-yashima.mp4, unchanged but for crops and scaling; headless Chromium shot it frame by frame, and ffmpeg encoded it with libx264 at crf 18, BT.709. The Japanese is set in the full Zen Old Mincho Black from google/fonts `ofl/zenoldmincho`, since the bridge's subset lacks most of its kanji, and the Latin in Barlow Condensed. The scripts that render it are not kept in the repository. Every shot carries a tab and a line saying what is real, scripted or simulated, and the fan project line: the votes on the drop are hosted models (gpt-oss-20b, Jev, llama-3.1-8b-instruct) judging the mock's scripted core, the Yashima scene runs wholly on the mock with CASPER-3's no forced, and the body is simulated.
+
+| File | Shows | Used by | Made by | License |
+| --- | --- | --- | --- | --- |
+| [assets/media/social/gehirn-teaser-16x9.mp4](media/social/gehirn-teaser-16x9.mp4) | MAGI refusing the drop near a person 2 to 1 and passing it 3/3 once the person has moved away, the radar at the refusal, Operation Yashima's second shot refused 2/3, a pull back to the whole bridge, two cards on the stance and the end card, 1920 by 1080, 30 fps, 28 s, no audio | The teaser on X | The magi.gif at 2x nearest and the MAGI block of ep06-yashima.mp4 at 2.17x lanczos, in a 1600 by 894 box above the captions, a Git LFS object | EUPL 1.2 |
+| [assets/media/social/gehirn-teaser-9x16.mp4](media/social/gehirn-teaser-9x16.mp4) | The same cut for Reels, 1080 by 1920, 30 fps, 28 s, with a silent AAC track | The teaser on Instagram | As the 16:9 cut, the footage in an 880 by 493 box, everything vital between y 290 and 1520, clear of what Instagram lays over a Reel, a Git LFS object | EUPL 1.2 |
+| [assets/media/social/gehirn-teaser-16x9.png](media/social/gehirn-teaser-16x9.png) | The refusal, 否決 1/3, with the opening question | The X video's thumbnail | The cut's frame at 1.3 s, shot from the same page, cut to 256 colors with ffmpeg's palettegen and paletteuse | EUPL 1.2 |
+| [assets/media/social/gehirn-teaser-9x16.png](media/social/gehirn-teaser-9x16.png) | The same frame in the Reel's layout | The Reel's cover | As gehirn-teaser-16x9.png | EUPL 1.2 |
+
 ## Website
 
 Each of these sits in `website/public/`, which the site serves at its root, where `website/index.html`, the manifest or a page in `website/src/routes` names it.
