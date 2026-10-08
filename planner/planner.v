@@ -2,7 +2,7 @@
 // approved goal and pushes it off whatever is near, the planner finds the shortest way to the goal
 // around the solids and, each tick, picks the velocity that gains most on that way while it keeps
 // clear of where each walking human and moving obstacle is heading. main.v's field loop flies it
-// under PLANNER=local in place of the reflex, and the armor restrains its command like any other.
+// unless PLANNER=reflex picks the reflex, and the armor restrains its command like any other.
 // Deterministic code with no model in it, planned for the holonomic body.
 module planner
 
@@ -94,7 +94,7 @@ enum Mode {
 }
 
 // Planner is the field tier's local planner, which main.v's field loop asks for the core's
-// command each tick under PLANNER=local. main.v builds it from armor.Limits, the keeps and the
+// command each tick unless PLANNER=reflex. main.v builds it from armor.Limits, the keeps and the
 // fence it plans around, and only the field loop's thread holds it.
 pub struct Planner {
 pub:

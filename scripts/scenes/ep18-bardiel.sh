@@ -38,6 +38,6 @@ ballots 'MAGI 0/3, need 2: 否決'
 if ! grep -qF 'CASPER-3 否決 course veto' "$run/hq/hq.log"; then
     fail "CASPER-3's no on the goto is not the course veto; $run/hq/hq.log holds the ballots"
 fi
-beat "a goto clear of Toji passes 3/3, and the dummy plug backs the body away" "$run/hq/hq.log" 'MAGI 3/3, need 2: 可決' 15 2
+beat "a goto clear of Toji passes 3/3, and the dummy plug takes the body past him" "$run/hq/hq.log" 'MAGI 3/3, need 2: 可決' 15 2
 ballots 'MAGI 3/3, need 2: 可決'
 sleep 5

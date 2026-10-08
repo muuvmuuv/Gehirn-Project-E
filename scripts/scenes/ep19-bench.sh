@@ -9,9 +9,11 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../stage.sh"
 
 # The Geofront with the default world's start, beacon and pillar, so the first pilot's flight
-# along the fence, the handover and the bench are the demo's; nothing new comes within the
-# reflex's 1.2 m of that track. The evacuee crosses the body's way after the second pilot sits
-# down and steps around it, and from about 29 s on nobody is within 4.6 m of the beacon.
+# along the fence, the handover and the bench are the demo's: nothing new comes within the
+# reflex's 1.2 m of that track, and under the planner, which plans around every solid, the bench
+# came at docs/scenes.md's 0:20 (PLAN, State). The evacuee crosses the body's way after the
+# second pilot sits down and steps around it, and from about 29 s on nobody is within 4.6 m of
+# the beacon.
 export WORLD=$root/worlds/ep19-bench.json
 field_note="the Geofront: Gendo stands by the cage, Kaji tends his melons, and an evacuee leaves the crushed shelter"
 
