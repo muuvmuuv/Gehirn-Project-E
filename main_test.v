@@ -215,6 +215,7 @@ fn config_value(cfg Config, key string) string {
 		'DRIVE' { cfg.drive.str() }
 		'BODY' { cfg.body_kind.str() }
 		'PLANNER' { cfg.steering.str() }
+		'SENSING' { cfg.sensing.str() }
 		'WORLD' { cfg.world.humans.map(it.id).join(' ') }
 		'MISSION' { cfg.mission }
 		'DUMMY_WEIGHTS' { cfg.weights }
@@ -375,6 +376,12 @@ fn test_load_config() {
 		ConfigCase{'PLANNER', 'Local', 'PLANNER is "Local", not a known value; accepted reflex, local'},
 		ConfigCase{'PLANNER', 'planner', 'PLANNER is "planner", not a known value; accepted reflex, local'},
 		ConfigCase{'PLANNER', 'local\nfield: forged', 'PLANNER is "local\\x0afield: forged", not a known value; accepted reflex, local'},
+		ConfigCase{'SENSING', '', 'truth'},
+		ConfigCase{'SENSING', 'truth', 'truth'},
+		ConfigCase{'SENSING', 'range', 'range'},
+		ConfigCase{'SENSING', 'Range', 'SENSING is "Range", not a known value; accepted truth, range'},
+		ConfigCase{'SENSING', 'lidar', 'SENSING is "lidar", not a known value; accepted truth, range'},
+		ConfigCase{'SENSING', 'range\nfield: forged', 'SENSING is "range\\x0afield: forged", not a known value; accepted truth, range'},
 		ConfigCase{'WORLD', '', 'h1'},
 		ConfigCase{'WORLD', os.join_path(@VMODROOT, 'worlds', 'default.json'), 'h1'},
 		ConfigCase{'WORLD', os.join_path(@VMODROOT, 'worlds', 'example.json'), 'h1 h2 h3 h4'},

@@ -28,6 +28,10 @@ pub const arrive = 0.35
 // counts a release on target 0.1 m further out, as magi/jev.v jev_delivery does.
 pub const beacon_reach = 0.5
 
+// scan_range is how far, in meters, the range ring of body.Ranged sees: a beam that meets nothing
+// within it reads scan_range, and sensing.Tracker counts such a beam as no hit (ADR-0011).
+pub const scan_range = 10.0
+
 // Entity is one thing in a percept's scene: an obstacle, a beacon, a human, a ditch or the zone a
 // falling object lands on, with its position and radius in meters and, for a walking human or a
 // moving obstacle, its velocity, for a landing zone the time until it lands, or a patch of ground
@@ -52,7 +56,9 @@ pub:
 // Context. The heading matters only to a differential body, which armor.Armor.drive steers by it;
 // describe leaves it out, so no model reads it. ground holds the patches of ground that slow the
 // body, water, mud or a slope, outside the scene, so nothing keeps the body off them: the armor
-// slows the body there, describe gives each a line and the bridge draws them (ADR-0010).
+// slows the body there, describe gives each a line and the bridge draws them (ADR-0010). scan holds
+// the range ring's beams under SENSING=range, which body.Ranged fills and sensing.Tracker turns into
+// the scene and leaves out, so no reader past the tracker sees it (ADR-0011).
 pub struct Percept {
 pub:
 	t_ms    i64
@@ -62,7 +68,8 @@ pub:
 	ground  []Entity @[omitempty]
 	payload bool
 	contact bool
-	heading f64 @[omitempty] // rad, counterclockwise from +x; a holonomic body reports 0, which JSON leaves out
+	heading f64   @[omitempty] // rad, counterclockwise from +x; a holonomic body reports 0, which JSON leaves out
+	scan    []f64 @[omitempty] // m per beam, one a degree counterclockwise from the heading, scan_range where it meets nothing
 }
 
 // Intent is a goal: a verb, a target for goto, the proposer's why and its origin. A Core

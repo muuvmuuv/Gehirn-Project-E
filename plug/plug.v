@@ -165,7 +165,9 @@ pub fn listen(addr string, pilot_id string, key []u8, out chan lcl.PilotInput, f
 
 // Record is one tick of the flight recorder. tools/pilot.py tails the recorder for pose,
 // tools/export_dummy.py sample reads it into the dummy plug's training set, and tools/worldgen.py
-// audit checks the restraints on it.
+// audit checks the restraints on it. scene is what the stack read; truth, under SENSING=range
+// alone, the simulator's scene as it was, which tools/trials.py course and tools/worldgen.py audit
+// measure the restraints, contacts and releases on where a line holds it (ADR-0011).
 pub struct Record {
 pub:
 	t_ms       i64
@@ -178,6 +180,7 @@ pub:
 	sync       f64
 	scene      []lcl.Entity
 	correction bool // a pilot tick in a stretch that took the seat from a driving or benched dummy plug
+	truth      []lcl.Entity @[omitempty]
 }
 
 // Recorder writes every tick main.v's field loop hands it. This log is the dummy plug's training

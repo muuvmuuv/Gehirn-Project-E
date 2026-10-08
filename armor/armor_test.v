@@ -28,6 +28,10 @@ fn (f &Fake) stopping(speed f64) f64 {
 	return f.coast * speed
 }
 
+fn (f &Fake) truth() []lcl.Entity {
+	return []lcl.Entity{}
+}
+
 fn (mut f Fake) sense() lcl.Percept {
 	return lcl.Percept{}
 }

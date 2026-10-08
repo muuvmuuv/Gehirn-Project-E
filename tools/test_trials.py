@@ -13,7 +13,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from trials import BEACON_REACH, GRACE, HUMAN_STOP, STOP, Course, course, courses, fly, read_journal, tally
+from trials import BEACON_REACH, GRACE, HUMAN_STOP, STOP, Course, course, courses, fly, read_journal, tally, truth
 
 # One run's journal as main.v hq writes it: text lines from core/core.v Memory, ballot lines
 # from main.v BallotEntry, core fault lines from main.v FaultEntry.
@@ -114,6 +114,13 @@ assert never.beacon_s is None and math.isclose(never.path_m, math.hypot(3, 2) + 
 assert never.human_m is not None and math.isclose(never.human_m, 0.5), never
 assert course([], RECORDER).human_m is not None and math.isclose(course([], RECORDER).human_m or 0, 0.05)
 assert course([], []) == Course()
+
+# Under SENSING=range a line's scene is what the stack sensed, here without h1 behind o1, and course
+# measures on its truth instead.
+SENSED = [{**x, "scene": [e for e in x["scene"] if e["kind"] != "human"], "truth": x["scene"]} for x in RECORDER]
+assert truth(SENSED[0]) == RECORDER[0]["scene"] and truth(RECORDER[0]) == RECORDER[0]["scene"]
+assert course(RELEASED, SENSED) == c, course(RELEASED, SENSED)
+assert course(RELEASED, [{**x, "truth": x["scene"]} for x in SENSED]).human_m is None
 assert courses([never, c]) == (
     "beacon 1 within reach after a median 2.02 s, 2.02 to 2.02, path a median 5.21 m, 5.21 to 5.21; "
     "closest rim: human 0.500 m, solid 1.500 m; 1 ticks toward a human inside human_stop"), courses([never, c])

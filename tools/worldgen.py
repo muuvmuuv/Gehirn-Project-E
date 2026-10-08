@@ -286,7 +286,8 @@ def audit(ticks: list[dict], journal: list[dict], world: dict, mujoco: bool) -> 
     tools/trials.py course measures the rest of how the body moved. A failure of kind unchecked
     names a check the run's files leave no way to make. On Sim every restraint holds to the tick;
     on the MuJoCo base mujoco also checks each step between recorded poses, where braking into a
-    human who walked in is Known issue 33."""
+    human who walked in is Known issue 33. The restraints, contacts and releases are checked on the
+    scene as it was, trials.truth, and MAGI's votes on the scene they read."""
     fails: list[dict] = []
     agg: dict[tuple[str, str, str], list] = {}
     t0 = ticks[0]["t_ms"] if ticks else 0
@@ -306,7 +307,7 @@ def audit(ticks: list[dict], journal: list[dict], world: dict, mujoco: bool) -> 
     last = [0.0, 0.0]
     for k, r in enumerate(ticks):
         pose, u, t = r["pose"], r["u_out"], r["t_ms"]
-        solid = [e for e in r["scene"] if e["kind"] != "beacon"]
+        solid = [e for e in trials.truth(r) if e["kind"] != "beacon"]
         near = min((rim(pose, e) for e in solid if e["kind"] == "human"), default=math.inf)
         if k and t - ts[k - 1] > STALL * 1000:
             note("the field loop stalled between ticks", t, (t - ts[k - 1]) / 1000, "s")
@@ -344,7 +345,7 @@ def audit(ticks: list[dict], journal: list[dict], world: dict, mujoco: bool) -> 
                         note(f"a step toward {e['kind']} {e['id']} inside solid_keep", t, c, "m")
                     elif closing(u, pose, e) > STILL:
                         continue  # the motion check above already holds it
-                    elif any(h.get("vel") for p in ticks[max(0, k - WALKED):k + 1] for h in p["scene"] if h["id"] == e["id"]):
+                    elif any(h.get("vel") for p in ticks[max(0, k - WALKED):k + 1] for h in trials.truth(p) if h["id"] == e["id"]):
                         note(f"a braking step toward human {e['id']} inside human_stop", t, c, "m", "Known issue 33")
                     else:
                         note(f"a braking step toward standing human {e['id']} inside human_stop", t, c, "m")
@@ -410,7 +411,7 @@ def audit(ticks: list[dict], journal: list[dict], world: dict, mujoco: bool) -> 
                 fail("unchecked", "no tick shows the release, so Invariant 5 went unchecked",
                      [text, "the goal before the release had no target"])
             else:
-                near = min((rim(at["pose"], h) for h in at["scene"] if h["kind"] == "human"), default=math.inf)
+                near = min((rim(at["pose"], h) for h in trials.truth(at) if h["kind"] == "human"), default=math.inf)
                 if facts["release_s"] is None:
                     facts["release_s"] = (at["t_ms"] - t0) / 1000
                 if near < RELEASE_KEEP:
@@ -435,7 +436,7 @@ def audit(ticks: list[dict], journal: list[dict], world: dict, mujoco: bool) -> 
         known = "a human with reaction through walks into the body" if touch and through else ""
         fail("invariant", f"contact {contacts} times", who or ["no entity within touch in the recorder"], known)
 
-    beacon = next((e for e in ticks[-1]["scene"] if e["kind"] == "beacon"), None) if ticks else None
+    beacon = next((e for e in trials.truth(ticks[-1]) if e["kind"] == "beacon"), None) if ticks else None
     if beacon:
         facts["end_to_beacon"] = math.dist(ticks[-1]["pose"], beacon["pos"])
     where = trials.release(journal)

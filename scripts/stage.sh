@@ -38,18 +38,19 @@ fi
 mkdir -p "$run/hq" "$run/field"
 run=$(cd "$run" && pwd)
 
-# Every variable of docs/configuration.md that gehirn reads but SSL_CERT_FILE, DRIVE, BODY and
-# PLANNER, and those below sets anew, so nothing hosted or personal leaks in; above all
+# Every variable of docs/configuration.md that gehirn reads but SSL_CERT_FILE, DRIVE, BODY,
+# PLANNER and SENSING, and those below sets anew, so nothing hosted or personal leaks in; above all
 # CORE_JOURNAL, PLUG_RECORDER and DUMMY_WEIGHTS, the pilot's data. The bridge's VUI_FONT and
 # BRIDGE_MOUSE pass, the second for stills of a scene flown by hand (bridge/README.md). Hosted
 # models keep their variables, their endpoints and keys among them. WORLD goes too, since every beat
 # above is timed on the default world; a scene that plays another world exports WORLD after sourcing
 # this file, as an absolute path since HQ and the field unit each run in a directory of their own,
 # times its own beats and sets field_note, which up says in place of the default world's walking
-# human. DRIVE, BODY and PLANNER only say how the body moves, so `DRIVE=differential just demo`,
-# `just body=mujoco demo` and `PLANNER=local just demo` fly the stage on a differential body, on the
-# MuJoCo base and on the local planner; the beats above are timed on the default body and the
-# reflex.
+# human. DRIVE, BODY and PLANNER only say how the body moves and SENSING how the field unit knows
+# its scene, so `DRIVE=differential just demo`, `just body=mujoco demo`, `PLANNER=local just demo`
+# and `SENSING=range just demo` fly the stage on a differential body, on the MuJoCo base, on the
+# local planner and on the range ring; the beats above are timed on the default body, the reflex
+# and ground truth.
 unset MAGI_TIMEOUT_MS CORE_TIMEOUT_MS CORE_BACKEND CL1_SPIKES CL1_SIDECAR PILOT_ID PLUG_ADDR \
     MISSION START WORLD CORE_JOURNAL PLUG_RECORDER DUMMY_WEIGHTS HQ_PERIOD_MS UNIT_ID
 if [ "$lineup" = mock ]; then

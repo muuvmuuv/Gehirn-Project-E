@@ -16,6 +16,7 @@ import magi
 import oai
 import planner
 import plug
+import sensing
 import umbilical
 import wire
 import zenoh
@@ -59,6 +60,7 @@ struct Config {
 	drive       body.Drive
 	body_kind   BodyKind
 	steering    Steering
+	sensing     Sensing
 }
 
 // Steering is what makes the core's command in the field loop, which PLANNER names: main.v's
@@ -66,6 +68,14 @@ struct Config {
 enum Steering {
 	reflex
 	local
+}
+
+// Sensing is how the field unit knows its scene, which SENSING names: the ground truth of the
+// simulator, the default every earlier measurement flew, or the range ring and person detector of
+// body.Ranged, which sensing.Tracker turns into the scene every reader takes (ADR-0011).
+enum Sensing {
+	truth
+	range
 }
 
 // BodyKind is the body the field unit builds, which BODY names: the planar Sim, or the base on
@@ -87,9 +97,19 @@ fn body_kind() !BodyKind {
 	}
 }
 
-// new_body builds the body cfg names on its world, for main to hand to the armor at once. A
-// MuJoCo body whose model MuJoCo cannot compile returns MuJoCo's message.
+// new_body builds the body cfg names on its world, inside body.Ranged under SENSING=range, for main
+// to hand to the armor at once. A MuJoCo body whose model MuJoCo cannot compile returns MuJoCo's
+// message.
 fn new_body(cfg Config) !body.Body {
+	b := plain_body(cfg)!
+	return match cfg.sensing {
+		.truth { b }
+		.range { body.Body(body.ranged(b)) }
+	}
+}
+
+// plain_body is the body cfg names on its world, as the simulator knows it.
+fn plain_body(cfg Config) !body.Body {
 	match cfg.body_kind {
 		.sim {
 			return body.new_sim(cfg.world, cfg.drive)
@@ -477,6 +497,11 @@ fn load_config() !Config {
 		} else {
 			Steering.reflex
 		}
+		sensing:     if env_choice('SENSING', 'truth', ['truth', 'range'])! == 'range' {
+			Sensing.range
+		} else {
+			Sensing.truth
+		}
 	}
 }
 
@@ -730,6 +755,7 @@ fn main() {
 		human_stop: limits.human_stop
 		bounds:     limits.bounds
 	}
+	mut tracker := sensing.Tracker{}
 	mut rec := plug.open_recorder(cfg.recorder) or { panic(err) }
 	mut cable := umbilical.plug_in(lcl.now_ms(), cfg.budget_ms, cfg.grace_ms)
 
@@ -805,7 +831,12 @@ fn main() {
 
 	for {
 		now := lcl.now_ms()
-		p := ar.sense()
+
+		// Under SENSING=range every reader below, the armor first, takes what the tracker knows.
+		p := match cfg.sensing {
+			.truth { ar.sense() }
+			.range { tracker.percept(ar.sense()) }
+		}
 
 		// HQ traffic. An approved goal still has to pass the armor, and a refusal is an
 		// outcome the core gets to feel.
@@ -948,6 +979,7 @@ fn main() {
 			sync:       ratio
 			scene:      p.scene
 			correction: seat == 'pilot' && correcting
+			truth:      if cfg.sensing == .range { ar.truth() } else { []lcl.Entity{} }
 		})
 		was_pilot = seat == 'pilot'
 		dummy_drove = seat == 'dummy' && goal.target.len > 0

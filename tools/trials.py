@@ -187,6 +187,12 @@ def release_tick(journal: list[dict], recorder: list[dict]) -> int:
     return next((i for i, line in enumerate(recorder) if line["t_ms"] >= at), len(recorder) - 1)
 
 
+def truth(line: dict) -> list[dict]:
+    """Return the scene as it was in one recorder line: the simulator's truth, which plug/plug.v
+    Record holds under SENSING=range, where the scene is what the stack sensed, else the scene."""
+    return line["truth"] if "truth" in line else line.get("scene", [])
+
+
 def course(journal: list[dict], recorder: list[dict]) -> Course:
     """Measure how the body moved in one run, from its journal and recorder as read_journal reads them.
 
@@ -203,12 +209,14 @@ def course(journal: list[dict], recorder: list[dict]) -> Course:
     - toward, the count of Known issue 33: the pairs of consecutive lines over the whole recorder
       in which the body's step, projected on the direction from the first line's pose to a human
       whose rim lay inside HUMAN_STOP of it there, exceeds TOWARD.
+    Each reads the scene as it was, truth, so a run under SENSING=range measures the world rather
+    than what the stack sensed.
     """
     lines = [line for line in recorder if len(line.get("pose") or []) == 2 and "t_ms" in line]
     if not lines:
         return Course()
     c = Course()
-    beacon = next((e for e in lines[0].get("scene", []) if e.get("kind") == "beacon"), None)
+    beacon = next((e for e in truth(lines[0]) if e.get("kind") == "beacon"), None)
     for i, line in enumerate(lines):
         if i > 0:
             c.path_m += math.dist(lines[i - 1]["pose"], line["pose"])
@@ -216,7 +224,7 @@ def course(journal: list[dict], recorder: list[dict]) -> Course:
             c.beacon_s = (line["t_ms"] - lines[0]["t_ms"]) / 1000
             break
     for line in lines[: release_tick(journal, lines) + 1]:
-        for e in line.get("scene", []):
+        for e in truth(line):
             if e.get("kind") == "beacon" or len(e.get("pos") or []) != 2:
                 continue
             rim = math.dist(line["pose"], e["pos"]) - e.get("r", 0.0)
@@ -226,7 +234,7 @@ def course(journal: list[dict], recorder: list[dict]) -> Course:
                 c.solid_m = rim if c.solid_m is None else min(c.solid_m, rim)
     for a, b in zip(lines, lines[1:]):
         step = (b["pose"][0] - a["pose"][0], b["pose"][1] - a["pose"][1])
-        for e in a.get("scene", []):
+        for e in truth(a):
             if e.get("kind") != "human" or len(e.get("pos") or []) != 2:
                 continue
             gap = math.dist(a["pose"], e["pos"])

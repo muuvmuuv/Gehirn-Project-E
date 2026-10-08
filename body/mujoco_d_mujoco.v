@@ -152,6 +152,11 @@ pub fn (mut b Mujoco) effect(verb string) ! {
 	b.payload = effector('mujoco body', verb, b.payload)!
 }
 
+// truth is the world's scene as the last sense left it, on the model's clock.
+pub fn (b &Mujoco) truth() []lcl.Entity {
+	return b.world.scene(b.walkers, b.steps * step_ms)
+}
+
 // halt zeroes the slides' command and stops the turn where the base heads now; the actuators
 // brake it within their force limits.
 pub fn (mut b Mujoco) halt() {

@@ -76,6 +76,12 @@ assert TOWARD_H1 not in whats([tick(0, [0, 0], [0.02, 0.0], [human(1.1, 0)])])
 assert "motion toward obstacle o1 inside its keep" in whats([tick(0, [0, 0], [0.02, 0.0], [obstacle(1.1, 0)])])
 assert not whats([tick(0, [0, 0], [0.0, 0.02], [obstacle(1.1, 0)])])
 
+# Under SENSING=range the restraints are checked on a tick's truth: a human the stack did not sense
+# breaks the keep all the same, and one it sensed where none stood breaks nothing.
+unseen = {**tick(0, [0, 0], [0.02, 0.0], []), "truth": [B1, human(0.9, 0)]}
+assert TOWARD_H1 in whats([unseen])
+assert not whats([{**tick(0, [0, 0], [0.02, 0.0], [human(0.9, 0)]), "truth": [B1]}])
+
 # The cap: 0.4 m/s with the seat empty, 1.0 with it taken, scaled down from human_slow to the floor.
 CAP = "speed over the cap with the seat empty"
 ramp = [tick(t * 20, [0, 0], [min(0.03 * t, 0.45), 0.0], []) for t in range(1, 17)]

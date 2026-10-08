@@ -12,11 +12,13 @@ import lcl
 // stands once a later command takes the motion out: until the next command and through its
 // braking after, whatever the field loop's tick. A body that stops with the command that takes a
 // motion out reports the most one sense carries it. armor.Armor.drive widens its keeps and the
-// fence by it.
+// fence by it. truth is the scene as it stood at the last sense, ground truth that a simulator
+// knows and a real body does not, which armor.Armor.truth hands main.v's recorder alone (ADR-0011).
 pub interface Body {
 	dof() int
 	drive() Drive
 	stopping(speed f64) f64
+	truth() []lcl.Entity
 mut:
 	sense() lcl.Percept
 	actuate(u []f64) !
@@ -171,6 +173,11 @@ fn effector(who string, verb string, payload bool) !bool {
 			return error('${who}: no effector for ${verb}')
 		}
 	}
+}
+
+// truth is the world's scene as the last sense left it.
+pub fn (s &Sim) truth() []lcl.Entity {
+	return s.world.scene(s.walkers, s.walked_ms - s.t0_ms)
 }
 
 // halt stops the body at once, turning included.

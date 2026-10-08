@@ -62,6 +62,13 @@ pub fn (mut a Armor) sense() lcl.Percept {
 	return a.bd.sense()
 }
 
+// truth passes the body's ground truth through, the scene as it stood at the last sense, which
+// main.v's field loop writes into the recorder alone under SENSING=range, so measurements read the
+// world rather than what the stack sensed. Nothing restrains or decides on it (ADR-0011).
+pub fn (a Armor) truth() []lcl.Entity {
+	return a.bd.truth()
+}
+
 // is_ejected reports whether the eject latch has tripped.
 pub fn (a Armor) is_ejected() bool {
 	return a.ejected
