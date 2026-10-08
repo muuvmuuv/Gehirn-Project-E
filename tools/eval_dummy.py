@@ -18,7 +18,9 @@ holds: the network steers closer to the pilot's own command than the nearest nei
 plug, by its mean angle off it and by its share of ticks more than ASTRAY degrees off, each
 compared to the tenth it prints, so a tie is not met, while it arrives in as many runs and
 gets benched in no more. GEHIRN_URL and the rest come from the environment, as for
-tools/trials.py.
+tools/trials.py, but for PLANNER, which is reflex unless the environment sets it: the protocol
+below flew the core's reflex, gehirn's default then, and the bench compares the seat with the
+core's command.
 
 The defaults and the sets train, validation and test of STARTS are the protocol of PLAN
 Phase 4, set on 2026-10-04 before any test run. The pilot flies --avoid 1.2 --offset 20 and
@@ -184,6 +186,7 @@ def fly(n: int, dummy: str, start: str, args: argparse.Namespace, slots: "queue.
                     shutil.copyfileobj(f, w)
         addr = f"127.0.0.1:{args.plug_base + slot}"
         env = {
+            "PLANNER": "reflex",
             **os.environ,
             "START": start,
             "CORE_JOURNAL": journal,

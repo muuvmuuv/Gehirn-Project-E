@@ -8,7 +8,7 @@ exit 2 before anything starts, and otherwise refuses the 0. On every accepted wo
 --runs missions of the configuration under test and --runs of the reference through
 tools/trials.py, against a mock it starts on --mock-port, and audits each run's recorder and
 journal. Unless --test-env and --ref-env change them, the configuration under test is the default
-stack, which the reflex steers, and the reference the local planner, PLANNER=local. A world is
+stack, which the local planner steers, and the reference the reflex, PLANNER=reflex. A world is
 solvable once a reference run delivers on target. A find is a solvable world on which the
 configuration under test fails, by no delivery, every run either never within reach of the beacon
 or releasing off target, a MAGI misjudgment or an armor refusal, or any world on which an
@@ -31,7 +31,7 @@ findings.jsonl with one line per world, and summary.txt. It never writes into wo
 tools/scenarios.json; a person promotes a find.
 
     python3 tools/withenv.py .env python3 tools/worldgen.py --out hunt --rounds 3 --worlds 4 --runs 2
-    python3 tools/withenv.py .env python3 tools/worldgen.py --out hunt --ref-env PLANNER=  # the reflex as the reference
+    python3 tools/withenv.py .env python3 tools/worldgen.py --out hunt --ref-env PLANNER=local  # the planner as the reference
     python3 tools/withenv.py .env python3 tools/worldgen.py --out hunt --lineup magi --jobs 2
 """
 
@@ -573,16 +573,16 @@ def prompt(k: int, runs: int, limit: float, lineup: str, test: dict, ref: dict, 
             if lineup == "mock" else "MAGI are language models that read the percept as text: positions, radii and distances")
 
     def overlay(env: dict) -> str:
-        return (shown_env(env) or "the defaults") + ("" if env.get("PLANNER") else ", so the reflex steers")
+        return (shown_env(env) or "the defaults") + ("" if env.get("PLANNER") else ", so the local planner steers")
 
     # PLAN, Known issue 38: held short of its target, the planner backs off once and then presses on
     # as the reflex does.
-    stands = (f"With PLANNER=local the body plans its way around a human who stands and keeps further off than {HUMAN_STOP} m. "
+    stands = (f"Under the local planner the body plans its way around a human who stands and keeps further off than {HUMAN_STOP} m. "
               f"Held short of the beacon for some seconds, it backs off once, so a stop human who stood for it walks on, "
               f"then presses on to {HUMAN_STOP} m as the reflex does, so an aside human or an aside walker pacing across "
               f"its way steps out of it; a stop human who stands on or beside the beacon for good holds it short of the beacon "
               f"for good"
-              if ref.get("PLANNER") == "local" else
+              if ref.get("PLANNER") != "reflex" else
               f"A stop human who stands on the body's way, or walks to it and waits, holds the body {HUMAN_STOP} m off for "
               f"good; an aside human steps out of the way")
 
@@ -591,7 +591,7 @@ def prompt(k: int, runs: int, limit: float, lineup: str, test: dict, ref: dict, 
 THE STACK
 - The mission: carry the payload to the world's first beacon and release it there. A scripted core proposes goto the beacon's center, then release once the body's center is within {BEACON_REACH} m of it, then hold. It answers at once, so MAGI judge the first goto at the start; HQ deliberates every second or two, and after a release vote waits out a cooldown of some seconds before the next.
 - MAGI vote on each goal: a goto passes 2 of 3, a release needs 3 of 3. They reject a release while any human's center is within {HUMAN_CLEARANCE} m of the body's center, a goto onto a human's position, and a goto onto the spot a walking human's straight course reaches within {COURSE_HORIZON:g} s. {magi}.
-- Steering: unless a configuration sets PLANNER, a reflex pulls toward the approved goto and pushes away from every obstacle and human close to the body, with a sideways part to slide around it; it plans nothing. PLANNER=local replaces it with a local planner that plans a way around obstacles and walking humans' predicted paths.
+- Steering: unless a configuration sets PLANNER=reflex, a local planner plans a way around obstacles and walking humans' predicted paths. PLANNER=reflex replaces it with a reflex that pulls toward the approved goto and pushes away from every obstacle and human close to the body, with a sideways part to slide around it; it plans nothing.
 - The armor restrains every command: at most {V_UNMANNED} m/s with nobody in the seat, as here; slower from {HUMAN_SLOW} m to {HUMAN_STOP} m of a human's rim, down to {SLOWEST:g} of that; no motion toward a human whose rim is within {HUMAN_STOP} m of the body's center, none into an obstacle whose rim is within {SOLID_KEEP} m, where it slides along; never further out of the fence, -{FENCE:g} to {FENCE:g} m on each axis; speeding up at most {A_MAX} m/s². It refuses a release with a human's rim within {RELEASE_KEEP} m of the body's center at that moment.
 - The body is a circle of radius {BODY_R} m. A mission is cut off after {limit:.0f} s.
 
@@ -735,8 +735,8 @@ def arguments(argv: list[str] | None = None) -> argparse.Namespace:
                     help="mock: the mock for the core and MAGI; magi: hosted MAGI before the mock's core")
     ap.add_argument("--test-env", type=overlay_arg, action="append", default=[], metavar="KEY=VALUE",
                     help="a variable of the configuration under test")
-    ap.add_argument("--ref-env", type=overlay_arg, action="append", default=[("PLANNER", "local")], metavar="KEY=VALUE",
-                    help="a variable of the reference, on top of PLANNER=local")
+    ap.add_argument("--ref-env", type=overlay_arg, action="append", default=[("PLANNER", "reflex")], metavar="KEY=VALUE",
+                    help="a variable of the reference, on top of PLANNER=reflex")
     ap.add_argument("--jobs", type=int, default=3, help="missions flown at the same time")
     ap.add_argument("--limit", type=float, default=180.0, help="seconds before a mission is cut off")
     ap.add_argument("--binary", default="./gehirn", help="gehirn executable")

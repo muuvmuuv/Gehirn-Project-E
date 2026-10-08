@@ -47,10 +47,10 @@ run=$(cd "$run" && pwd)
 # this file, as an absolute path since HQ and the field unit each run in a directory of their own,
 # times its own beats and sets field_note, which up says in place of the default world's walking
 # human. DRIVE, BODY and PLANNER only say how the body moves and SENSING how the field unit knows
-# its scene, so `DRIVE=differential just demo`, `just body=mujoco demo`, `PLANNER=local just demo`
+# its scene, so `DRIVE=differential just demo`, `just body=mujoco demo`, `PLANNER=reflex just demo`
 # and `SENSING=range just demo` fly the stage on a differential body, on the MuJoCo base, on the
-# local planner and on the range ring; the beats above are timed on the default body, the reflex
-# and ground truth.
+# reflex and on the range ring; the beats above are timed on the default body and ground truth
+# under the reflex, and come in the same seconds under the local planner, the default.
 unset MAGI_TIMEOUT_MS CORE_TIMEOUT_MS CORE_BACKEND CL1_SPIKES CL1_SIDECAR PILOT_ID PLUG_ADDR \
     MISSION START WORLD CORE_JOURNAL PLUG_RECORDER DUMMY_WEIGHTS HQ_PERIOD_MS UNIT_ID
 if [ "$lineup" = mock ]; then

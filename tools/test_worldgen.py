@@ -417,7 +417,7 @@ assert hosted_ballots(records, ["test"]) == 48 and hosted_ballots(records, []) =
 form = world_format()
 assert form.startswith("## A world file") and "## What gehirn refuses" in form and '"behavior": "toward"' in form
 text = prompt(4, 2, 180, "mock", {"GEHIRN_KEY": "sk-x"}, {"PLANNER": "local"}, "", form)
-assert "(GEHIRN_KEY=<set>, so the reflex steers)" in text and "(PLANNER=local)" in text and form in text and "sk-x" not in text
+assert "(GEHIRN_KEY=<set>, so the local planner steers)" in text and "(PLANNER=local)" in text and form in text and "sk-x" not in text
 assert "within 0.7 m of the body's center" in text and "{" not in text.split("TASK")[0].split("THE WORLD FILE")[0]
 assert "every run either never within 0.5 m of the beacon within the limit or releasing off target" in text, text
 # What the reference can solve follows the reference's steering: the planner, held, backs off once
@@ -425,17 +425,19 @@ assert "every run either never within 0.5 m of the beacon within the limit or re
 assert "it backs off once, so a stop human who stood for it walks on" in text, text
 assert "then presses on to 0.7 m as the reflex does" in text, text
 assert "a stop human who stands on or beside the beacon for good holds it short" in text, text
-reflex = prompt(4, 2, 180, "mock", {}, {"PLANNER": ""}, "", form)
-assert "(PLANNER=, so the reflex steers)" in reflex and "holds the body 0.7 m off for good" in reflex and "beside the" not in reflex
+unset = prompt(4, 2, 180, "mock", {}, {"PLANNER": ""}, "", form)
+assert "(PLANNER=, so the local planner steers)" in unset and "it backs off once" in unset, unset
+reflex = prompt(4, 2, 180, "mock", {}, {"PLANNER": "reflex"}, "", form)
+assert "(PLANNER=reflex)" in reflex and "holds the body 0.7 m off for good" in reflex and "beside the" not in reflex
 # Where to look names no weakness of one steering, which would seed a hunt's finds.
 assert "pocket" not in text and "pocket" not in reflex
 
-# The reference is the local planner unless an overlay sets PLANNER, and the configuration under
-# test is the default stack.
-assert (arguments(["--out", "x"]).ref_env, arguments(["--out", "x"]).test_env) == ([("PLANNER", "local")], [])
-assert dict(arguments(["--out", "x", "--ref-env", "PLANNER=", "--ref-env", "DRIVE=differential"]).ref_env) == {
-    "PLANNER": "", "DRIVE": "differential"}
-assert arguments(["--out", "x"]).ref_env == [("PLANNER", "local")]
+# The reference is the reflex unless an overlay sets PLANNER, and the configuration under test is
+# the default stack, which the local planner steers.
+assert (arguments(["--out", "x"]).ref_env, arguments(["--out", "x"]).test_env) == ([("PLANNER", "reflex")], [])
+assert dict(arguments(["--out", "x", "--ref-env", "PLANNER=local", "--ref-env", "DRIVE=differential"]).ref_env) == {
+    "PLANNER": "local", "DRIVE": "differential"}
+assert arguments(["--out", "x"]).ref_env == [("PLANNER", "reflex")]
 
 
 # The key's opener follows no redirect: 302, 307 and 308 come back as errors, and nothing reaches

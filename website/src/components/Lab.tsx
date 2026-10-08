@@ -41,7 +41,7 @@ export function Lab() {
 					Built to be broken <span className="jp">試験</span>
 				</h2>
 				<p>
-					gehirn tries to break itself, steers smarter on request and drives a body with real
+					gehirn tries to break itself, steers around people's paths and drives a body with real
 					physics.
 				</p>
 			</div>

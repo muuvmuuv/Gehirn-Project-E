@@ -63,11 +63,11 @@ struct Config {
 	sensing     Sensing
 }
 
-// Steering is what makes the core's command in the field loop, which PLANNER names: main.v's
-// reflex, the default every earlier measurement flew, or the local planner of the planner module.
+// Steering is what makes the core's command in the field loop, which PLANNER names: the local
+// planner of the planner module, the default, or main.v's reflex.
 enum Steering {
-	reflex
 	local
+	reflex
 }
 
 // Sensing is how the field unit knows its scene, which SENSING names: the ground truth of the
@@ -492,10 +492,10 @@ fn load_config() !Config {
 			body.Drive.holonomic
 		}
 		body_kind:   body_kind()!
-		steering:    if env_choice('PLANNER', 'reflex', ['reflex', 'local'])! == 'local' {
-			Steering.local
-		} else {
+		steering:    if env_choice('PLANNER', 'local', ['local', 'reflex'])! == 'reflex' {
 			Steering.reflex
+		} else {
+			Steering.local
 		}
 		sensing:     if env_choice('SENSING', 'truth', ['truth', 'range'])! == 'range' {
 			Sensing.range

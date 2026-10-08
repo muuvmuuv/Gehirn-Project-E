@@ -216,7 +216,7 @@ const max_weight = 1e6
 // through one layer of tanh units to the command in the goal's frame and its speed, which
 // Dummy.act flies the command's direction at. Where the pilot passed things on both sides, a
 // regression averages the two commands into a short one, and a dummy plug much slower than the
-// core's reflex loses sync and is benched. tools/train_dummy.py writes its weights and
+// core's command loses sync and is benched. tools/train_dummy.py writes its weights and
 // load_policy reads them.
 struct Policy {
 	v  int

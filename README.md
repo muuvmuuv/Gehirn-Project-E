@@ -57,7 +57,7 @@ HQ thinks about once a second on its own thread. The field loop runs at 50 Hz an
   HQ, about 1 Hz           field unit, 50 Hz
 ┌──────────────────┐     ┌───────────────────────┐
 │ core proposes    │ <── │ sense                 │
-│ a goal           │ ctx │ reflex toward goal    │
+│ a goal           │ ctx │ plan toward goal      │
 │ MAGI votes       │ ──> │ seat: pilot or dummy  │
 │                  │ goal│ sync and blend        │
 └──────────────────┘     │ armor, body, recorder │
