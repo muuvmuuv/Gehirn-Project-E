@@ -84,6 +84,28 @@ fn (a Rect) overlaps(b Rect) bool {
 	return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
 }
 
+fn (a Rect) holds(x f32, y f32) bool {
+	return x >= a.x && x < a.x + a.w && y >= a.y && y < a.y + a.h
+}
+
+// magi_box and scene_box are where draw lays out MAGI's block and the scene, and where
+// State.hover and State.click look. scripts/record.sh crops its GIF to magi_box.
+const magi_box = Rect{16, 58, 736, 412}
+const scene_box = Rect{768, 278, 496, 348}
+
+// unit_box is the box draw_magi draws MAGI unit i in, in the order of units: MELCHIOR-1 right,
+// BALTHASAR-2 on top, CASPER-3 left.
+fn unit_box(i int) Rect {
+	cx, y := magi_box.x + magi_box.w / 2, magi_box.y
+	return [Rect{cx + 82, y + 256, 252, 148}, Rect{cx - 110, y + 80, 220, 166},
+		Rect{cx - 334, y + 256, 252, 148}][i]
+}
+
+// verdict_row is the line of 決議's list that draw_magi draws row in, 0 to 2 under the box.
+fn verdict_row(row int) Rect {
+	return Rect{magi_box.x + magi_box.w - 222, magi_box.y + 192 + row * 17, 210, 17}
+}
+
 // draw paints s for unit at now, with at where the bridge listens: the boot sequence for
 // boot_ms, then the panels.
 fn draw(ctx &gg.Context, s State, unit string, at string, now i64) {
@@ -95,15 +117,18 @@ fn draw(ctx &gg.Context, s State, unit string, at string, now i64) {
 	}
 	ctx.draw_rect_filled(0, 0, screen_w, screen_h, ink)
 	draw_header(ctx, s, unit, now)
-	draw_magi(ctx, s, now, 16, 58, 736, 412) // scripts/record.sh crops its GIF to this block
+	draw_magi(ctx, s.shown(), now, magi_box.x, magi_box.y, magi_box.w, magi_box.h)
 	draw_harmonics(ctx, s, 16, 480, 736, 160)
 	draw_core(ctx, s, now, 16, 650, 736, 124)
 	draw_limit(ctx, s, now, 768, 58, 496, 210)
-	draw_scene(ctx, s, unit, now, 768, 278, 496, 348)
+	draw_scene(ctx, s, unit, now, scene_box.x, scene_box.y, scene_box.w, scene_box.h)
 	draw_logs(ctx, s, 768, 636, 496, 138)
 	draw_footer(ctx, s)
 	if s.emergency(now) {
 		draw_emergency(ctx, s, now)
+	}
+	if s.cursor.len == 2 {
+		draw_hover(ctx, s.hover(s.cursor[0], s.cursor[1]), s.cursor[0], s.cursor[1])
 	}
 	edge(ctx)
 	scanlines(ctx)
@@ -457,9 +482,9 @@ fn draw_magi(ctx &gg.Context, s State, now i64, x f32, y f32, w f32, h f32) {
 	stroke(ctx, cx - 136, y + 300, cx - 76, y + 220, 9, orange)
 	stroke(ctx, cx + 76, y + 220, cx + 136, y + 300, 9, orange)
 	text(ctx, cx, y + 300, 'MAGI', size: 40, color: orange, family: black, align: .center)
-	unit_panel(ctx, s, now, 1, cx - 110, y + 80, 220, 166, balthasar_shape[..], .center)
-	unit_panel(ctx, s, now, 2, cx - 334, y + 256, 252, 148, casper_shape[..], .left)
-	unit_panel(ctx, s, now, 0, cx + 82, y + 256, 252, 148, melchior_shape[..], .right)
+	unit_panel(ctx, s, now, 1, unit_box(1), balthasar_shape[..], .center)
+	unit_panel(ctx, s, now, 2, unit_box(2), casper_shape[..], .left)
+	unit_panel(ctx, s, now, 0, unit_box(0), melchior_shape[..], .right)
 
 	// 決議: the verdict, or 審議中 while MAGI deliberates.
 	vx, vy := x + w - 222, y + 80
@@ -495,21 +520,47 @@ fn draw_magi(ctx &gg.Context, s State, now i64, x f32, y f32, w f32, h f32) {
 		align:  .center
 	)
 	text(ctx, vx + 105, vy + 82, tally, size: 20, color: c, family: black, align: .center)
-	for i, e in s.verdicts {
-		// The box shows the newest verdict unless MAGI deliberates anew or the vote ended without
-		// one, so the list starts below it.
-		row := if s.deliberating || s.verdict_at == 0 { i } else { i - 1 }
-		if row < 0 || row >= 3 {
-			continue
+
+	// The list holds the verdicts before the one 決議 shows; the line under the cursor lights up,
+	// since a click pins it (State.click).
+	for row in 0 .. 3 {
+		i := s.showing() + 1 + row
+		if i >= s.verdicts.len {
+			break
 		}
-		ly := vy + 112 + row * 17
-		text(ctx, vx, ly, '${s.mission(e.at)} ${e.text.to_upper()}', size: 14, color: dim)
-		text(ctx, vx + 210, ly, seal(e.good),
+		e := s.verdicts[i].event
+		r := verdict_row(row)
+		lit := s.cursor.len == 2 && r.holds(s.cursor[0], s.cursor[1])
+		text(ctx, r.x, r.y,
+			'${s.mission(s.verdicts[i].at)} ${e.proposal.label()} ${e.yes}/${e.votes.len}'.to_upper(),
+			size:  14
+			color: if lit { paper } else { dim }
+		)
+		text(ctx, r.x + r.w, r.y, seal(e.approved),
 			size:   14
-			color:  if e.good { aye } else { alert }
+			color:  if e.approved { aye } else { alert }
 			family: mincho
 			align:  .right
 		)
+	}
+
+	// A pinned vote says so between 提訴 and 決議, as a tab in the status values' color, and a
+	// staged one under it, between hazard stripes, so no frame passes it off as a model's own.
+	mut ty := y + 30
+	if s.pin() >= 0 {
+		tag := 'PINNED ${s.mission(s.verdict_at)} · CLICK FOR LIVE'
+		tw := measure(ctx, tag, size: 15, family: black) + 14
+		ctx.draw_rect_filled(cx - tw / 2, ty, tw, 20, hot)
+		text(ctx, cx, ty + 1, tag, size: 15, color: pitch, family: black, align: .center)
+		ty += 24
+	}
+	if s.staged() {
+		tag := 'STAGED ON THE MOCK'
+		tw := measure(ctx, tag, size: 15, family: black) + 14
+		hazard(ctx, cx - tw / 2 - 22, ty, tw + 44, 20, caution, gg.Color{20, 11, 2, 255}, 0)
+		ctx.draw_rect_filled(cx - tw / 2, ty, tw, 20, ink)
+		ctx.draw_rect_empty(cx - tw / 2, ty, tw, 20, caution)
+		text(ctx, cx, ty + 1, tag, size: 15, color: caution, family: black, align: .center)
 	}
 }
 
@@ -539,7 +590,8 @@ fn header(ctx &gg.Context, x f32, y f32, title string) {
 
 // unit_panel draws MAGI unit i in its shape: blue and flickering while it deliberates, green on
 // 可決, red on 否決, black with a blinking 故障 on a fault, and a white flash as its ballot lands.
-fn unit_panel(ctx &gg.Context, s State, now i64, i int, x f32, y f32, w f32, h f32, shape [][2]f32, align gg.HorizontalAlign) {
+fn unit_panel(ctx &gg.Context, s State, now i64, i int, b Rect, shape [][2]f32, align gg.HorizontalAlign) {
+	x, y, w, h := b.x, b.y, b.w, b.h
 	state, vote := s.panel(units[i])
 	fill, ink_c := match state {
 		'deliberating' {
@@ -883,9 +935,28 @@ fn (m Map) py(y f64) f32 {
 	return m.oy - f32(y - m.my) * m.k
 }
 
+// radar is the scene's map from meters to pixels and the area of scene_box it draws in. Its scale
+// fits everything the scene has shown, plus a meter around it; with nothing shown yet the map is
+// empty.
+fn (s State) radar() (Map, Rect) {
+	a := Rect{scene_box.x + 8, scene_box.y + 24, scene_box.w - 16, scene_box.h - 24 - 30}
+	if s.span.len < 4 {
+		return Map{}, a
+	}
+	sw, sh := s.span[2] - s.span[0] + 2, s.span[3] - s.span[1] + 2
+	return Map{
+		ox: a.x + a.w / 2
+		oy: a.y + a.h / 2
+		mx: (s.span[0] + s.span[2]) / 2
+		my: (s.span[1] + s.span[3]) / 2
+		k:  f32(math.min(f64(a.w) / sw, f64(a.h) / sh))
+	}, a
+}
+
 fn draw_scene(ctx &gg.Context, s State, unit string, now i64, x f32, y f32, w f32, h f32) {
 	frame_box(ctx, x, y, w, h, 'SCENE', '周辺状況')
-	ax, ay, aw, ah := x + 8, y + 24, w - 16, h - 24 - 30
+	m, area := s.radar()
+	ax, ay, aw, ah := area.x, area.y, area.w, area.h
 	if s.view_at == 0 || s.span.len < 4 {
 		text(ctx, x + w / 2, ay + ah / 2 - 10, 'NO SIGNAL',
 			size:   20
@@ -894,16 +965,6 @@ fn draw_scene(ctx &gg.Context, s State, unit string, now i64, x f32, y f32, w f3
 			align:  .center
 		)
 		return
-	}
-
-	// The scale fits everything the scene has shown, plus a meter around it.
-	sw, sh := s.span[2] - s.span[0] + 2, s.span[3] - s.span[1] + 2
-	m := Map{
-		ox: ax + aw / 2
-		oy: ay + ah / 2
-		mx: (s.span[0] + s.span[2]) / 2
-		my: (s.span[1] + s.span[3]) / 2
-		k:  f32(math.min(f64(aw) / sw, f64(ah) / sh))
 	}
 	ctx.scissor_rect(int(ax), int(ay), int(aw), int(ah))
 
@@ -942,11 +1003,14 @@ fn draw_scene(ctx &gg.Context, s State, unit string, now i64, x f32, y f32, w f3
 				sn * (rr + 4), ember)
 		}
 		if r % 2 == 0 {
-			text(ctx, bx + rr * 0.7071 + 3, by - rr * 0.7071 - 14, '${r} M',
+			ring := Txt{
 				size:   11
 				color:  ember
 				family: black
-			)
+			}
+			lx, ly := bx + rr * 0.7071 + 3, by - rr * 0.7071 - 14
+			text(ctx, lx, ly, '${r} M', ring)
+			taken << Rect{lx, ly, measure(ctx, '${r} M', ring), 14}
 		}
 	}
 	ctx.draw_rect_filled(bx, ay, 1, ah, fade(ember, 0.5))
@@ -967,6 +1031,9 @@ fn draw_scene(ctx &gg.Context, s State, unit string, now i64, x f32, y f32, w f3
 		}
 		ex, ey := m.px(e.pos[0]), m.py(e.pos[1])
 		r := f32(e.r) * m.k
+
+		// Labels keep off every disc and the rings' labels, so no backdrop hides a mark.
+		taken << Rect{ex - r, ey - r, 2 * r, 2 * r}
 		match e.kind {
 			'obstacle' {
 				ctx.draw_circle_filled(ex, ey, r, rock)
@@ -1041,6 +1108,7 @@ fn draw_scene(ctx &gg.Context, s State, unit string, now i64, x f32, y f32, w f3
 			line_type: .dotted
 		)
 	}
+	taken << Rect{bx - 8, by - 8, 16, 16}
 	taken << label(ctx, taken, bx, by, 10, unit.to_upper(), orange)
 	for e in p.scene {
 		if e.pos.len >= 2 {
@@ -1112,6 +1180,40 @@ fn label(ctx &gg.Context, taken []Rect, x f32, y f32, gap f32, s string, c gg.Co
 	ctx.draw_rect_filled(pick.x, pick.y, pick.w, pick.h, fade(pitch, 0.7))
 	text(ctx, pick.x + 2, pick.y, s, t)
 	return pick
+}
+
+// draw_hover draws lines, State.hover's readout, beside the cursor at x, y, on the side that keeps
+// it inside the window: a panel's ground, frame and corners, the title in orange and the rest in
+// paper. It comes and goes with the cursor in one frame, a hard step like every change here.
+fn draw_hover(ctx &gg.Context, lines []string, x f32, y f32) {
+	if lines.len == 0 {
+		return
+	}
+	title := Txt{
+		size:   15
+		color:  orange
+		family: black
+	}
+	row := Txt{
+		size:  14
+		color: paper
+	}
+	mut w := measure(ctx, lines[0], title)
+	for l in lines[1..] {
+		w = math.max(w, measure(ctx, l, row))
+	}
+	w += 20
+	h := f32(34 + 16 * (lines.len - 1))
+	bx := if x + 18 + w > screen_w - 8 { x - 18 - w } else { x + 18 }
+	top := if y + 18 + h > screen_h - 8 { y - 18 - h } else { y + 18 }
+	by := math.max(top, 8)
+	ctx.draw_rect_filled(bx, by, w, h, fade(ground, 0.94))
+	ctx.draw_rect_empty(bx, by, w, h, ember)
+	corners(ctx, bx, by, w, h, 8, orange)
+	text(ctx, bx + 10, by + 6, lines[0], title)
+	for i, l in lines[1..] {
+		text(ctx, bx + 10, by + 28 + i * 16, l, row)
+	}
 }
 
 fn draw_logs(ctx &gg.Context, s State, x f32, y f32, w f32, h f32) {

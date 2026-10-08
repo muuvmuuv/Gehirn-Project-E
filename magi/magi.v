@@ -399,7 +399,7 @@ fn (u Unit) llm_vote(ep oai.Endpoint, ctx lcl.Context, p lcl.Intent) Ballot {
 	// approved S23 10 of 10 (PLAN, Known issues 35 and 37). The model is still asked, so its own
 	// vote and why stay in the ballot.
 	// scripts/scenes/ep18-bardiel.sh and ep12-sahaquiel.sh look for `CASPER-3 否決 course veto` in
-	// HQ's log.
+	// HQ's log, and bridge/state.v ballot_lines splits this why at `; the model voted `.
 	if fact != '' {
 		return Ballot{
 			unit:       u.name

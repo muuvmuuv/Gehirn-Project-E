@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
-"""Self check for mock_endpoint's --vote, --propose, --goto, COURSE and the percept's lines:
-python3 tools/test_mock_endpoint.py"""
+"""Self check for mock_endpoint's --vote, --propose, --goto, POST /stage, COURSE and the percept's
+lines: python3 tools/test_mock_endpoint.py"""
 
 import argparse
+import contextlib
+import http.client
+import io
+import json
 import re
+import threading
 from collections.abc import Callable
 from pathlib import Path
 
-from mock_endpoint import (ARRIVE, answer, forced, goto_arg, judge, mission_beacon, propose, propose_arg, read_percept,
-                           vote_arg)
+from mock_endpoint import (ARRIVE, Handler, Server, answer, forced, goto_arg, judge, mission_beacon, propose,
+                           propose_arg, read_percept, served, vote_arg)
 
 # A unit's request as magi/magi.v Unit.llm_vote asks it, on lcl/lcl.v Context.situation.
 USER = """MISSION
@@ -152,6 +157,58 @@ assert entities[1] == {"kind": "ground", "id": "lake", "pos": [3.0, 1.0], "r": 1
 assert propose(read_percept(GROUND), GROUND)["target"] == [3.0, 2.0]
 for unit in ("melchior", "balthasar", "casper"):
     assert answer(unit, GROUND, 1, None, {})["vote"] == "approve", unit
+
+# --vote UNIT=off@N returns a unit to its script from its N-th request, as --goto off@N the core.
+assert vote_arg("casper=off@4") == ("casper", 4, None) and vote_arg("melchior=off") == ("melchior", 1, None)
+OFF = {"casper": {1: "reject", 4: None}}
+assert answer("casper", USER, 3, None, OFF)["why"] == "forced reject (--vote)"
+assert answer("casper", USER, 4, None, OFF) == judge("casper", USER, read_percept(USER))
+
+
+def stage(port: int, body: object) -> tuple[int, dict]:
+    """POST body to the mock's /stage as tools/staging.py does, and return the status and reply."""
+    conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+    conn.request("POST", "/stage", json.dumps(body))
+    res = conn.getresponse()
+    return res.status, json.loads(res.read())
+
+
+# POST /stage sets the stage from each role's next request on, in place of what the flags staged
+# for later ones, and only a mock started with --stage serves it; it logs each change even quiet.
+log = io.StringIO()
+server = Server(("127.0.0.1", 0), Handler)
+threading.Thread(target=server.serve_forever, daemon=True).start()
+port = server.server_address[1]
+Handler.quiet = True
+with contextlib.redirect_stderr(log):
+    assert stage(port, {"vote": "casper=reject"})[0] == 403, "without --stage"
+    Handler.staging = True
+    Handler.votes["casper"] = {1: "reject", 5: "approve"}  # --vote casper=reject --vote casper=approve@5
+    served.update(casper=2, core=4)
+    assert stage(port, {}) == (200, {"vote": {"melchior": None, "balthasar": None, "casper": "reject"},
+                                     "goto": None, "propose": None})
+    status, now = stage(port, {"vote": "melchior=approve"})
+    assert status == 200 and now["vote"]["melchior"] == "approve" and Handler.votes["melchior"] == {1: "approve"}
+    stage(port, {"vote": "casper=off"})
+    assert Handler.votes["casper"] == {1: "reject", 3: None}, "off drops the approve staged for later"
+    status, now = stage(port, {"goto": "6,0", "propose": "self_destruct"})
+    assert now["goto"] == [6.0, 0.0] and now["propose"] == "self_destruct"
+    assert answer("core", USER, 5, Handler.staged, {}, Handler.gotos)["verb"] == "self_destruct"
+    assert answer("core", USER, 5, None, {}, Handler.gotos)["target"] == [6.0, 0.0]
+    for bad in ([], {"veto": "casper"}, {"vote": "casper=approve@3"}, {"goto": 6}, {"propose": "goto"},
+                {"vote": "melchior=reject", "goto": "here"}):
+        assert stage(port, bad)[0] == 400, bad
+    assert Handler.votes["melchior"] == {1: "approve"}, "a refused body changes nothing"
+    status, now = stage(port, {"clear": True})
+    assert now == {"vote": dict.fromkeys(("melchior", "balthasar", "casper")), "goto": None, "propose": None}
+    server.shutdown()
+assert log.getvalue().count("mock: stage ") == 4, log.getvalue()
+
+# bridge/state.v State.staged shows STAGED on what names itself so.
+state = (Path(__file__).parent.parent / "bridge" / "state.v").read_text()
+assert "ends_with('(--vote)')" in state and answer("casper", USER, 1, None, OFF)["why"].endswith("(--vote)")
+assert "starts_with('Staged by --')" in state
+assert goto_arg("1,2")[1]["why"].startswith("Staged by --") and propose_arg("x")["why"].startswith("Staged by --")
 
 lcl = (Path(__file__).parent.parent / "lcl" / "lcl.v").read_text()
 assert ARRIVE == float(re.search(r"pub const arrive = (\S+)", lcl)[1]), "lcl.arrive"

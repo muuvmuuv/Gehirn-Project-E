@@ -2,7 +2,7 @@
 
 ![The bridge's MAGI block during a refused release: BALTHASAR • 2 and MELCHIOR • 1 red with 否決, CASPER • 3 green with 可決, and 決議 showing 否決 with 1/3 · NEED 3](../assets/media/bridge/magi-refused.png)
 
-People who see the bridge ask whether it runs on a custom engine or a UI library. Neither. It is V's own `gg` module, which ships with the compiler, drawing on sokol: Metal on the Mac, OpenGL on Linux. Text goes through fontstash. Every pixel comes from filled rectangles, triangles, convex polygons, circles, lines and glyphs, plus one matrix transform from `sokol.sgl` that squeezes type. There are no shaders of its own, no images on screen, no UI library, no layout engine and no animation library; two PNGs are only the window's icon. The whole bridge is about 1900 lines of V in `bridge/`, `draw.v` 1210 of them, plus 500 lines of tests for its state and its icons and 30 lines of Objective-C that let its borderless window take the keyboard and move on macOS.
+People who see the bridge ask whether it runs on a custom engine or a UI library. Neither. It is V's own `gg` module, which ships with the compiler, drawing on sokol: Metal on the Mac, OpenGL on Linux. Text goes through fontstash. Every pixel comes from filled rectangles, triangles, convex polygons, circles, lines and glyphs, plus one matrix transform from `sokol.sgl` that squeezes type. There are no shaders of its own, no images on screen, no UI library, no layout engine and no animation library; two PNGs are only the window's icon. The whole bridge is about 2300 lines of V in `bridge/`, `draw.v` 1350 of them, plus 720 lines of tests for its state, its readouts and its icons and 30 lines of Objective-C that let its borderless window take the keyboard and move on macOS.
 
 This file is for anyone curious how the bridge is drawn or about to change its look. [docs/bridge.md](../docs/bridge.md) says how to run it and what each panel shows, [the website's bridge guide](../website/src/routes/bridge.tsx) explains the panels to someone watching, and [ADR-0005](../docs/adr/0005-the-bridge.md) says why the bridge exists and why it only watches. Function names and numbers below are the ones in `main.v`, `state.v` and `draw.v`; where this file and the code disagree, the code is right and this file is stale.
 
@@ -28,6 +28,8 @@ ADR-0005 picks this stack for two reasons. `gg` is in vlib, so nothing needs ins
 2. `State.take_view` folds a field view in: the newest view, a sample of sync and authority and a point of the body's trail (each kept for 300 views, 30 s at the field unit's 10 views a second), the scene's bounding box `span`, which only grows, `cut_at` when the umbilical turns to internal power, and the outcomes, split into armor refusals and the rest, newest six of each.
 3. `State.take_event` folds an HQ event in: a proposal going to the vote opens a new vote, a ballot lands in `ballots` with its arrival time in `landed`, a verdict closes the vote, and a core fault joins `faults`. A ballot or verdict for a vote the bridge never saw open opens it, since watch messages drop on congestion.
 4. `draw(ctx, state, unit, at, now)` paints the whole window, then `ctx.ft.flush()` uploads any glyph new to the atlas, and `ctx.end()` submits the frame.
+
+`gg` also hands `on_event` the keyboard and the mouse. Esc quits (The window), a move puts the cursor into `State.cursor` and leaving the window empties it, and a left click goes to `State.click`, which pins a vote (Hover and pin). None of it leaves the process.
 
 Every time `State` keeps is on the bridge's own clock, `lcl.now_ms()` at arrival. Between views, `left_ms` counts the internal power down and `silence` counts HQ's silence on, so the centiseconds tick every frame although views arrive ten times a second. `link` folds all of it into one word for the umbilical: never, stale, awaiting, live, lost, cut or depleted.
 
@@ -74,7 +76,7 @@ Most panels are a `frame_box`: the `ground` fill, a 1 px `ember` outline, 12 px 
 | `pitch` | 0, 0, 0 | Text on a lit panel, the faulted unit, label backings | Plain black, as TomaszRewak/MAGI fills a unit in error |
 | `ground` | 12, 9, 6 | Inside a panel | Own |
 | `orange` | 255, 141, 0 | Frames, tabs, labels, the body | TomaszRewak/MAGI's `#ff8d00`; `tools/caption.py` `INK` mirrors it |
-| `hot` | 255, 176, 40 | Status values, the sync trace, the target brackets | Own |
+| `hot` | 255, 176, 40 | Status values, the sync trace, the target brackets, the PINNED tab | Own |
 | `ember` | 122, 67, 0 | Dim orange: outlines, secondary labels, idle text | Own, about half of `orange` |
 | `umber` | 38, 22, 6 | Grids, empty fault slots | Own |
 | `rule` | 39, 117, 71 | The double rules of 提訴 and 決議 | TomaszRewak/MAGI's `#277547` |
@@ -84,7 +86,7 @@ Most panels are a `frame_box`: the `ground` fill, a 1 px `ember` outline, 12 px 
 | `nay` | 164, 20, 19 | A unit's 否決 panel | TomaszRewak/MAGI's `#a41413` |
 | `alert` | 255, 32, 48 | 否決 as text, humans, refusals, faults, a cut cable | Own |
 | `alert_deep` | 110, 0, 0 | The dark phase of red blinks, held on the window's icons for a faulted unit, and red hazard bands | Own |
-| `caution` | 255, 200, 0 | HQ silent while the cable still counts as connected | Own |
+| `caution` | 255, 200, 0 | HQ silent while the cable still counts as connected, a vote staged on the mock | Own |
 | `paper` | 236, 232, 225 | Body text, the white flashes | Kept from the bridge's first look |
 | `dim` | 139, 134, 128 | Secondary text, NO DATA | Kept from the bridge's first look |
 | `cyan` | 54, 197, 240 | The beacon, the core's authority | Kept from the bridge's first look |
@@ -161,7 +163,7 @@ The 決議 box is two `draw_rect_empty` outlines 4 px apart, 210 by 74, in the v
 
 ### Hazard stripes
 
-`hazard(x, y, w, h, c, back, shift)` fills the band with `back`, sets a scissor to the band, and draws parallelograms whose top edge runs from i to i + h and bottom edge from i minus h to i: stripes at 45 degrees, as wide as the band is high, one every 2h. The first starts at minus 2h plus `shift` modulo 2h, so a growing `shift` scrolls them without a seam, and the scissor clips what overhangs. It resets the scissor to the whole window after. The header's 8 px band scrolls at `now / 40`, 25 px a second; 活動限界's 12 px band takes its color from the link, `caution` while HQ is silent, `orange` on internal power, `alert` once it is urgent and a dark 70, 36, 0 otherwise; the boot screen's bands scroll at 33 px a second, and the red ones of a 否決 and of EMERGENCY at 50.
+`hazard(x, y, w, h, c, back, shift)` fills the band with `back`, sets a scissor to the band, and draws parallelograms whose top edge runs from i to i + h and bottom edge from i minus h to i: stripes at 45 degrees, as wide as the band is high, one every 2h. The first starts at minus 2h plus `shift` modulo 2h, so a growing `shift` scrolls them without a seam, and the scissor clips what overhangs. It resets the scissor to the whole window after. The header's 8 px band scrolls at `now / 40`, 25 px a second; 活動限界's 12 px band takes its color from the link, `caution` while HQ is silent, `orange` on internal power, `alert` once it is urgent and a dark 70, 36, 0 otherwise; the boot screen's bands scroll at 33 px a second, and the red ones of a 否決 and of EMERGENCY at 50. The STAGED tab's `caution` stripes stand still.
 
 ### EMERGENCY
 
@@ -195,7 +197,21 @@ While the cable counts as connected, 外部 is lit; on internal power, 内部. O
 
 Around the body sit eight range rings a meter apart, every second one brighter, each with twelve 8 px ticks 30 degrees apart, and every second one labeled at 45 degrees. A crosshair runs through the body. The trail is the last 300 positions as 2 px `stroke`s, its alpha rising from 8% for the oldest to 68% for the newest. An obstacle is a `rock` disc with an `ember` rim, and one that moves has a 1 px `dim` line from its rim on to where its velocity takes it a second later, since from its center it would end inside the disc at a walking speed; a ditch is a pit filled with `ink`, darker than the panel's `ground`, under an `ember` rim, labeled in `ember`; a falling object's landing zone is `alert` at 12% under an `alert` rim, labeled in `alert` with the seconds to its landing, as `IMPACT ROCK 12.3 S`, which counts down with the views at 10 Hz, and through its last 5 s the rim blinks as the 活動限界 display warns, `alert` for 80% of every 330 ms and `alert_deep` for the rest, until the zone turns into its crater's pit; a beacon is a faint `cyan` disc with its 0.5 m reach ring, and a human a red dot inside two rings from `armor.Limits`, `human_stop` 0.7 m filled faintly and `release_keep` 2 m. The body is an orange diamond with a line to where its velocity takes it in a second, and a dotted line runs to the nearest human, red inside 2 m. A goto's target gets four L shaped brackets 13 px from its center.
 
-`label` places each label on the first side of its point, right, left, above or below, where it overlaps no label placed before it, on a black backing at 70%. The body's label goes first. TARGET is left out when the target lies on a beacon, which already carries a label. The panel's bottom line gives the goal, the distance to the target and the payload, and the distance to the nearest human, red under 2 m.
+`label` places each label on the first side of its point, right, left, above or below, where it overlaps nothing taken before it, on a black backing at 70%: the labels placed before it, the box around each entity's disc and the body's diamond, and the rings' labels, so no backing hides a mark. Where every side is taken it goes right. The body's label goes first. TARGET is left out when the target lies on a beacon, which already carries a label. The panel's bottom line gives the goal, the distance to the target and the payload, and the distance to the nearest human, red under 2 m.
+
+### Hover and pin
+
+![The MAGI block with a refused goto pinned while the next vote runs: PINNED T+00:18 · CLICK FOR LIVE in a tab between 提訴 and 決議, and over CASPER • 3 a readout with its model, latency, COURSE VETO and its fact, and THE MODEL VOTED 可決 with the model's why](../assets/media/bridge/magi-pinned.png)
+
+`State.hover` turns the cursor into a readout, lines with a title first, and `draw_hover` draws them; both read only `State`, so `state_test.v` tests what each spot shows. On the radar it hit tests with `State.radar`, the same map `draw_scene` draws with: an entity answers within its disc, or within 8 px of its center where the disc is smaller, so a small mark is easy to catch, the smallest where several answer, and ground only where no entity does. `entity_lines` gives the kind and id, the distance center to center as the percept gives MAGI, the velocity or STANDING for a human or an obstacle, the seconds to a landing and the factor of ground. Over MAGI it hit tests the bounding box of each unit's outline, `unit_box`, which `draw_magi` draws in too, and `ballot_lines` gives the vote, the model, the latency and the whole why, wrapped at 56 characters. It splits a course veto's why at `; the model voted `, which `magi/magi.v` `Unit.llm_vote` writes, into the fact and the model's own vote and why.
+
+`draw_hover` sets the readout 18 px right of and below the cursor, or left of or above it where it would leave the window, as a small panel: `ground` at 94%, a 1 px `ember` frame and 8 px `orange` corners, the title in Barlow Condensed Black at 15 in `orange` and the rest at 14 in `paper`. It is drawn after the EMERGENCY overlay and under the edge and the scanlines, and it comes and goes with the cursor in one frame, without a delay or a fade, since an operator reads it many times a mission.
+
+`State.click` pins a vote: on a line of 決議's list that line's verdict, elsewhere in `magi_box` the newest verdict, or nothing if one is pinned. `State.verdicts` keeps the last six verdicts whole, with the CODE each went to the vote as, and `State.pinned` names one by its arrival. `draw` hands `draw_magi` `State.shown`, a copy with the pinned vote in place of the newest, no landing ballots and no view, so the block draws a past vote with the code it always had, and EX_MODE shows ---. The header keeps reading the live `State`. A tab in `hot` between 提訴 and 決議 says PINNED with the vote's mission time, and the line of the list under the cursor turns `paper`. A pinned verdict that drops off the end of the list lets the block follow the votes again.
+
+### STAGED
+
+`State.staged` says whether the vote MAGI's block shows was staged on the mock, from what `tools/mock_endpoint.py` writes into it: a forced ballot's why ends in `(--vote)`, after a course veto's fact too, and a proposal its `--goto` or `--propose` made starts its why with `Staged by --`. `draw_magi` then sets STAGED ON THE MOCK in `caution` at 15 on `ink`, in a 1 px `caution` frame between still `caution` hazard stripes 22 px wide on each side, where the PINNED tab goes or 24 px under it, so the GIF of MAGI carries it too. It comes and goes with the vote it marks.
 
 ### Harmonics
 
@@ -244,6 +260,8 @@ Nothing eases. Every change is a hard step or a linear ramp, computed from `now`
 | Boot lines | `draw_boot` | The first at 300 ms, then one every 380 ms | Step |
 | Boot bar | `draw_boot` | 2.8 s | Linear |
 | Harmonics graph and trail | `draw_harmonics`, `draw_scene` | One sample per view, 10 a second, 30 s shown | Per view |
+| The hover's readout | `draw_hover` | With the cursor, in the frame it moves | Step |
+| The STAGED tab | `draw_magi` | With the vote it marks | Step |
 
 The 250 ms flicker comes from TomaszRewak/MAGI and the 330 ms blink at 80% from scottykwok/eva-timer. The rest are the bridge's own.
 
@@ -260,6 +278,8 @@ VGG_SCREENSHOT_FOLDER=/tmp/rec/frames VGG_SCREENSHOT_FRAMES=$(seq -s, 30 30 3000
 ```
 
 `gg` saves each frame as `gehirn-bridge_<n>.png` before `frame` draws the next, from the framebuffer last presented. Since every animation follows the wall clock, a slow capture shows the same motion in fewer frames. So under `-d bridge_1x`, which scripts/record.sh passes since it saves every frame, `main` opens the window at 1x and has stbi write every PNG row unfiltered: a 2560 by 1600 frame took 120 ms to write and saved 7 frames a second, a 1280 by 800 one without the filter search 18 ms and 38 a second (PLAN, Known issue 24). That window looks soft on a Retina screen, and its frames are 1280 by 800 everywhere. The recipe above saves one frame in 30 and leaves the define out, so its frames keep the display's scale, 2560 by 1600 on Retina, the only frames that show the 2x path, such as `text`'s anchor.
+
+A recording has no hand on the mouse, so a build with `-d gg_record` replays `BRIDGE_MOUSE` through `on_event` as the frames pass, which no other build reads: steps apart by spaces, each `x,y` to move there in window pixels, `click` to click where it last moved, or `out` to leave the window, then `@` and the milliseconds since the bridge started. A scene's script takes the bridge as its first argument, so the frames of Hover and pin came from flying `scripts/scenes/ep18-bardiel.sh` and `terrain.sh` with such a bridge, `VGG_SCREENSHOT_FRAMES` set and, for ep18, steps such as `1019,342@9000 590,390@24000 380,120@26500 click@26600 176,330@27000`.
 
 The stills in this file are cut from 1280 by 800 frames around the boxes in the Layout table, 4 to 8 px wider on each side, and EMERGENCY as an 800 by 360 cut from the middle of the window; a 2560 by 1600 frame takes `scale=1280:800,` before the crop:
 

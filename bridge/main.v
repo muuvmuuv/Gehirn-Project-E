@@ -7,6 +7,7 @@ module main
 import gg
 import os
 import stbi
+import strconv
 import lcl
 import wire
 import zenoh
@@ -47,6 +48,14 @@ mut:
 	opener wire.Opener
 	state  State
 	docked [3]gg.Color = [orange, orange, orange]!
+	script []Step // BRIDGE_MOUSE, in a gg_record build only
+}
+
+// Step is one step of BRIDGE_MOUSE: the event on_event gets once at milliseconds have passed since
+// the bridge started.
+struct Step {
+	at i64
+	e  gg.Event
 }
 
 fn main() {
@@ -106,6 +115,12 @@ fn main() {
 		app.gg.window.high_dpi = false
 		stbi.write_force_png_filter(0)
 	}
+	$if gg_record ? {
+		app.script = mouse_script(os.getenv('BRIDGE_MOUSE')) or {
+			eprintln('gehirn-bridge: BRIDGE_MOUSE has ${err.msg()}')
+			exit(2)
+		}
+	}
 	app.gg.run()
 }
 
@@ -147,11 +162,68 @@ fn init(mut app App) {
 // on_event quits on Esc, as Cmd-Q does, since the borderless window has no close button. It exits
 // instead of calling gg's quit, which on macOS asks the window to close as its close button would,
 // and AppKit only beeps at a window without one. The bridge only watches, so quitting changes
-// nothing.
-fn on_event(e &gg.Event, _ voidptr) {
-	if e.typ == .key_down && e.key_code == .escape {
-		exit(0)
+// nothing. It also keeps the cursor for State.hover and hands a left click to State.click, which
+// change only what the bridge shows.
+fn on_event(e &gg.Event, mut app App) {
+	match e.typ {
+		.key_down {
+			if e.key_code == .escape {
+				exit(0)
+			}
+		}
+		.mouse_move {
+			app.state.cursor = [e.mouse_x, e.mouse_y]
+		}
+		.mouse_leave {
+			app.state.cursor = []
+		}
+		.mouse_down {
+			if e.mouse_button == .left {
+				app.state.click(e.mouse_x, e.mouse_y)
+			}
+		}
+		else {}
 	}
+}
+
+// mouse_script reads BRIDGE_MOUSE, the mouse a gg_record build replays through on_event, since a
+// frame saved without a hand on the mouse would show no hover (CONTRIBUTING.md, V 0.5.2 rule 6):
+// steps apart by spaces, each x,y to move there in window pixels, click to click where it last
+// moved, or out to leave the window, then @ and the milliseconds since the bridge started, as in
+// `900,420@9000 click@9500 out@12000`.
+fn mouse_script(spec string) ![]Step {
+	mut steps := []Step{}
+	mut x, mut y := f32(0), f32(0)
+	for word in spec.fields() {
+		at := strconv.atoi(word.all_after('@')) or {
+			return error('no time in ${lcl.quoted(word)}')
+		}
+		what := word.all_before('@')
+		xy := what.split(',')
+		if what == 'click' {
+			steps << Step{at, gg.Event{
+				typ:          .mouse_down
+				mouse_button: .left
+				mouse_x:      x
+				mouse_y:      y
+			}}
+		} else if what == 'out' {
+			steps << Step{at, gg.Event{
+				typ: .mouse_leave
+			}}
+		} else if xy.len == 2 {
+			x = f32(strconv.atoi(xy[0]) or { return error('no x in ${lcl.quoted(word)}') })
+			y = f32(strconv.atoi(xy[1]) or { return error('no y in ${lcl.quoted(word)}') })
+			steps << Step{at, gg.Event{
+				typ:     .mouse_move
+				mouse_x: x
+				mouse_y: y
+			}}
+		} else {
+			return error('no step in ${lcl.quoted(word)}')
+		}
+	}
+	return steps
 }
 
 // font is VUI_FONT, else the first of fonts this host has, else nothing.
@@ -186,6 +258,13 @@ fn frame(mut app App) {
 			continue
 		}
 		app.state.take_event(e, now)
+	}
+	$if gg_record ? {
+		for app.script.len > 0 && now - app.state.born >= app.script[0].at {
+			e := app.script[0].e
+			app.script.delete(0)
+			on_event(&e, mut app)
+		}
 	}
 	app.show_votes(now)
 	app.gg.begin()

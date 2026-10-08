@@ -21,17 +21,29 @@ A scene stages what three model families would not do alike: --vote forces a uni
 the chat route from that unit's N-th request on, and --propose makes the core propose one verb
 on every request, whether or not the schema's verb enum lists it, as a server without schema
 support would. --goto makes the core propose a goto to a given target from its N-th request
-on, and --goto off@N returns it to its script from its N-th request. --garbage wins over all
-three, and --propose over --goto.
+on, and --goto off@N returns it to its script from its N-th request, as --vote UNIT=off@N does a
+unit. --garbage wins over all three, and --propose over --goto.
+
+A show stages them live: with --stage the mock also serves POST /stage, to loopback clients only,
+which tools/staging.py sends by key. Its JSON object sets what the flags set, from each role's
+next request on and in place of what the flags staged for later ones: "vote" as UNIT=VOTE or
+UNIT=off, "propose" as VERB[:WHY] or off, "goto" as X,Y or off, and "clear": true for all of them,
+none with @N. It answers what each role answers at its next request, null where the script does,
+and {} asks only that. scripts/stage.sh gives --stage on lineup mock alone, so a mock that serves
+the core for real MAGI refuses it, since forcing a vote in the stack would be the commander
+override docs/decisions.md rules out. The forced ballot's why, "forced approve (--vote)", and the
+staged proposal's, "Staged by --goto.", are how the bridge knows to show STAGED.
 
     python3 tools/mock_endpoint.py --slow balthasar=12000 --garbage casper
     python3 tools/mock_endpoint.py --propose self_destruct --vote casper=reject --vote casper=approve@3
     python3 tools/mock_endpoint.py --goto 3.54,2.84@5 --goto 1.0,2.5@6
     python3 tools/mock_endpoint.py --goto 0.6,0.4@2 --goto off@3
+    python3 tools/mock_endpoint.py --stage
+    curl -d '{"vote": "casper=reject"}' http://127.0.0.1:8081/stage
 """
 
 import argparse
-import itertools
+import ipaddress
 import json
 import math
 import re
@@ -68,7 +80,7 @@ PROPOSAL = re.compile(r"^PROPOSAL \(\w+\)\n([^\s(]+)(?:\((\S+), (\S+)\))? from "
 COURSE = re.compile(r"^COURSE\nhuman ([^\s,]+)", re.M)
 
 STYLES = ("plain", "think", "fence", "chatter")
-VOTE = re.compile(rf"({'|'.join(UNITS.values())})=(approve|reject)(?:@([1-9][0-9]*))?")
+VOTE = re.compile(rf"({'|'.join(UNITS.values())})=(approve|reject|off)(?:@([1-9][0-9]*))?")
 GOTO = re.compile(r"(?:off|(-?[0-9]+(?:\.[0-9]+)?),(-?[0-9]+(?:\.[0-9]+)?))(?:@([1-9][0-9]*))?")
 GARBAGE = "I would rather talk about the weather than answer in that format."
 VERBS = ("goto", "hold", "release")  # lcl.known_verbs
@@ -91,8 +103,10 @@ JEV_IDS = ("goes_to_person", "leaves_area", "drops_payload", "person_close",
 CLOSE_BANDS = ("(in contact)", "(very close)", "(close)")
 HIGH, LOW = 0.95, 0.05
 
-counters = {role: itertools.count() for role in ROLES}
-counter_lock = threading.Lock()
+# served counts each role's requests; lock guards it and every stage, which POST /stage changes
+# while requests are answered.
+served = dict.fromkeys(ROLES, 0)
+lock = threading.Lock()
 
 
 def role_of(system: str) -> str:
@@ -197,6 +211,7 @@ def answer(role: str, user: str, n: int, staged: dict | None,
         return staged or forced(gotos or {}, n) or propose(percept, user)
     vote = forced(votes.get(role, {}), n)
     if vote:
+        # bridge/state.v State.staged shows STAGED for a ballot whose why ends in (--vote).
         return {"vote": vote, "why": f"forced {vote} (--vote)"}
     return judge(role, user, percept)
 
@@ -299,8 +314,9 @@ class Handler(BaseHTTPRequestHandler):
 
     # ponytail: --vote forces the chat route only, since no scene forces Jev; systemone would
     # need the same counter and forced() once one does.
-    votes: dict[str, dict[int, str]] = {}
+    votes: dict[str, dict[int, str | None]] = {}
     gotos: dict[int, dict | None] = {}
+    staging = False
     quiet = False
 
     def do_POST(self) -> None:
@@ -308,6 +324,9 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?")[0]
         if path == "/v1/systemone":
             self.systemone()
+            return
+        if path == "/stage":
+            self.stage()
             return
         if not path.endswith("/chat/completions"):
             self.reply(404, {"error": {"message": f"no route {self.path}", "type": "not_found"}})
@@ -320,13 +339,14 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         role = role_of(content(body["messages"], "system"))
-        with counter_lock:
-            n = next(counters[role]) + 1
-        if role in self.garbage:
+        with lock:
+            served[role] += 1
+            n = served[role]
+            reply = None if role in self.garbage else answer(
+                role, content(body["messages"], "user"), n, self.staged, self.votes, self.gotos)
+        if reply is None:
             decision, style, text = "-", "garbage", GARBAGE
         else:
-            reply = answer(role, content(body["messages"], "user"), n, self.staged, self.votes,
-                           self.gotos)
             decision = reply.get("verb") or reply.get("vote")
             style = STYLES[(n - 1) % len(STYLES)]
             text = wrap(reply, style)
@@ -381,6 +401,24 @@ class Handler(BaseHTTPRequestHandler):
         })
         self.log(f"jev high {high}")
 
+    def stage(self) -> None:
+        """Answer POST /stage: restage from loopback with --stage, and refuse it otherwise."""
+        if not self.staging or not ipaddress.ip_address(self.client_address[0]).is_loopback:
+            self.refuse("staging is off: the mock runs without --stage, which scripts/stage.sh gives "
+                        "lineup mock alone", 403)
+            return
+        body, problem = self.read_body()
+        with lock:
+            problem = problem or restage(body)
+            now = staged_now()
+        if problem:
+            self.refuse(problem)
+            return
+        self.reply(200, now)
+        if body:
+            # Rare and what a show changes, so logged even when quiet.
+            print(f"mock: stage {json.dumps(body)}, now {json.dumps(now)}", file=sys.stderr, flush=True)
+
     def read_body(self) -> tuple[object, str | None]:
         """Return the request's JSON body, or None and why it is unreadable."""
         raw = self.rfile.read(int(self.headers.get("Content-Length") or 0))
@@ -424,6 +462,51 @@ class Handler(BaseHTTPRequestHandler):
         """Silence the default access log; log() writes one line per request instead."""
 
 
+def renew(schedule: dict[int, T], at: int, value: T) -> None:
+    """Make schedule, a role's --vote or --goto by request number, answer value from request at on,
+    dropping what it held for later requests."""
+    for later in [k for k in schedule if k >= at]:
+        del schedule[later]
+    schedule[at] = value
+
+
+def restage(body: object) -> str | None:
+    """Apply a POST /stage body to Handler's stage from each role's next request on, or return why
+    it is refused, applying none of it. The caller holds lock."""
+    if not isinstance(body, dict) or not set(body) <= {"vote", "propose", "goto", "clear"}:
+        return "expected an object of vote, propose, goto or clear"
+    try:
+        if any("@" in str(v) for v in body.values()):
+            raise argparse.ArgumentTypeError("a live stage holds from the next request, so no @N")
+        vote = vote_arg(body["vote"]) if "vote" in body else None
+        goto = goto_arg(body["goto"])[1] if "goto" in body else None
+        propose = body.get("propose")
+        propose = None if propose in (None, "off") else propose_arg(propose)
+    except (argparse.ArgumentTypeError, TypeError, AttributeError) as e:
+        return str(e) or "expected strings"
+    if body.get("clear") is True:
+        for unit in UNITS.values():
+            renew(Handler.votes.setdefault(unit, {}), served[unit] + 1, None)
+        renew(Handler.gotos, served["core"] + 1, None)
+        Handler.staged = None
+    if vote:
+        unit, _, ballot = vote
+        renew(Handler.votes.setdefault(unit, {}), served[unit] + 1, ballot)
+    if "goto" in body:
+        renew(Handler.gotos, served["core"] + 1, goto)
+    if "propose" in body:
+        Handler.staged = propose
+    return None
+
+
+def staged_now() -> dict:
+    """Say what each role answers at its next request: each unit's forced vote, the core's --goto
+    target and --propose verb, None where the script answers. The caller holds lock."""
+    goto = forced(Handler.gotos, served["core"] + 1)
+    return {"vote": {u: forced(Handler.votes.get(u, {}), served[u] + 1) for u in UNITS.values()},
+            "goto": goto and goto["target"], "propose": Handler.staged and Handler.staged["verb"]}
+
+
 class Server(ThreadingHTTPServer):
     """ThreadingHTTPServer with room for bursts of ballots."""
 
@@ -447,13 +530,14 @@ def slow_arg(value: str) -> tuple[str, float]:
         raise argparse.ArgumentTypeError("expected ROLE=MS") from None
 
 
-def vote_arg(value: str) -> tuple[str, int, str]:
-    """Parse UNIT=approve|reject[@N] into (unit, N, vote); N counts that unit's requests from 1."""
+def vote_arg(value: str) -> tuple[str, int, str | None]:
+    """Parse UNIT=approve|reject|off[@N] into (unit, N, vote), with None for off, which returns the
+    unit to its script; N counts that unit's requests from 1."""
     m = VOTE.fullmatch(value)
     if not m:
         raise argparse.ArgumentTypeError(
-            f"expected UNIT=approve|reject[@N], UNIT one of {', '.join(UNITS.values())}, N from 1")
-    return m[1], int(m[3] or 1), m[2]
+            f"expected UNIT=approve|reject|off[@N], UNIT one of {', '.join(UNITS.values())}, N from 1")
+    return m[1], int(m[3] or 1), None if m[2] == "off" else m[2]
 
 
 def goto_arg(value: str) -> tuple[int, dict | None]:
@@ -464,6 +548,8 @@ def goto_arg(value: str) -> tuple[int, dict | None]:
         raise argparse.ArgumentTypeError("expected X,Y[@N] or off[@N], X and Y in meters, N from 1")
     if m[1] is None:
         return int(m[3] or 1), None
+
+    # bridge/state.v State.staged shows STAGED for a proposal whose why starts with Staged by --.
     return int(m[3] or 1), {"verb": "goto", "target": [float(m[1]), float(m[2])],
                             "why": "Staged by --goto."}
 
@@ -474,6 +560,9 @@ def propose_arg(value: str) -> dict:
     verb, _, why = value.partition(":")
     if not re.fullmatch(r"\S+", verb) or verb.lower() == "goto":
         raise argparse.ArgumentTypeError("expected VERB[:WHY], one word other than goto")
+
+    # bridge/state.v State.staged shows STAGED for a proposal whose why starts with Staged by --,
+    # so a scene's own WHY leaves it to the forced ballots.
     return {"verb": verb, "target": [], "why": why or "Staged by --propose."}
 
 
@@ -492,6 +581,9 @@ def main() -> None:
     ap.add_argument("--goto", type=goto_arg, action="append", default=[], metavar="X,Y[@N]",
                     help="make the core propose goto(X, Y) from its N-th request on, or with off "
                          "return it to its script")
+    ap.add_argument("--stage", action="store_true",
+                    help="serve POST /stage to loopback, which sets what --vote, --propose and --goto "
+                         "set while the mock runs")
     ap.add_argument("--quiet", action="store_true", help="no log line per request")
     args = ap.parse_args()
 
@@ -501,6 +593,7 @@ def main() -> None:
     Handler.gotos = dict(args.goto)
     for unit, n, vote in args.vote:
         Handler.votes.setdefault(unit, {})[n] = vote
+    Handler.staging = args.stage
     Handler.quiet = args.quiet
     host, _, port = args.listen.rpartition(":")
     server = Server((host, int(port)), Handler)

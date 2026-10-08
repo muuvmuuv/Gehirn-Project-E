@@ -15,6 +15,31 @@ just scene=ep13-iruel demo-record
 
 In canon, an Eva without power or pilot can go berserk, and the commanders overrule the MAGI. gehirn takes the other side on purpose ([decisions.md](decisions.md#stack), the stance): losing control ends in the safe state, and nothing turns MAGI's no into a yes. Where a scene departs from canon, it says so.
 
+## Staging live
+
+A show can stage what a scene's script stages while the demo or a scene flies, by key and without a script: a MAGI unit's fall, a refused goto, a proposal that needs all three. In a second terminal, with the mock's port of the run beside it:
+
+```sh
+just demo
+just stage
+```
+
+`just stage 9081` goes with `just demo 9081`, and either goes with `demo-record` and a scene as well.
+
+| Key | Stages |
+| --- | --- |
+| `m`, `c` | MELCHIOR-1's or CASPER-3's ballot: forced approve, then forced reject, then the mock's script again |
+| `g` | The core proposing goto(6.00, 0.00), outside the fence, which MELCHIOR-1 and BALTHASAR-2 refuse, until pressed again |
+| `p` | The core proposing `self_destruct`, an unknown verb that needs all three units, until pressed again |
+| `x` | Every role back to the mock's script, a scene's own staging included |
+| `q` | Quits and leaves the stage as it is |
+
+Each key holds from that role's next request, so it shows at the next vote, and the terminal prints what the mock stages after each. `tools/staging.py` sends each change to the mock's `POST /stage`, which sets what `--vote`, `--propose` and `--goto` set (`tools/mock_endpoint.py`), and the mock logs it in the run's `mock.log`. It reaches the mock on 127.0.0.1 and nothing else: not HQ, not the field unit and not the bridge, which only listens ([ADR 0005](adr/0005-the-bridge.md)). The stage starts the mock with `--stage` on `lineup=mock` alone, so on `lineup=magi`, where the mock is the core that real MAGI judge, the mock refuses the panel and `just stage` quits with one line, and on `lineup=hosted` no mock answers: forcing a vote in the stack would be the commander override the stance rules out. BALTHASAR-2 has no key, since on Jev, the default, the mock forces nothing.
+
+The bridge shows STAGED ON THE MOCK on every vote a staging shaped, a scene's included, so no frame passes a forced vote off as a model's ([Bridge](bridge.md#the-panels)). It reads that from the vote itself, from the why a forced ballot or a staged proposal carries, so the mark comes with the first staged vote and stays on the last one until a vote of the script follows.
+
+On the demo, a stage that leaves the release alone lets every beat come: `g` during the approach, since the body keeps the goto MAGI approved, or `m` before the first release, MELCHIOR-1's fall, which still leaves the release short of the three it needs. A stage that holds the core or turns the release can make the demo miss a beat and stop.
+
 ## Recordings
 
 Each scene was recorded once on its world on 2026-10-06, and `ep12-sahaquiel` on 2026-10-07, and every take flew every beat in order ([assets/README.md](../assets/README.md#scene-recordings)). The MP4s are Git LFS objects, and the website's landing page plays every scene from copies in `website/public/media`.

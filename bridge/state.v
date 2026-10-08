@@ -43,8 +43,17 @@ struct Entry {
 	good bool
 }
 
-// State is everything the bridge shows, folded from the watch streams on the bridge's own clock.
-// frame draws it, and take_view and take_event change it.
+// Past is a verdict the bridge keeps, with when it arrived and the CODE its proposal went to the
+// vote as, so MAGI's block can show it again while it is pinned.
+struct Past {
+	at    i64
+	code  int
+	event lcl.HqEvent
+}
+
+// State is everything the bridge shows, folded from the watch streams on the bridge's own clock,
+// and where the mouse points. frame draws it, take_view and take_event change it, and on_event
+// moves the cursor and pins a vote.
 struct State {
 mut:
 	born         i64 // when the bridge started
@@ -63,11 +72,13 @@ mut:
 	landed       map[string]i64      // when each of those ballots arrived
 	verdict      lcl.HqEvent
 	verdict_at   i64     // when the newest verdict arrived; 0 before, and once a vote ends without one
-	verdicts     []Entry // each proposal with its verdict, newest first
+	verdicts     []Past  // each proposal with its verdict, newest first
 	faults       []Entry // the core's faults, newest first
 	refusals     []Entry // armor refusals, newest first
 	outcomes     []Entry // every other outcome, newest first
 	dropped      string  // why the newest dropped message was dropped
+	cursor       []f32   // the mouse in window pixels, x and y; empty while it is outside the window
+	pinned       i64     // the arrival of the verdict pinned to MAGI's block; 0 while it shows the newest
 }
 
 // take_view folds in a view from the field unit, which arrived at now.
@@ -149,8 +160,7 @@ fn (mut s State) take_event(e lcl.HqEvent, now i64) {
 	s.deliberating = false
 	s.verdict = e
 	s.verdict_at = now
-	s.verdicts =
-		front(s.verdicts, Entry{now, '${e.proposal.label()} ${e.yes}/${e.votes.len}', e.approved})
+	s.verdicts = front(s.verdicts, Past{now, s.code, e})
 }
 
 // abandon closes a vote still open without a verdict, so 決議 shows none for it.
@@ -186,6 +196,168 @@ fn (s State) contact(unit string, now i64) (string, f64) {
 		return 'idle', 0.0
 	}
 	return state, math.max(t, 0)
+}
+
+// pin is the index in verdicts of the vote pinned to MAGI's block, or -1 while the block shows the
+// newest, also once the pinned vote has dropped off the end of verdicts.
+fn (s State) pin() int {
+	if s.pinned != 0 {
+		for i, p in s.verdicts {
+			if p.at == s.pinned {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
+// showing is the index in verdicts of the verdict 決議 shows: the pinned one, else the newest
+// unless MAGI deliberate anew or the vote ended without one, else -1. The list below 決議 starts
+// after it.
+fn (s State) showing() int {
+	i := s.pin()
+	if i >= 0 {
+		return i
+	}
+	return if s.deliberating || s.verdict_at == 0 { -1 } else { 0 }
+}
+
+// shown is s as MAGI's block draws it: the pinned vote in place of the newest, with no ballot
+// landing and no view, since the seat at that vote is not kept, so EX_MODE shows none; or s itself
+// while none is pinned. The header's mark and lights keep reading s.
+fn (s State) shown() State {
+	i := s.pin()
+	if i < 0 {
+		return s
+	}
+	p := s.verdicts[i]
+	mut ballots := map[string]lcl.Vote{}
+	for v in p.event.votes {
+		ballots[v.unit] = v
+	}
+	return State{
+		...s
+		proposal:     p.event.proposal
+		code:         p.code
+		needed:       p.event.needed
+		deliberating: false
+		ballots:      ballots
+		landed:       map[string]i64{}
+		verdict:      p.event
+		verdict_at:   p.at
+		view_at:      0
+	}
+}
+
+// staged says whether s's vote was staged on the mock, as tools/mock_endpoint.py names what it
+// forces: a ballot whose why ends in (--vote), also after a course veto's fact, or a proposal its
+// --goto or --propose staged, whose why starts with Staged by --. The bridge reads it of the vote
+// MAGI's block shows, since that is all the watch streams tell of a stage.
+fn (s State) staged() bool {
+	return s.proposal.why.starts_with('Staged by --')
+		|| s.ballots.values().any(it.why.ends_with('(--vote)'))
+}
+
+// listed is the index in verdicts of the verdict in 決議's list at x, y, or -1.
+fn (s State) listed(x f32, y f32) int {
+	for row in 0 .. 3 {
+		i := s.showing() + 1 + row
+		if i < s.verdicts.len && verdict_row(row).holds(x, y) {
+			return i
+		}
+	}
+	return -1
+}
+
+// click is a click at x, y: on a verdict in 決議's list it pins that one, elsewhere in MAGI's block
+// it pins the newest verdict or unpins the pinned one, so the block follows the votes again.
+// Paging is clicking the list's first line, which holds the verdict before the one pinned.
+fn (mut s State) click(x f32, y f32) {
+	if !magi_box.holds(x, y) {
+		return
+	}
+	i := s.listed(x, y)
+	s.pinned = if i >= 0 {
+		s.verdicts[i].at
+	} else if s.pin() < 0 && s.verdicts.len > 0 {
+		s.verdicts[0].at
+	} else {
+		0
+	}
+}
+
+// hover is the readout for what the cursor at x, y points at, as lines, its title first: the
+// entity on the radar under it, the smallest where several are, else the patch of ground; or the
+// MAGI unit under it once its ballot has landed, in the vote MAGI's block shows. Elsewhere none.
+fn (s State) hover(x f32, y f32) []string {
+	m, a := s.radar()
+	p := s.view.percept
+	if a.holds(x, y) && s.view_at > 0 && s.span.len >= 4 && p.pose.len >= 2 {
+		for list in [p.scene, p.ground] {
+			mut best := -1
+			for i, e in list {
+				if e.pos.len < 2 {
+					continue
+				}
+				d := math.hypot(f64(m.px(e.pos[0]) - x), f64(m.py(e.pos[1]) - y))
+				r := e.r * f64(m.k)
+				near := if e.kind == 'ground' { r } else { math.max(r, 8.0) }
+				if d <= near && (best < 0 || e.r < list[best].r) {
+					best = i
+				}
+			}
+			if best >= 0 {
+				return entity_lines(list[best], p.pose)
+			}
+		}
+		return []
+	}
+	shown := s.shown()
+	for i, unit in units {
+		if unit_box(i).holds(x, y) {
+			v := shown.ballots[unit] or { return [] }
+			return ballot_lines(i, v)
+		}
+	}
+	return []
+}
+
+// entity_lines is the readout of e, seen from the body at pose: its kind and id, its distance
+// center to center as the percept gives MAGI, and as its kind has them the velocity, the seconds
+// until a falling object lands and the share of its speed the body keeps on ground.
+fn entity_lines(e lcl.Entity, pose []f64) []string {
+	mut lines := ['${e.kind} ${e.id}'.to_upper(),
+		'DISTANCE ${lcl.dist(pose[..2], e.pos[..2]):.2f} M']
+	if e.vel.len == 2 {
+		lines << 'VELOCITY ${lcl.norm(e.vel):.2f} M/S (${e.vel[0]:.2f}, ${e.vel[1]:.2f})'
+	} else if e.kind in ['human', 'obstacle'] {
+		lines << 'STANDING'
+	}
+	if e.kind == 'impact' {
+		lines << 'LANDS IN ${e.lands_in:.1f} S'
+	}
+	if e.kind == 'ground' {
+		lines << 'FACTOR ${e.factor:.2f}, ${e.factor * 100:.0f}% OF ITS SPEED'
+	}
+	return lines
+}
+
+// ballot_lines is the readout of MAGI unit i's ballot v: its vote, model and latency and its whole
+// why. A course veto, which binds the unit whatever its model votes, shows the fact apart from what
+// the model voted and why; magi/magi.v Unit.llm_vote writes that why.
+fn ballot_lines(i int, v lcl.Vote) []string {
+	mut lines := ['${shown_as[i]} ${mark(v.vote)}', 'MODEL ${v.model.to_upper()}',
+		'LATENCY ${v.latency_ms} MS']
+	said := v.why.all_after('; the model voted ')
+	if v.why.starts_with('course veto: ') && said != v.why {
+		lines << 'COURSE VETO'
+		lines << wrap(v.why.all_after('course veto: ').all_before('; the model voted '), 56)
+		lines << 'THE MODEL VOTED ${mark(said.all_before(':'))}'
+		lines << wrap(said.all_after(': '), 56)
+	} else {
+		lines << wrap(v.why, 56)
+	}
+	return lines
 }
 
 // front is list with x added in front, cut to keep.

@@ -108,6 +108,11 @@ demo mock="8081" umbilical="7447" watch="7448" plug="7777" dir="": _lineup build
 demo-record mock="8081" umbilical="7447" watch="7448" plug="7777" dir="": _lineup build
     @scripts/record.sh {{ quote(scene) }} {{ quote(mock) }} {{ quote(umbilical) }} {{ quote(watch) }} {{ quote(plug) }} {{ quote(dir) }} {{ quote(lineup) }}
 
+# Switches the mock's forced votes, proposals and gotos by key from a second terminal while the demo or a scene flies on lineup=mock; port is the mock's.
+[no-exit-message]
+stage port="8081":
+    @python3 tools/staging.py {{ quote(port) }}
+
 # Refuses an unknown lineup or scene, a scene on hosted models, and hosted models without their
 # keys, before anything builds.
 [no-exit-message]

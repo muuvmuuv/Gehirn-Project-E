@@ -392,7 +392,8 @@ fn test_take_event_keeps_faults_and_verdicts_apart() {
 	mut s := State{}
 	s.take_event(verdict(release, 2, 3, 'MELCHIOR-1=approve', 'BALTHASAR-2=reject',
 		'CASPER-3=approve'), 5000)
-	assert s.verdicts == [Entry{5000, 'release 2/3', false}]
+	assert s.verdicts.map(it.at) == [i64(5000)] && s.verdicts[0].code == 1
+	assert s.verdicts[0].event.yes == 2 && !s.verdicts[0].event.approved
 	s.take_event(lcl.HqEvent{
 		fault: 'qwen3:8b: HTTP 429'
 	}, 6000)
@@ -462,4 +463,264 @@ fn test_wrap() {
 	} {
 		assert wrap(text, 20) == want, text
 	}
+}
+
+// scene is a state whose radar holds one entity of each kind around the body at the origin,
+// with h1 inside rock's landing zone.
+fn scene() State {
+	mut s := State{}
+	s.take_view(lcl.FieldView{
+		percept: lcl.Percept{
+			pose:   [0.0, 0.0]
+			scene:  [
+				lcl.Entity{
+					id:   'h1'
+					kind: 'human'
+					pos:  [2.0, 0.0]
+					r:    0.3
+					vel:  [0.8, 0.0]
+				},
+				lcl.Entity{
+					id:       'rock'
+					kind:     'impact'
+					pos:      [2.0, 1.0]
+					r:        1.5
+					lands_in: 12.34
+				},
+				lcl.Entity{
+					id:   'o1'
+					kind: 'obstacle'
+					pos:  [0.0, -3.0]
+					r:    0.5
+				},
+				lcl.Entity{
+					id:   'b1'
+					kind: 'beacon'
+					pos:  [-3.0, 0.0]
+					r:    0.3
+				},
+			]
+			ground: [
+				lcl.Entity{
+					id:     'lake'
+					kind:   'ground'
+					pos:    [-3.0, 3.0]
+					r:      1.0
+					factor: 0.5
+				},
+			]
+		}
+	}, 1000)
+	return s
+}
+
+struct HoverCase {
+	name string
+	at   []f64 // meters on the radar, offset by px pixels to the right
+	px   f32
+	want []string
+}
+
+fn test_hover() {
+	s := scene()
+	m, _ := s.radar()
+	cases := [
+		HoverCase{'a walking human, over the zone it stands in', [2.0, 0.0], 0, ['HUMAN H1',
+			'DISTANCE 2.00 M', 'VELOCITY 0.80 M/S (0.80, 0.00)']},
+		HoverCase{'a small mark answers 8 px from its center', [2.0, 0.0], 7.5, ['HUMAN H1',
+			'DISTANCE 2.00 M', 'VELOCITY 0.80 M/S (0.80, 0.00)']},
+		HoverCase{'a falling object', [2.0, 1.0], 0, ['IMPACT ROCK', 'DISTANCE 2.24 M',
+			'LANDS IN 12.3 S']},
+		HoverCase{'a standing obstacle', [0.0, -3.0], 0, ['OBSTACLE O1', 'DISTANCE 3.00 M',
+			'STANDING']},
+		HoverCase{'a beacon', [-3.0, 0.0], 0, ['BEACON B1', 'DISTANCE 3.00 M']},
+		HoverCase{'ground', [-3.0, 3.0], 0, ['GROUND LAKE', 'DISTANCE 4.24 M',
+			'FACTOR 0.50, 50% OF ITS SPEED']},
+		HoverCase{'open floor', [-1.0, -1.5], 0, []string{}},
+	]
+	for c in cases {
+		assert s.hover(m.px(c.at[0]) + c.px, m.py(c.at[1])) == c.want, c.name
+	}
+	assert State{}.hover(m.px(2.0), m.py(0.0)) == []string{}, 'no view, no radar'
+}
+
+// test_ballot_lines checks what a readout shows below the vote, model and latency.
+fn test_ballot_lines() {
+	fact := 'falling object rock lands where the target lies in 6.2 s: the target counts as a no-go zone'
+	for why, want in {
+		'within the fence':                                                       [
+			'within the fence',
+		]
+		'course veto: ${fact}; the model voted approve: forced approve (--vote)': [
+			'COURSE VETO',
+			'falling object rock lands where the target lies in 6.2',
+			's: the target counts as a no-go zone',
+			'THE MODEL VOTED 可決',
+			'forced approve (--vote)',
+		]
+		'course veto: without what the model voted':                              [
+			'course veto: without what the model voted',
+		]
+	} {
+		got := ballot_lines(2, lcl.Vote{
+			unit:       'CASPER-3'
+			model:      'mock-casper'
+			vote:       'reject'
+			why:        why
+			latency_ms: 512
+		})
+		assert got[..3] == ['CASPER • 3 否決', 'MODEL MOCK-CASPER', 'LATENCY 512 MS'], why
+		assert got[3..] == want, why
+	}
+}
+
+fn test_hover_reads_the_unit_under_the_cursor() {
+	mut s := State{}
+	s.take_event(opened(release), 1000)
+	center := fn (i int) []f32 {
+		b := unit_box(i)
+		return [b.x + b.w / 2, b.y + b.h / 2]
+	}
+	c := center(2)
+	assert s.hover(c[0], c[1]) == []string{}, 'a unit still deliberating'
+	s.take_event(lcl.HqEvent{
+		...ballot(release, 'CASPER-3', 'approve')
+		votes: [
+			lcl.Vote{
+				unit:  'CASPER-3'
+				model: 'mock-casper'
+				vote:  'approve'
+				why:   'ok'
+			},
+		]
+	}, 1200)
+	assert s.hover(c[0], c[1])[0] == 'CASPER • 3 可決'
+	m := center(0)
+	assert s.hover(m[0], m[1]) == []string{}, 'MELCHIOR-1 has no ballot yet'
+	assert s.hover(c[0], magi_box.y + 2) == []string{}, 'above the units'
+}
+
+struct ClickCase {
+	name   string
+	clicks [][]f32 // x, y in window pixels
+	pinned i64
+}
+
+fn test_click() {
+	block, row0, row1, away := [f32(100), 120], [f32(600), 255], [f32(600), 272], [
+		f32(900),
+		300,
+	]
+	cases := [
+		ClickCase{'outside MAGI nothing pins', [away], 0},
+		ClickCase{'the block pins the newest', [block], 4000},
+		ClickCase{'a second click unpins', [block, block], 0},
+		ClickCase{'the first line pins the verdict before the newest', [row0], 3000},
+		ClickCase{'the first line pages back from a pinned one', [row0, row0], 2000},
+		ClickCase{'the second line skips one', [row0, row1], 1000},
+		ClickCase{'a line past the oldest is the block', [row0, row0, row0, row0], 0},
+	]
+	for c in cases {
+		mut s := State{}
+		for i in 1 .. 5 {
+			s.take_event(verdict(if i % 2 == 0 { release } else { reach }, i % 2 + 1, 2,
+				'CASPER-3=approve'), 1000 * i)
+		}
+		for xy in c.clicks {
+			s.click(xy[0], xy[1])
+		}
+		assert s.pinned == c.pinned, c.name
+	}
+}
+
+fn test_shown() {
+	mut s := State{}
+	s.take_event(opened(reach), 500)
+	s.take_event(verdict(reach, 3, 2, 'MELCHIOR-1=approve', 'BALTHASAR-2=approve',
+		'CASPER-3=approve'), 1000)
+	s.take_event(opened(release), 2000)
+	s.take_event(ballot(release, 'CASPER-3', 'reject'), 2500)
+	assert s.shown().deliberating, 'nothing pinned shows the vote under way'
+	s.pinned = 1000
+	shown := s.shown()
+	assert !shown.deliberating && shown.code == 1 && shown.proposal == reach
+	assert shown.verdict_at == 1000 && shown.verdict.approved && shown.landed.len == 0
+	assert shown.view_at == 0, 'the seat at a pinned vote is unknown'
+	got, _ := shown.panel('CASPER-3')
+	assert got == 'approve'
+	assert s.showing() == 0 && s.code == 2
+	for i in 0 .. keep {
+		s.take_event(verdict(release, 0, 3, 'CASPER-3=reject'), 3000 + i)
+	}
+	assert s.pin() == -1 && s.shown().verdict_at == 3000 + keep - 1, 'a pin past the list lets go'
+}
+
+fn test_mouse_script() {
+	steps := mouse_script('900,420@9000 click@9500 out@12000') or { panic(err) }
+	assert steps.map(it.at) == [i64(9000), 9500, 12000]
+	assert steps[1].e.typ == .mouse_down && steps[1].e.mouse_x == 900 && steps[1].e.mouse_y == 420
+	assert steps[2].e.typ == .mouse_leave
+	assert (mouse_script('') or { panic(err) }).len == 0
+	for bad in ['900,420', 'click@soon', '1,2,3@5', 'x,1@5', 'wiggle@5'] {
+		if _ := mouse_script(bad) {
+			assert false, bad
+		}
+	}
+}
+
+struct StagedCase {
+	name     string
+	proposal string // the proposal's why
+	ballot   string // CASPER-3's why
+	staged   bool
+}
+
+fn test_staged() {
+	veto := 'course veto: human h1 reaches the target in 0.9 s; the model voted reject: '
+	cases := [
+		StagedCase{'the script', 'Head for beacon b1.', 'Nothing to object to.', false},
+		StagedCase{'a forced ballot', 'Head for beacon b1.', 'forced approve (--vote)', true},
+		StagedCase{'a forced ballot behind a course veto', 'Head for beacon b1.', veto +
+			'forced reject (--vote)', true},
+		StagedCase{'a staged goto', 'Staged by --goto.', 'Nothing to object to.', true},
+		StagedCase{'a staged proposal', 'Staged by --propose.', '', true},
+		StagedCase{'a why that only names the flag', 'Do not use --goto.', '(--vote) is no reason', false},
+	]
+	for c in cases {
+		mut s := State{}
+		s.take_event(lcl.HqEvent{
+			stage:    'ballot'
+			proposal: lcl.Intent{
+				...reach
+				why: c.proposal
+			}
+			votes:    [
+				lcl.Vote{
+					unit: 'CASPER-3'
+					vote: 'approve'
+					why:  c.ballot
+				},
+			]
+		}, 1000)
+		assert s.staged() == c.staged, c.name
+	}
+}
+
+fn test_a_pinned_staged_vote_stays_staged() {
+	mut s := State{}
+	s.take_event(lcl.HqEvent{
+		proposal: lcl.Intent{
+			...reach
+			why: 'Staged by --goto.'
+		}
+		needed:   2
+		votes:    [lcl.Vote{
+			unit: 'CASPER-3'
+			vote: 'approve'
+		}]
+	}, 1000)
+	s.take_event(verdict(release, 3, 3, 'CASPER-3=approve'), 2000)
+	assert !s.shown().staged(), 'the newest vote was the script'
+	s.pinned = 1000
+	assert s.shown().staged()
 }

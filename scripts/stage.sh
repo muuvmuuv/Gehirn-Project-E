@@ -136,6 +136,12 @@ start() {
 # the bridge, HQ and the field unit, and narrates each. It leaves bridge, hq and field set to
 # their process IDs.
 up() {
+    # On lineup mock alone the mock serves POST /stage, which tools/staging.py drives by key: on
+    # magi it serves the core for real MAGI, and forcing those votes would be the commander
+    # override docs/decisions.md rules out.
+    if [ "$lineup" = mock ]; then
+        set -- --stage "$@"
+    fi
     if [ "$lineup" != hosted ]; then
         # The units answer after 0.9, 1.7 and 0.5 s, so the bridge shows each one deliberating,
         # 審議中, until its ballot lands, and the core after 2 s, which paces HQ as timed above; the
