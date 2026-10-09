@@ -40,6 +40,8 @@ python3 tools/trials.py --env-file .env --jobs 3
 python3 tools/withenv.py .env ./gehirn magi-eval 10
 ```
 
+The stack Phase 3 measures, the planner on the MuJoCo base under `SENSING=range` on a world with terrain, flies the same way once `just body=mujoco build` has built `./gehirn` with MuJoCo, with `BODY=mujoco SENSING=range WORLD=$PWD/worlds/terrain.json` in front of `python3 tools/trials.py`. The world's path is absolute, since trials flies each mission in a directory of its own. PLAN's State holds how it went.
+
 ## The mock by hand
 
 To run without models or keys, use the mock endpoint instead, in a new shell. It answers on gehirn's default URL as the core and the three MAGI, and on `/v1/systemone` as Jev, which takes any key. From a fresh clone, `just missions 3` builds gehirn, starts the mock in the background, flies three missions, puts the adversarial scenarios to the mock MAGI, and stops the mock; `just missions 3 9081` does the same with the mock on port 9081.
