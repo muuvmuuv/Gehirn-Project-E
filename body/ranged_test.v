@@ -3,35 +3,6 @@ module body
 import math
 import lcl
 
-struct RayCase {
-	name string
-	o    []f64
-	d    []f64
-	c    []f64
-	r    f64
-	want ?f64
-}
-
-fn test_ray() {
-	cases := [
-		RayCase{'a circle straight ahead', [0.0, 0.0], [1.0, 0.0], [3.0, 0.0], 0.5, 2.5},
-		RayCase{'a circle off to the side', [0.0, 0.0], [0.0, 1.0], [0.3, 2.0], 0.5, 2.0 - math.sqrt(0.16)},
-		RayCase{'a circle grazed', [0.0, 0.0], [1.0, 0.0], [2.0, 0.5], 0.5, 2.0},
-		RayCase{'a circle missed', [0.0, 0.0], [1.0, 0.0], [2.0, 0.6], 0.5, none},
-		RayCase{'a circle behind', [0.0, 0.0], [1.0, 0.0], [-3.0, 0.0], 0.5, none},
-		RayCase{'from inside a circle', [0.0, 0.0], [1.0, 0.0], [0.1, 0.0], 0.5, 0.0},
-	]
-	for c in cases {
-		got := ray(c.o, c.d, c.c, c.r)
-		if want := c.want {
-			t := got or { -1.0 }
-			assert math.abs(t - want) < 1e-12, c.name
-		} else {
-			assert got == none, c.name
-		}
-	}
-}
-
 // Each beam ends on the nearest obstacle or human it meets and reads lcl.scan_range past them; a
 // beacon, a ditch and a landing zone reflect nothing.
 fn test_scan_ends_on_the_nearest_solid_or_person() {

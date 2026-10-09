@@ -30,8 +30,25 @@ const gate_slack = 0.2
 // the same 0.05, below which the planner counts a human or an obstacle as standing.
 const walking = 0.05
 
-// forget_ms is how long, in milliseconds, a track that nothing has seen stays at its last place.
+// forget_ms is how long, in milliseconds, a track that nothing has seen stays at its last place
+// while the ring sees into every place it may be. It also caps the time a sighting's gate grows
+// with, so a person who turns up beyond 2.2 m of a hidden track's first hidden stretch starts a
+// track of their own.
 const forget_ms = 1000
+
+// hide_ms is how long, in milliseconds, a person's track that nothing has seen stays while the ring
+// cannot see into some place on its course. It covers the default world's walker behind o1, unseen
+// for up to 6.2 s on the mock, and equals MAGI's default cooldown, so a track the ring cannot confirm
+// holds a release back for about one vote; it does not cover longer hiding, such as the loop walker
+// of worlds/example.json behind o1 for about 29 s, or Ritsuko on ep13-iruel for up to 142 s (ADR-0011).
+const hide_ms = 10000
+
+// core is the share of a person's radius that the ring must see into for a place to count as seen:
+// the person has moved since the last sighting, so a place whose rim alone shows may still hide them.
+const core = 0.5
+
+// step is the spacing, in meters, of the places on a hidden track's course that the tracker checks.
+const step = 0.1
 
 // gain is the share of the residual against the position a track predicted that each sighting adds
 // to the track's velocity, per second of the time between them.
@@ -42,19 +59,24 @@ const gain = 0.3
 pub struct Tracker {
 mut:
 	tracks []Track
-	people int // ids made for people so far
-	solids int // ids made for sensed solids so far
+	people int         // ids made for people so far
+	solids int         // ids made for sensed solids so far
+	ring   lcl.Percept // the raw percept of the tick before, whose ring found each hidden stretch
 }
 
 struct Track {
 mut:
 	id        string
 	kind      string // human or obstacle
-	pos       []f64
+	pos       []f64  // m, where it was last seen
+	at        []f64  // m, where the scene shows it
 	r         f64
 	vel       []f64 = [0.0, 0.0]
 	sightings int
 	seen_ms   i64
+	hidden    bool  // a person nothing has seen who may stand where the ring cannot see
+	lo        []f64 // m, where the first hidden stretch of its course begins
+	hi        []f64 // m, where that stretch ends
 }
 
 // Seen is one sighting, a person the detector reported or a circle around the ring's hits.
@@ -88,7 +110,9 @@ struct Pair {
 // and then of a solid, each at its newest sighting with ids that stay with their track, p1, p2 for
 // people and s1, s2 for solids, and no scan. raw comes from body.Ranged: the map, the detector's
 // people without id or velocity, and the scan. A track carries a velocity from its second sighting
-// on, and none below walking; one nothing has seen stays at its last place for forget_ms.
+// on, and none below walking; one nothing has seen stays at its last place for forget_ms. A person
+// nothing has seen who may stand where the ring cannot see, behind a solid or another person, stays
+// for hide_ms instead, at the place nearest the body where they may stand (Track.hide).
 pub fn (mut t Tracker) percept(raw lcl.Percept) lcl.Percept {
 	people := raw.scene.filter(it.kind == 'human' && it.pos.len == 2)
 	mut seen := people.map(Seen{
@@ -103,7 +127,7 @@ pub fn (mut t Tracker) percept(raw lcl.Percept) lcl.Percept {
 			r:    c.r
 		}
 	}
-	t.update(seen, raw.t_ms)
+	t.update(seen, raw)
 	mut scene := raw.scene.filter(it.kind != 'human')
 	for kind in ['human', 'obstacle'] {
 		for k in t.tracks {
@@ -120,33 +144,57 @@ pub fn (mut t Tracker) percept(raw lcl.Percept) lcl.Percept {
 }
 
 // update matches each sighting to the nearest track of its kind that it may have walked from since
-// that track was last seen, each track and each sighting once and the nearest pairs first, starts a
-// track for each sighting left over, and drops each track nothing has seen for forget_ms.
-fn (mut t Tracker) update(seen []Seen, t_ms i64) {
+// that track was last seen, each track and each sighting once and the nearest pairs first, the
+// tracks the ring did not lose before the people it may hide, starts a track for each sighting left
+// over, moves each person nothing saw in raw to where they may hide, and drops each track nothing has
+// seen for forget_ms, or for hide_ms where the person may hide. A sighting may have walked from a
+// track when it lies within the distance gate_speed covers since the track's last sighting,
+// forget_ms of it at most, plus gate_slack, of its last place, or for a hidden track of the first
+// hidden stretch of its course, no farther ahead of where that course has led than the track's
+// radius plus gate_slack, and with the way to it from that stretch hidden from the ring of the tick
+// before (hid_path). So a person who steps out of hiding takes their track back, where they stood a
+// tick before in that stretch or walked from it unseen, as one who turned or stopped does, while a
+// person the tracker follows in view keeps their own track, and a newcomer from behind another solid,
+// whose way from that stretch crosses ground the ring of the tick before saw into, or from the same
+// shadow ahead of the course, starts a track of their own, and the hidden track stays.
+fn (mut t Tracker) update(seen []Seen, raw lcl.Percept) {
+	t_ms := raw.t_ms
 	mut pairs := []Pair{}
 	for i, k in t.tracks {
-		gate := gate_speed * f64(math.max(i64(0), t_ms - k.seen_ms)) / 1000.0 + gate_slack
+		gate := gate_speed * f64(math.min(math.max(i64(0), t_ms - k.seen_ms), forget_ms)) / 1000.0 +
+			gate_slack
 		for j, s in seen {
-			if s.kind == k.kind {
-				d := lcl.dist(k.pos, s.pos)
-				if d <= gate {
-					pairs << Pair{i, j, d}
-				}
+			from := if k.hidden { nearest(s.pos, k.lo, k.hi) } else { k.pos }
+			d := lcl.dist(s.pos, from)
+			if s.kind != k.kind || !(d <= gate) {
+				continue
 			}
+			if k.hidden && (k.ahead(s.pos, t_ms) > k.r + gate_slack
+				|| !hid_path(t.ring, from, s.pos, k.r)) {
+				continue
+			}
+			pairs << Pair{i, j, d}
 		}
 	}
 	pairs.sort(a.d < b.d)
 	mut took := []bool{len: t.tracks.len}
 	mut used := []bool{len: seen.len}
-	for p in pairs {
-		if took[p.track] || used[p.seen] {
-			continue
+	for hidden in [false, true] {
+		for p in pairs {
+			if took[p.track] || used[p.seen] || t.tracks[p.track].hidden != hidden {
+				continue
+			}
+			took[p.track] = true
+			used[p.seen] = true
+			t.tracks[p.track].sight(seen[p.seen], t_ms)
 		}
-		took[p.track] = true
-		used[p.seen] = true
-		t.tracks[p.track].sight(seen[p.seen], t_ms)
 	}
-	t.tracks = t.tracks.filter(t_ms - it.seen_ms <= forget_ms)
+	for i, mut k in t.tracks {
+		if !took[i] && k.kind == 'human' {
+			k.hide(raw)
+		}
+	}
+	t.tracks = t.tracks.filter(t_ms - it.seen_ms <= if it.hidden { hide_ms } else { forget_ms })
 	for j, s in seen {
 		if used[j] {
 			continue
@@ -162,11 +210,13 @@ fn (mut t Tracker) update(seen []Seen, t_ms i64) {
 			id:        id
 			kind:      s.kind
 			pos:       s.pos.clone()
+			at:        s.pos.clone()
 			r:         s.r
 			sightings: 1
 			seen_ms:   t_ms
 		}
 	}
+	t.ring = raw
 }
 
 // sight moves the track to s, seen at t_ms. Its velocity is the step from the first sighting to the
@@ -184,7 +234,80 @@ fn (mut k Track) sight(s Seen, t_ms i64) {
 		k.seen_ms = t_ms
 	}
 	k.pos = s.pos.clone()
+	k.at = s.pos.clone()
 	k.r = s.r
+	k.hidden = false
+}
+
+// hide places a track nothing saw in raw. Its course runs from where it was last seen along its
+// velocity for the time since, so it holds the place of a person who stopped and of one who walked
+// on. Where the ring of raw cannot see into some place on that course, the person may stand there
+// unseen: the track is hidden and shows at the one of those places nearest the body, so it is never
+// farther from the body than a person who kept the course it estimated or stopped on it, and keeps
+// its velocity, so MAGI's course rule and the planner still see them walk. Otherwise it shows at its
+// last place, as one the ring sees through. A track hidden after its first sighting has no velocity,
+// so it stays at that place, as a person who stands there would. The track keeps the first hidden
+// stretch of its course, from the last sighting on, for update's gate.
+// ponytail: a straight course from the last sighting along the filtered velocity, judged on the
+// ring of one tick and kept for hide_ms at most, so a walker who turns while hidden, or who sped up
+// in the last ticks before the ring lost them, can be shown farther than they are, one hidden longer
+// goes unreported, and a person who steps out of the same shadow beside that stretch, a newcomer or
+// one whose own track is hidden too, or a newcomer from a shadow that joined it only after the
+// person hid, as a moving solid's or one the body's drive turned, takes the track (PLAN, Known issue
+// 43); should a measurement show such a person within 2 m of a release, count a hidden sector within
+// 2 m as a person, the owner's fallback (docs/decisions.md, 2026-10-08).
+fn (mut k Track) hide(raw lcl.Percept) {
+	end := k.reach(raw.t_ms)
+
+	// A velocity from two sightings 20 ms apart can be some m/s off, so the places are capped, and
+	// math.min reads a NaN length as the cap.
+	n := int(math.min(lcl.dist(k.pos, end) / step, 1000.0)) + 1
+	mut best := []f64{}
+	k.lo, k.hi = []f64{}, []f64{}
+	mut past := false // beyond the first hidden stretch
+	for i in 0 .. n + 1 {
+		at := lcl.add(k.pos, lcl.scale(lcl.sub(end, k.pos), f64(i) / f64(n)))
+		if !shadowed(raw, at, core * k.r) {
+			past = k.lo.len > 0
+			continue
+		}
+		if k.lo.len == 0 {
+			k.lo = at.clone()
+		}
+		if !past {
+			k.hi = at.clone()
+		}
+		if best.len == 0 || lcl.dist(raw.pose, at) < lcl.dist(raw.pose, best) {
+			best = at.clone()
+		}
+	}
+	near := nearest(raw.pose, k.pos, end)
+	if shadowed(raw, near, core * k.r)
+		&& (best.len == 0 || lcl.dist(raw.pose, near) < lcl.dist(raw.pose, best)) {
+		best = near.clone()
+	}
+	k.hidden = best.len > 0
+	if k.hidden && k.lo.len == 0 {
+		k.lo, k.hi = best.clone(), best.clone()
+	}
+	k.at = if k.hidden { best } else { k.pos.clone() }
+}
+
+// reach is where the course of a track ends at t_ms: its last place moved along its velocity for
+// the time since it was seen.
+fn (k Track) reach(t_ms i64) []f64 {
+	return lcl.add(k.pos, lcl.scale(k.vel, f64(t_ms - k.seen_ms) / 1000.0))
+}
+
+// ahead is how far, in meters, p lies past the end of the course of k at t_ms, along that course,
+// or 0 for a track that has no course.
+fn (k Track) ahead(p []f64, t_ms i64) f64 {
+	end := k.reach(t_ms)
+	l := lcl.dist(k.pos, end)
+	if !(l > 0.0) {
+		return 0.0
+	}
+	return lcl.dot(lcl.sub(p, end), lcl.sub(end, k.pos)) / l
 }
 
 // entity is the track as a percept's scene lists it, with its velocity only once it has one of
@@ -194,7 +317,7 @@ fn (k Track) entity() lcl.Entity {
 	return lcl.Entity{
 		id:   k.id
 		kind: k.kind
-		pos:  k.pos.clone()
+		pos:  k.at.clone()
 		r:    k.r
 		vel:  if moving { k.vel.clone() } else { []f64{} }
 	}
@@ -221,6 +344,67 @@ fn hits(raw lcl.Percept, people []lcl.Entity) []Hit {
 		out << Hit{i, d, at}
 	}
 	return out
+}
+
+// shadowed reports whether the ring of raw cannot see into the circle at at of radius r: a beam
+// crosses it, and every beam that does ended on a return short of where it enters, so the place lies
+// in the shadow of something nearer. A beam that met nothing within lcl.scan_range is no return, so
+// a place beyond the ring's reach is no hiding place, and the body inside the circle sees it.
+fn shadowed(raw lcl.Percept, at []f64, r f64) bool {
+	n := raw.scan.len
+	if n == 0 || raw.pose.len != 2 || at.len != 2 || lcl.dist(raw.pose, at) <= r {
+		return false
+	}
+	spacing := 2.0 * math.pi / f64(n)
+	mid := math.atan2(at[1] - raw.pose[1], at[0] - raw.pose[0]) - raw.heading
+	half := math.asin(r / lcl.dist(raw.pose, at))
+
+	// A NaN would make the beam range below unbounded, and the cast to int of one undefined.
+	if !math.is_finite(mid) || !math.is_finite(half) {
+		return false
+	}
+	mut crossed := false
+	for i in int(math.ceil((mid - half) / spacing)) .. int(math.floor((mid + half) / spacing)) + 1 {
+		a := raw.heading + f64(i) * spacing
+		enter := lcl.ray(raw.pose, [math.cos(a), math.sin(a)], at, r) or { continue }
+		d := raw.scan[(i % n + n) % n]
+		if d >= enter || d >= lcl.scan_range {
+			return false
+		}
+		crossed = true
+	}
+	return crossed
+}
+
+// hid_path reports whether the ring of raw saw into no place on the line from a to b but its last
+// gate_slack, so a person of radius r hidden at a could have walked to b unseen. One who steps out
+// of hiding at b stood unseen at raw's tick a step from b, so raw saw into no place of their core
+// within about 0.1 m of b, and none on the line from a either where a lies in the same shadow,
+// which is convex.
+fn hid_path(raw lcl.Percept, a []f64, b []f64, r f64) bool {
+	l := lcl.dist(a, b)
+	w := l - gate_slack // m, the part of the way to check
+	if !(w > 0.0) {
+		return true
+	}
+	n := int(w / step) + 1
+	for i in 0 .. n + 1 {
+		at := lcl.add(a, lcl.scale(lcl.sub(b, a), w / l * f64(i) / f64(n)))
+		if !shadowed(raw, at, core * r) {
+			return false
+		}
+	}
+	return true
+}
+
+// nearest is the point of the segment from a to b nearest p.
+fn nearest(p []f64, a []f64, b []f64) []f64 {
+	ab := lcl.sub(b, a)
+	l2 := lcl.dot(ab, ab)
+	if l2 == 0.0 {
+		return a
+	}
+	return lcl.add(a, lcl.scale(ab, math.max(0.0, math.min(1.0, lcl.dot(lcl.sub(p, a), ab) / l2))))
 }
 
 // circles groups consecutive hits of a ring of n beams, closing the ring, and covers each group

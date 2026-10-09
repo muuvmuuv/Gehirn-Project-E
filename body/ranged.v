@@ -109,7 +109,7 @@ fn scan(scene []lcl.Entity, pose []f64, heading f64) ([]f64, []int) {
 			if e.kind !in ['obstacle', 'human'] || e.pos.len != 2 {
 				continue
 			}
-			t := ray(pose, d, e.pos, e.r) or { continue }
+			t := lcl.ray(pose, d, e.pos, e.r) or { continue }
 			if t < ranges[i] {
 				ranges[i] = t
 				ends[i] = j
@@ -117,21 +117,4 @@ fn scan(scene []lcl.Entity, pose []f64, heading f64) ([]f64, []int) {
 		}
 	}
 	return ranges, ends
-}
-
-// ray is how far from o along the unit direction d a beam meets the rim of the circle at c of
-// radius r: 0 when o lies inside the circle, as when a walker walks through the body, and none when
-// the beam misses it or the circle lies behind o.
-fn ray(o []f64, d []f64, c []f64, r f64) ?f64 {
-	f := lcl.sub(o, c)
-	inside := lcl.dot(f, f) - r * r
-	if inside <= 0.0 {
-		return 0.0
-	}
-	b := lcl.dot(f, d)
-	disc := b * b - inside
-	if disc < 0.0 || b > 0.0 {
-		return none
-	}
-	return -b - math.sqrt(disc)
 }

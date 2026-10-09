@@ -370,6 +370,24 @@ pub fn dist(a []f64, b []f64) f64 {
 	return norm(sub(a, b))
 }
 
+// ray is how far from o along the unit direction d a beam meets the rim of the circle at c of
+// radius r: 0 when o lies inside the circle, as when a walker walks through the body, and none when
+// the beam misses it or the circle lies behind o. body.Ranged casts its ring with it, and
+// sensing.Tracker finds with it where each beam enters a place it checks for a hidden person.
+pub fn ray(o []f64, d []f64, c []f64, r f64) ?f64 {
+	f := sub(o, c)
+	inside := dot(f, f) - r * r
+	if inside <= 0.0 {
+		return 0.0
+	}
+	b := dot(f, d)
+	disc := b * b - inside
+	if disc < 0.0 || b > 0.0 {
+		return none
+	}
+	return -b - math.sqrt(disc)
+}
+
 // clamp_norm shortens a vector to at most max, keeping its direction.
 pub fn clamp_norm(a []f64, max f64) []f64 {
 	n := norm(a)

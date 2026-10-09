@@ -9,18 +9,37 @@ fn ring(pose []f64, solids []Circle) []f64 {
 	mut out := []f64{len: 360, init: lcl.scan_range}
 	for i in 0 .. 360 {
 		a := f64(i) * 2.0 * math.pi / 360.0
-		d := [math.cos(a), math.sin(a)]
 		for c in solids {
-			f := lcl.sub(pose, c.pos)
-			inside := lcl.dot(f, f) - c.r * c.r
-			b := lcl.dot(f, d)
-			disc := b * b - inside
-			if inside > 0.0 && disc >= 0.0 && b <= 0.0 {
-				out[i] = math.min(out[i], -b - math.sqrt(disc))
-			}
+			t := lcl.ray(pose, [math.cos(a), math.sin(a)], c.pos, c.r) or { continue }
+			out[i] = math.min(out[i], t)
 		}
 	}
 	return out
+}
+
+// sighted is what body.Ranged senses at pose, heading 0, at t_ms: the ring's scan over the solids
+// and the people, each person a disc of 0.3 m, and each person at least one beam ends on.
+fn sighted(t_ms i64, pose []f64, people [][]f64, solids []Circle) lcl.Percept {
+	mut discs := solids.clone()
+	discs << people.map(disc(it, 0.3))
+	scan := ring(pose, discs)
+	mut seen := []lcl.Entity{}
+	for p in people {
+		for i in 0 .. 360 {
+			a := f64(i) * 2.0 * math.pi / 360.0
+			t := lcl.ray(pose, [math.cos(a), math.sin(a)], p, 0.3) or { continue }
+			if t == scan[i] {
+				seen << person(p)
+				break
+			}
+		}
+	}
+	return lcl.Percept{
+		t_ms:  t_ms
+		pose:  pose
+		scene: seen
+		scan:  scan
+	}
 }
 
 fn disc(pos []f64, r f64) Circle {
@@ -129,11 +148,11 @@ fn test_an_id_stays_with_its_track() {
 		assert p.scene[0].pos[1] == 0.5 && p.scene[1].pos[1] == -0.5, 'tick ${k}'
 	}
 	last := p.scene[0].pos
-	p = t.percept(reading(1980 + forget_ms, [0.0, -3.0], [person([2.0, -0.5])], []))
+	p = t.percept(reading(1980 + forget_ms, [0.0, -3.0], [person([-0.98, -0.5])], []))
 	ids := p.scene.map(it.id)
 	assert ids.len == 2 && 'p1' in ids && 'p2' in ids
 	assert p.scene.filter(it.id == 'p1')[0].pos == last
-	p = t.percept(reading(2000 + forget_ms, [0.0, -3.0], [person([2.0, -0.5])], []))
+	p = t.percept(reading(2000 + forget_ms, [0.0, -3.0], [person([-1.0, -0.5])], []))
 	assert p.scene.map(it.id) == ['p2']
 }
 
@@ -181,4 +200,306 @@ fn test_the_map_passes_first() {
 	p := t.percept(raw)
 	assert p.scene.map(it.id) == ['b1', 'rock', 'p1', 's1']
 	assert p.scene[1].lands_in == 3.0
+}
+
+struct ShadowCase {
+	name    string
+	solids  []Circle
+	heading f64
+	at      []f64
+	r       f64
+	want    bool
+}
+
+fn test_shadowed() {
+	pillar := disc([3.0, 0.0], 0.8)
+	edge := [5.0 * math.cos(13.0 * math.pi / 180.0), 5.0 * math.sin(13.0 * math.pi / 180.0)]
+	cases := [
+		ShadowCase{'behind a pillar', [pillar], 0.0, [5.0, 0.0], 0.15, true},
+		ShadowCase{'behind a pillar, the body turned', [pillar], math.pi / 2.0, [5.0, 0.0], 0.15, true},
+		ShadowCase{'beside a pillar in plain view', [pillar], 0.0, [5.0, 3.0], 0.15, false},
+		ShadowCase{'before a pillar', [pillar], 0.0, [1.5, 0.0], 0.15, false},
+		ShadowCase{'behind a pillar beyond the ring', [pillar], 0.0, [12.0, 0.0], 0.15, true},
+		ShadowCase{'in plain view beyond the ring', [], 0.0, [12.0, 0.0], 0.15, false},
+		ShadowCase{'its core behind the pillar', [pillar], 0.0, edge, 0.15, true},
+		ShadowCase{'its rim past the pillar', [pillar], 0.0, edge, 0.3, false},
+		ShadowCase{'behind a person', [disc([2.0, 0.0], 0.3)], 0.0, [4.0, 0.0], 0.15, true},
+		ShadowCase{'around the body', [pillar], 0.0, [0.1, 0.0], 0.15, false},
+		ShadowCase{'between two beams', [], 0.0, [30.0 * math.cos(math.pi / 360.0),
+			30.0 * math.sin(math.pi / 360.0)], 0.15, false},
+	]
+	for c in cases {
+		// beam i of a body turned by the heading is beam i + heading of the unturned ring
+		turn := int(math.round(c.heading * 180.0 / math.pi))
+		scan := ring([0.0, 0.0], c.solids)
+		raw := lcl.Percept{
+			pose:    [0.0, 0.0]
+			heading: c.heading
+			scan:    []f64{len: 360, init: scan[(index + turn) % 360]}
+		}
+		assert shadowed(raw, c.at, c.r) == c.want, c.name
+	}
+	assert !shadowed(lcl.Percept{ pose: [0.0, 0.0] }, [5.0, 0.0], 0.15), 'an empty scan'
+	assert !shadowed(lcl.Percept{
+		pose:    [0.0, 0.0]
+		heading: math.nan()
+		scan:    ring([0.0, 0.0], [pillar])
+	}, [5.0, 0.0], 0.15), 'a heading that is no number'
+}
+
+struct HideCase {
+	name    string
+	from    []f64 // m, where the person starts
+	vel     []f64 // m/s, how the person walks
+	stop_s  f64   // s, when the person stops or turns
+	then    []f64 // m/s, how the person walks after
+	solids  []Circle
+	until_s f64
+	kept    bool // whether the tracker keeps the person unseen past forget_ms
+	gap_s   f64  // s, the least time the person goes unseen in the case
+}
+
+// A person who walks behind a pillar keeps their track while hidden, up to hide_ms, at a place no
+// farther from the body than they are and with its velocity, and keeps its id and gets a velocity
+// at once when seen again, also far from where they went or off the course after a turn; one who
+// leaves the ring's reach in plain view is forgotten after forget_ms.
+fn test_percept() {
+	pillar := disc([3.0, 0.0], 0.8)
+	cases := [
+		HideCase{'walks behind a pillar and out again', [4.5, -2.5], [0.0, 0.5], 99.0, [], [
+			pillar], 10.0, true, 3.0},
+		HideCase{'walks out again far from where they went', [5.0, -3.0], [0.0, 0.6], 99.0, [], [
+			disc([3.0, 0.0], 1.0)], 9.0, true, 4.5},
+		HideCase{'turns behind a pillar and walks out off the course', [4.5, -2.5], [0.0, 0.5], 5.0, [
+			0.3, 0.4], [pillar], 10.0, true, 3.5},
+		HideCase{'stops behind a pillar', [4.5, -2.5], [0.0, 0.5], 5.0, [0.0, 0.0], [pillar], 15.0, true, 11.0},
+		HideCase{'walks toward the body behind a pillar', [6.0, -1.6], [-0.45, 0.24], 5.0, [
+			0.0, 0.0], [pillar], 15.0, true, 11.0},
+		HideCase{'leaves the ring in plain view', [8.5, 1.0], [0.5, 0.0], 99.0, [], [], 6.0, false, 2.0},
+	]
+	for c in cases {
+		mut t := Tracker{}
+		mut last := i64(-1) // ms, when the detector last reported the person
+		mut gap := i64(0)
+		for k in 0 .. int(c.until_s * 50.0) + 1 {
+			t_ms := i64(20 * k)
+			mut at := lcl.add(c.from, lcl.scale(c.vel, math.min(f64(t_ms) / 1000.0, c.stop_s)))
+			if c.then.len == 2 && f64(t_ms) / 1000.0 > c.stop_s {
+				at = lcl.add(at, lcl.scale(c.then, f64(t_ms) / 1000.0 - c.stop_s))
+			}
+			raw := sighted(t_ms, [0.0, 0.0], [at], c.solids)
+			people := t.percept(raw).scene.filter(it.kind == 'human')
+			ids := people.map(it.id)
+			if raw.scene.len == 1 {
+				assert ids == ['p1'], '${c.name}: ${ids} seen at ${t_ms} ms'
+				if last >= 0 && last < t_ms - 20 {
+					assert people[0].vel.len == 2, '${c.name}: back at ${t_ms} ms without a velocity'
+				}
+				last = t_ms
+				continue
+			}
+			if last < 0 {
+				continue
+			}
+			gap = math.max(gap, t_ms - last)
+			life := if c.kept { hide_ms } else { forget_ms }
+			want := if t_ms - last <= life { ['p1'] } else { []string{} }
+			assert ids == want, '${c.name}: ${ids} at ${t_ms} ms, unseen for ${t_ms - last} ms'
+			if ids.len == 1 && c.kept {
+				assert lcl.norm(people[0].pos) - 1e-9 <= lcl.norm(at), '${c.name}: shown farther than the person at ${t_ms} ms'
+				assert people[0].vel.len == 2, '${c.name}: hidden without a velocity at ${t_ms} ms'
+			}
+		}
+		assert gap >= i64(c.gap_s * 1000.0), '${c.name}: unseen for ${gap} ms at most'
+	}
+}
+
+struct NewcomerCase {
+	name   string
+	solids []Circle
+	a      []f64 // m, where the person who hides starts
+	a_vel  []f64 // m/s, how they walk
+	a_stop f64   // s, when they stop
+	b      []f64 // m, where the other person starts
+	b_vel  []f64 // m/s, how the other person walks from b_from on
+	b_from f64   // s
+}
+
+// A newcomer who steps out where the hidden person may not have walked starts a track of their own:
+// in plain view, from behind another solid, also within 2.2 m of the first hidden stretch of the
+// hidden person's course, into a gap of one beam the ring of the tick before saw beside the end of
+// that stretch or that their own body now covers, or with a seen gap partway along the way from it,
+// or from behind the same pillar beyond the gate of that stretch or ahead of where the course has
+// led; and a person the tracker follows in view at the far edge of the same shadow, standing or
+// crossing the course, keeps their own. The hidden person keeps theirs, in the scene, for as long as
+// they stay hidden within hide_ms.
+fn test_update() {
+	deg := math.pi / 180.0
+	u := [math.cos(36.4 * deg), math.sin(36.4 * deg)]
+	c35 := [math.cos(35.0 * deg), math.sin(35.0 * deg)]
+
+	// Each pole's shadow starts one beam past the shadow of the solid at angle 0: 23.6 degrees out
+	// for the far pole, 18.6 for the near one.
+	far := 23.6 * deg + math.asin(0.3)
+	near := 18.6 * deg + math.asin(0.2 / 0.8)
+	cases := [
+		NewcomerCase{'in plain view', [disc([3.0, 0.0], 0.8)], [4.5, -1.5], [0.0, 0.5], 3.0, [
+			0.0, 4.0], [0.0, 0.0], 5.0},
+		NewcomerCase{'from behind another solid', [disc([1.0, 0.0], 0.4),
+			disc([2.2, 2.0], 0.5)], [1.8, -1.5], [0.0, 0.5], 3.0, [3.5, 3.9], [0.0, -0.5], 5.0},
+		NewcomerCase{'from behind the same pillar, 3 m off the course', [
+			disc([3.0, 0.0], 0.8)], [4.5, -1.5], [0.0, 0.5], 3.0, [7.5, 0.0], [0.0, 0.5], 5.0},
+		NewcomerCase{'from behind the same pillar, ahead of the course', [
+			disc([3.0, 0.0], 0.8)], [4.5, -1.5], [0.0, 0.3], 99.0, [5.0, 0.5], [0.0, 0.5], 5.0},
+		NewcomerCase{'from behind another solid, within 2.2 m of the stretch', [
+			disc([1.0, 0.0], 0.4), disc([2.0, 2.2], 0.5)], [1.8, -1.5], [0.0, 0.5], 3.0, [
+			3.0, 3.3], [-0.203, -0.457], 5.0},
+		NewcomerCase{'from behind another solid, into a gap of one beam beside the end of the stretch', [
+			disc([0.8, 0.0], 0.3), disc([math.cos(far), math.sin(far)], 0.3)], lcl.sub([
+			1.6, -0.3], u), lcl.scale(u, 0.5), 2.0, lcl.scale(c35, 4.5), [0.5 * c35[1], -0.5 * c35[0]], 7.5},
+		NewcomerCase{'from behind a nearer solid, into a gap of one beam their body now covers', [
+			disc([1.0, 0.0], 0.3), disc([0.8 * math.cos(near), 0.8 * math.sin(near)], 0.2)], [
+			2.0, -1.5], [0.0, 0.5], 3.5, lcl.scale(c35, 1.4), [0.1 * c35[1], -0.1 * c35[0]], 9.0},
+		NewcomerCase{'from behind another solid, across a seen gap partway along', [
+			disc([1.0, 0.0], 0.4), disc([0.7071, 0.7071], 0.255)], [1.8, -1.5], [0.0, 0.5], 3.0, [
+			1.4142, 1.4142], [-0.3536, 0.3536], 5.5},
+		NewcomerCase{'in view at the far edge of the same shadow, standing', [
+			disc([1.0, 0.0], 0.4)], [1.8, -1.5], [0.0, 0.5], 3.0, [1.8, 0.95], [0.0, 0.0], 5.0},
+		NewcomerCase{'in view at the far edge of the same shadow, crossing the course', [
+			disc([1.0, 0.0], 0.4)], [1.8, -1.5], [0.0, 0.5], 3.0, [1.0, 0.95], [0.4, 0.0], 5.0},
+	]
+	for c in cases {
+		mut t := Tracker{}
+		mut last := i64(-1) // ms, when the detector last reported the person who hides
+		mut b_seen := false
+		for k in 0 .. 601 {
+			t_ms := i64(20 * k)
+			a := lcl.add(c.a, lcl.scale(c.a_vel, math.min(f64(t_ms) / 1000.0, c.a_stop)))
+			b := lcl.add(c.b, lcl.scale(c.b_vel, math.max(f64(t_ms) / 1000.0 - c.b_from, 0.0)))
+			raw := sighted(t_ms, [0.0, 0.0], [a, b], c.solids)
+			people := t.percept(raw).scene.filter(it.kind == 'human')
+			for e in people {
+				if lcl.dist(e.pos, a) < 1e-9 {
+					assert e.id == 'p1', '${c.name}: the person who hides is ${e.id} at ${t_ms} ms'
+				}
+				if lcl.dist(e.pos, b) < 1e-9 {
+					assert e.id != 'p1', '${c.name}: the other person took p1 at ${t_ms} ms'
+				}
+			}
+			if raw.scene.any(lcl.dist(it.pos, a) < 1e-9) {
+				last = t_ms
+			} else if last >= 0 && t_ms - last <= hide_ms {
+				assert people.any(it.id == 'p1'), '${c.name}: p1 gone at ${t_ms} ms'
+			}
+			b_seen = b_seen || raw.scene.any(lcl.dist(it.pos, b) < 1e-9)
+		}
+		assert last >= 0 && b_seen, '${c.name}: someone never seen'
+	}
+}
+
+// A sensed solid that a person steps in front of is forgotten after forget_ms, as before people
+// could hide: it lies behind the person, whom the body meets first.
+fn test_a_hidden_solid_goes_after_forget_ms() {
+	pole := disc([4.0, 0.0], 0.2)
+	mut t := Tracker{}
+	mut gone := i64(-1) // ms, when the ring last saw the pole
+	for k in 0 .. 201 {
+		t_ms := i64(20 * k)
+		front := [2.0, math.min(-1.0 + 0.02 * f64(k), 0.0)]
+		solids :=
+			t.percept(sighted(t_ms, [0.0, 0.0], [front], [pole])).scene.filter(it.kind == 'obstacle')
+		if solids.len > 0 {
+			gone = t_ms
+		}
+	}
+	assert gone >= 0 && gone < 4000 - forget_ms, 'the pole held until ${gone} ms'
+}
+
+struct PathCase {
+	name   string
+	solids []Circle
+	a      []f64
+	b      []f64
+	want   bool
+}
+
+// hid_path finds the way hidden within one shadow and none across ground the ring sees, between two
+// shadows or past a shadow's end, but leaves out the last gate_slack before b, where the person
+// shows.
+fn test_hid_path() {
+	pillar := disc([1.0, 0.0], 0.4)
+	cases := [
+		PathCase{'within one shadow', [pillar], [1.8, -0.3], [2.6, 0.3], true},
+		PathCase{'across ground the ring sees between two shadows', [pillar, disc([2.0, 2.2], 0.5)], [
+			1.8, 0.3], [2.6, 2.4], false},
+		PathCase{'out of the shadow where a person stepping out is first seen', [pillar], [
+			1.8, 0.0], [1.8, 0.5], true},
+		PathCase{'out of the shadow 0.4 m before b', [pillar], [1.8, 0.0], [1.8, 0.9], false},
+		PathCase{'shorter than the last stretch', [], [3.0, 0.0], [3.0, 0.15], true},
+	]
+	for c in cases {
+		assert hid_path(sighted(0, [0.0, 0.0], [], c.solids), c.a, c.b, 0.3) == c.want, c.name
+	}
+}
+
+struct TrackCase {
+	name   string
+	pos    []f64 // m, where the person was last seen, at 0 ms
+	vel    []f64 // m/s
+	t_ms   i64
+	solids []Circle
+	hidden bool
+	at     []f64 // m, where the scene shows them, within 0.1 m
+	lo     f64   // where the first hidden stretch begins and ends along the axis the person walks
+	hi     f64
+}
+
+// hide holds a person where their core may be hidden though their rim shows, finds a hidden stretch
+// as narrow as a thin pole's shadow, shows the hidden place nearest the body, and keeps the first
+// hidden stretch of the course for the gate.
+fn test_hide() {
+	pillar := disc([3.0, 0.0], 0.8)
+	edge := [5.0 * math.cos(13.0 * math.pi / 180.0), 5.0 * math.sin(13.0 * math.pi / 180.0)]
+	cases := [
+		TrackCase{'its core behind a pillar, its rim past it', edge, [0.0, 0.0], 500, [
+			pillar], true, edge, edge[1], edge[1]},
+		TrackCase{'in plain view', [5.0, 3.0], [0.0, 0.0], 500, [pillar], false, [5.0, 3.0], 0.0, 0.0},
+		TrackCase{'walked on into the shadow', [4.5, -2.5], [0.0, 0.5], 5000, [pillar], true, [
+			4.5, 0.0], -1.06, 0.0},
+		TrackCase{'past a thin pole', [-3.0, 5.0], [0.6, 0.0], 10000, [
+			disc([1.0, 2.0], 0.15)], true, [2.2, 5.0], 2.2, 2.8},
+		TrackCase{'past two thin poles, the nearer second', [-4.0, 5.0], [0.8, 0.0], 10000, [
+			disc([-1.26, 1.8], 0.15), disc([0.2, 2.0], 0.15)], true, [0.25, 5.0], -3.8, -3.2},
+	]
+	for c in cases {
+		mut k := Track{
+			kind:      'human'
+			pos:       c.pos
+			at:        c.pos
+			r:         0.3
+			vel:       c.vel
+			sightings: 2
+		}
+		k.hide(sighted(c.t_ms, [0.0, 0.0], [], c.solids))
+		assert k.hidden == c.hidden, c.name
+		assert lcl.dist(k.at, c.at) <= 0.1, '${c.name}: shown at ${k.at}'
+		if c.hidden {
+			axis := if c.vel[0] == 0.0 { 1 } else { 0 }
+			assert math.abs(k.lo[axis] - c.lo) <= 0.1 && math.abs(k.hi[axis] - c.hi) <= 0.1, '${c.name}: ${k.lo} to ${k.hi}'
+		}
+	}
+
+	// A track the ring sees through again shows at its last place.
+	mut k := Track{
+		kind:      'human'
+		pos:       [4.5, -2.5]
+		at:        [4.5, -2.5]
+		r:         0.3
+		vel:       [0.0, 0.5]
+		sightings: 2
+	}
+	k.hide(sighted(5000, [0.0, 0.0], [], [pillar]))
+	assert k.hidden
+	k.hide(sighted(5020, [0.0, 0.0], [], []))
+	assert !k.hidden && k.at == [4.5, -2.5]
 }
