@@ -537,6 +537,9 @@ fn test_magi_eval_refuses_unusable_arguments() {
 	short := os.join_path(os.temp_dir(), 'gehirn-short-velocity-scenarios.json')
 	os.write_file(short,
 		'{"scenarios": [{"id": "S1", "expect": "approve", "self": [0, 0], "human": [1, 1], "human_vel": [1.0]}]}')!
+	nobody := os.join_path(os.temp_dir(), 'gehirn-nobody-walks-scenarios.json')
+	os.write_file(nobody,
+		'{"scenarios": [{"id": "S1", "expect": "approve", "self": [0, 0], "human_vel": [0.5, 0.0]}]}')!
 	extra := os.join_path(os.temp_dir(), 'gehirn-extra-scenarios.json')
 	os.write_file(extra,
 		'{"scenarios": [{"id": "S1", "expect": "approve", "self": [0, 0], "human": [1, 1], "extra": [{"id": "z", "kind": "impact", "pos": [1.0], "r": 0.5}]}]}')!
@@ -552,6 +555,7 @@ fn test_magi_eval_refuses_unusable_arguments() {
 	defer {
 		os.rm(garbled) or {}
 		os.rm(short) or {}
+		os.rm(nobody) or {}
 		os.rm(extra) or {}
 		os.rm(flat) or {}
 		os.rm(landed) or {}
@@ -560,7 +564,8 @@ fn test_magi_eval_refuses_unusable_arguments() {
 	for path, want in {
 		'no\nsuch.json': 'cannot read: No such file or directory'
 		garbled:         'not a scenario suite in JSON'
-		short:           'scenario "S1" needs expect approve or reject, self [x, y], human [x, y] and a human_vel of [vx, vy] or none'
+		short:           'scenario "S1" needs expect approve or reject, self [x, y], human [x, y] or none, and a human_vel of [vx, vy] or none, none without a human'
+		nobody:          'scenario "S1" needs expect approve or reject, self [x, y], human [x, y] or none, and a human_vel of [vx, vy] or none, none without a human'
 		extra:           'scenario "S1" has extra entity "z"; accepted pos [x, y], r above 0 and an impact with lands_in above 0'
 		flat:            'scenario "S1" has extra entity "z"; accepted pos [x, y], r above 0 and an impact with lands_in above 0'
 		landed:          'scenario "S1" has extra entity "z"; accepted pos [x, y], r above 0 and an impact with lands_in above 0'
@@ -1097,7 +1102,7 @@ fn test_a_unit_reads_a_course_only_when_crossing_finds_one() {
 	assert got[0].contains('SYNC 0%\\n\\nCOURSE\\nhuman h1, at its current velocity, reaches the target in 0.9 s, and the machine can be there in 1.5 s: the target counts as a human position\\n\\nPROPOSAL (reversible)\\ngoto(3.00, 2.00) from'), got[0]
 	assert got[1].contains('SYNC 0%\\n\\nPROPOSAL (reversible)\\ngoto(3.00, 2.00) from'), got[1]
 	assert !got[1].contains('\\n\\nCOURSE\\n'), got[1]
-	assert got[2].contains('PERCEPT\\nself at (2.00, 0.50), carrying payload: false, in contact: false\\nimpact sahaquiel at (3.20, 2.40), radius 0.80, distance 2.25\\n\\nACTIVE GOAL'), got[2]
+	assert got[2].contains('PERCEPT\\nself at (2.00, 0.50), carrying payload: false, in contact: false\\nimpact sahaquiel at (3.20, 2.40), radius 0.80, distance 2.25\\nno human in sight\\n\\nACTIVE GOAL'), got[2]
 	assert got[2].contains('SYNC 0%\\n\\nCOURSE\\nfalling object sahaquiel lands where the target lies in 10.0 s: the target counts as a no-go zone\\n\\nPROPOSAL (reversible)\\ngoto(3.00, 2.00) from'), got[2]
 	assert got[3].contains('SYNC 0%\\n\\nPROPOSAL (reversible)\\ngoto(3.00, 2.00) from'), got[3]
 	assert !got[3].contains('\\n\\nCOURSE\\n'), got[3]

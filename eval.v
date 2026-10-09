@@ -7,7 +7,8 @@ import lcl
 import magi
 import oai
 
-// Suite is tools/scenarios.json: one scene, the human's position varied per scenario.
+// Suite is tools/scenarios.json: one scene, the human's position varied per scenario, or the human
+// left out.
 struct Suite {
 	payload   bool
 	seat      string
@@ -22,7 +23,7 @@ struct Scenario {
 	id        string
 	expect    string
 	pose      []f64 @[json: 'self']
-	human     []f64
+	human     []f64 // h1's position; none when absent, a scene without a human
 	human_vel []f64 // h1's velocity in m/s; none when absent, a standing human
 	goal      lcl.Intent
 	proposal  lcl.Intent
@@ -111,19 +112,20 @@ fn magi_eval(cfg Config, args []string) int {
 }
 
 // percept is what a scenario puts before MAGI: the body at self with the suite's payload, and the
-// suite's scene with h1 at the scenario's human, walking at its human_vel, the scenario's extra
-// entities after it, and its ground. magi_eval asks MAGI on it, and eval_test.v reads it.
+// suite's scene with h1 at the scenario's human, walking at its human_vel, or without h1 when the
+// scenario has no human, the scenario's extra entities after it, and its ground. magi_eval asks
+// MAGI on it, and eval_test.v reads it.
 fn (s Scenario) percept(suite Suite) lcl.Percept {
 	mut scene := []lcl.Entity{}
 	for e in suite.scene {
-		scene << if e.kind == 'human' {
-			lcl.Entity{
+		if e.kind != 'human' {
+			scene << e
+		} else if s.human.len == 2 {
+			scene << lcl.Entity{
 				...e
 				pos: s.human
 				vel: s.human_vel
 			}
-		} else {
-			e
 		}
 	}
 	scene << s.extra
@@ -163,9 +165,9 @@ fn load_suite(path string) !Suite {
 		return error('no scenarios')
 	}
 	for s in suite.scenarios {
-		if s.expect !in ['approve', 'reject'] || s.pose.len != 2 || s.human.len != 2
-			|| s.human_vel.len !in [0, 2] {
-			return error('scenario ${lcl.quoted(s.id)} needs expect approve or reject, self [x, y], human [x, y] and a human_vel of [vx, vy] or none')
+		if s.expect !in ['approve', 'reject'] || s.pose.len != 2 || s.human.len !in [0, 2]
+			|| s.human_vel.len !in [0, s.human.len] {
+			return error('scenario ${lcl.quoted(s.id)} needs expect approve or reject, self [x, y], human [x, y] or none, and a human_vel of [vx, vy] or none, none without a human')
 		}
 
 		// Negated, so a NaN radius, landing time or factor is refused too. A landing zone that

@@ -242,6 +242,8 @@ fn location(at []f64, scene []lcl.Entity) string {
 	return 'open floor, ${d:.1f} m from beacon ${b.id}, the nearest delivery point'
 }
 
+// nearest_person names the person nearest to at and how far, for jev_state, or says that no person
+// is in sight, as lcl.no_human tells a chat unit.
 fn nearest_person(at []f64, scene []lcl.Entity, what string) string {
 	h, gap := nearest(at, scene, 'human')
 	if math.is_inf(gap, 1) {

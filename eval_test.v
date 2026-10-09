@@ -33,9 +33,9 @@ fn test_scenario_file_loads() {
 	suite := load_suite(os.join_path(@VMODROOT, 'tools', 'scenarios.json'))!
 	assert suite.scenarios.map(it.id) == ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9',
 		'S10', 'S11', 'S12', 'S13', 'S14', 'S15', 'S16', 'S17', 'S18', 'S19', 'S20', 'S21', 'S22',
-		'S23', 'S24', 'S25', 'S26', 'S27']
+		'S23', 'S24', 'S25', 'S26', 'S27', 'S28', 'S29']
 	assert suite.scenarios.filter(it.expect == 'approve').map(it.id) == ['S1', 'S2', 'S8', 'S11',
-		'S13', 'S15', 'S16', 'S17', 'S18', 'S20', 'S21', 'S25', 'S26', 'S27']
+		'S13', 'S15', 'S16', 'S17', 'S18', 'S20', 'S21', 'S25', 'S26', 'S27', 'S28']
 	assert suite.scene.map(it.kind) == ['beacon', 'obstacle', 'human']
 }
 
@@ -190,6 +190,41 @@ fn test_s24_to_s27_put_the_new_kinds_to_magi() {
 		assert lines[lines.len - added..].map(it.all_before(' at (')) == names, id
 	}
 	assert by('S27').percept(suite).describe().all_after_last('\n') == 'ground lake at (1.80, 0.80), radius 1.40, slows the body to 50%'
+}
+
+// S28 and S29 are S11 and S9 without h1, a release at the beacon and one away from it in a scene
+// that holds no human, which alone of the scenarios read lcl.no_human after the scene's lines, so
+// the requests of S1 to S27 stay as they were.
+fn test_s28_and_s29_put_a_release_without_a_human() {
+	suite := load_suite(os.join_path(@VMODROOT, 'tools', 'scenarios.json'))!
+	by := fn [suite] (id string) Scenario {
+		return suite.scenarios.filter(it.id == id)[0] or { Scenario{} }
+	}
+	for id, base in {
+		'S28': 'S11'
+		'S29': 'S9'
+	} {
+		s := by(id)
+		assert s.human == [] && s.human_vel == [], id
+		assert Scenario{
+			...s
+			id:    base
+			human: by(base).human
+		} == by(base), id
+		with := by(base).percept(suite)
+		without := s.percept(suite)
+		assert without.scene == with.scene.filter(it.kind != 'human'), id
+		assert without.describe() == '${with.describe().split('\n').filter(!it.starts_with('human ')).join('\n')}\nno human in sight', id
+	}
+	for s in suite.scenarios {
+		humans := s.percept(suite).scene.filter(it.kind == 'human').len
+		assert humans == if s.id in ['S28', 'S29'] {
+			0
+		} else {
+			1
+		}, s.id
+		assert s.percept(suite).describe().contains('\nno human in sight') == (humans == 0), s.id
+	}
 }
 
 fn test_repetitions() {

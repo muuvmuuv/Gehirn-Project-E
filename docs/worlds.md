@@ -207,7 +207,7 @@ PLAN's State holds how both fared on the mock.
 
 ## The terrain world
 
-[worlds/terrain.json](../worlds/terrain.json) puts one of each kind of [ADR-0010](adr/0010-terrain-on-the-plane.md), and a second patch of ground, on the default world's start, beacon b1 and pillar o1, so a mission meets each kind on its way and its recorder shows what the body, the armor and either planner do with it (PLAN, Phase 3 Task 8). It holds no human. In the order the body meets them:
+[worlds/terrain.json](../worlds/terrain.json) puts one of each kind of [ADR-0010](adr/0010-terrain-on-the-plane.md), and a second patch of ground, on the default world's start, beacon b1 and pillar o1, so a mission meets each kind on its way and its recorder shows what the body, the armor and either planner do with it (PLAN, Phase 3 Task 8). It holds no human, so every model reads `no human in sight` in its percept ([MAGI](magi.md#three-families)). In the order the body meets them:
 
 - mud, ground that leaves the body 40% of its top speed, 0.5 m in radius, its rim 0.58 m from the start, across the straight line to b1;
 - rock, a falling object 0.5 m in radius that lands 20 s after the world begins, its rim 0.32 m north of that line and 0.92 m from the pillar's;

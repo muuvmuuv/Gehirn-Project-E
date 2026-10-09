@@ -208,10 +208,11 @@ pub fn (i Intent) label() string {
 }
 
 // describe renders a percept as text for language backends: the body, a line per entity of the
-// scene, then a line per patch of ground, which a percept without ground leaves out. It leaves out
-// every velocity, which only magi.walks_onto, the local planner and the bridge read, so a model
-// reads the same text whether a human or an obstacle walks or stands. tools/mock_endpoint.py
-// parses this layout, and tools/worldgen.py shown rounds a distance as it does.
+// scene, the line no_human when the scene holds no human, then a line per patch of ground, which a
+// percept without ground leaves out. It leaves out every velocity, which only magi.walks_onto, the
+// local planner and the bridge read, so a model reads the same text whether a human or an obstacle
+// walks or stands. tools/mock_endpoint.py parses this layout, and tools/worldgen.py shown rounds a
+// distance as it does.
 pub fn (p Percept) describe() string {
 	mut lines := [
 		'self at (${p.pose[0]:.2f}, ${p.pose[1]:.2f}), carrying payload: ${p.payload}, in contact: ${p.contact}',
@@ -220,12 +221,22 @@ pub fn (p Percept) describe() string {
 		d := dist(p.pose, e.pos)
 		lines << '${e.kind} ${e.id} at (${e.pos[0]:.2f}, ${e.pos[1]:.2f}), radius ${e.r:.2f}, distance ${d:.2f}'
 	}
+	if !p.scene.any(it.kind == 'human') {
+		lines << no_human
+	}
 	for g in p.ground {
 		pct := g.factor * 100.0
 		lines << '${g.kind} ${g.id} at (${g.pos[0]:.2f}, ${g.pos[1]:.2f}), radius ${g.r:.2f}, slows the body to ${pct:.0f}%'
 	}
 	return lines.join('\n')
 }
+
+// no_human is the line describe adds to a scene without a human, true under SENSING=range too,
+// where a person the ring cannot see is in no scene. The personas approve a release only with
+// every human distance above 2.5, and without this line hosted gpt-oss-20b as MELCHIOR-1 read
+// a scene with no human line as distances it could not verify and rejected sound releases (PLAN,
+// Known issue 44). magi/jev.v nearest_person tells Jev the same as 'no person in sight'.
+pub const no_human = 'no human in sight'
 
 // render is the view of the world a language core reads: the situation, then RECENT with the
 // journal's tail. tools/mock_endpoint.py parses this layout.

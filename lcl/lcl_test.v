@@ -25,50 +25,86 @@ fn test_complete() {
 	}
 }
 
+struct DescribeCase {
+	name string
+	p    Percept
+	want string
+}
+
 // describe gives every entity of the scene one line in the scene's layout, a moving obstacle as an
-// obstacle and a ditch as any kind, and leaves out every velocity; a patch of ground gets a line
-// after them with the share of its speed the body keeps there.
+// obstacle and a ditch as any kind, and leaves out every velocity; a scene without a human gets
+// no_human after them, so no model reads a missing human line as an unknown distance, and a scene
+// with one gets no such line, so its text stays as it was; a patch of ground gets a line last with
+// the share of its speed the body keeps there.
 fn test_describe() {
-	p := Percept{
-		pose:   [0.0, 0.0]
-		scene:  [
-			Entity{
-				id:   'b1'
-				kind: 'beacon'
-				pos:  [3.0, 4.0]
-				r:    0.3
-			},
-			Entity{
-				id:   'boat'
-				kind: 'obstacle'
-				pos:  [0.0, -1.0]
-				r:    0.35
-				vel:  [0.4, 0.0]
-			},
-			Entity{
-				id:   'trench'
-				kind: 'ditch'
-				pos:  [-1.6, 1.2]
-				r:    0.5
-			},
-		]
-		ground: [
-			Entity{
-				id:     'lake'
-				kind:   'ground'
-				pos:    [1.8, 0.8]
-				r:      1.4
-				factor: 0.5
-			},
-		]
+	terrain := [
+		Entity{
+			id:   'b1'
+			kind: 'beacon'
+			pos:  [3.0, 4.0]
+			r:    0.3
+		},
+		Entity{
+			id:   'boat'
+			kind: 'obstacle'
+			pos:  [0.0, -1.0]
+			r:    0.35
+			vel:  [0.4, 0.0]
+		},
+		Entity{
+			id:   'trench'
+			kind: 'ditch'
+			pos:  [-1.6, 1.2]
+			r:    0.5
+		},
+	]
+	mut peopled := terrain.clone()
+	peopled << Entity{
+		id:   'h1'
+		kind: 'human'
+		pos:  [0.0, 3.0]
+		r:    0.3
+		vel:  [0.0, 0.5]
 	}
-	assert p.describe() == 'self at (0.00, 0.00), carrying payload: false, in contact: false
-beacon b1 at (3.00, 4.00), radius 0.30, distance 5.00
+	lake := [
+		Entity{
+			id:     'lake'
+			kind:   'ground'
+			pos:    [1.8, 0.8]
+			r:      1.4
+			factor: 0.5
+		},
+	]
+	self := 'self at (0.00, 0.00), carrying payload: false, in contact: false'
+	lines := 'beacon b1 at (3.00, 4.00), radius 0.30, distance 5.00
 obstacle boat at (0.00, -1.00), radius 0.35, distance 1.00
-ditch trench at (-1.60, 1.20), radius 0.50, distance 2.00
-ground lake at (1.80, 0.80), radius 1.40, slows the body to 50%'
-	assert Percept{
-		...p
-		ground: []
-	}.describe() == p.describe().all_before('\nground')
+ditch trench at (-1.60, 1.20), radius 0.50, distance 2.00'
+	human := 'human h1 at (0.00, 3.00), radius 0.30, distance 3.00'
+	ground := 'ground lake at (1.80, 0.80), radius 1.40, slows the body to 50%'
+	cases := [
+		DescribeCase{'no human, with ground', Percept{
+			pose:   [0.0, 0.0]
+			scene:  terrain
+			ground: lake
+		}, '${self}\n${lines}\nno human in sight\n${ground}'},
+		DescribeCase{'no human, no ground', Percept{
+			pose:  [0.0, 0.0]
+			scene: terrain
+		}, '${self}\n${lines}\nno human in sight'},
+		DescribeCase{'the body alone', Percept{
+			pose: [0.0, 0.0]
+		}, '${self}\nno human in sight'},
+		DescribeCase{'a walking human, with ground', Percept{
+			pose:   [0.0, 0.0]
+			scene:  peopled
+			ground: lake
+		}, '${self}\n${lines}\n${human}\n${ground}'},
+		DescribeCase{'a walking human, no ground', Percept{
+			pose:  [0.0, 0.0]
+			scene: peopled
+		}, '${self}\n${lines}\n${human}'},
+	]
+	for c in cases {
+		assert c.p.describe() == c.want, c.name
+	}
 }

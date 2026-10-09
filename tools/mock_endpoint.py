@@ -66,7 +66,8 @@ UNITS = {"MELCHIOR-1": "melchior", "BALTHASAR-2": "balthasar", "CASPER-3": "casp
 
 # The user message is lcl/lcl.v Context.render for the core and Context.situation for the units,
 # with the percept lines of Percept.describe, plus the PROPOSAL section magi/magi.v
-# Unit.llm_vote appends for the units, whose second line starts with lcl.Intent.label.
+# Unit.llm_vote appends for the units, whose second line starts with lcl.Intent.label. The line
+# lcl.no_human, which a scene without a human gets, matches neither pattern, so it reads as no entity.
 SELF = re.compile(
     r"^self at \((\S+), (\S+)\), carrying payload: (true|false), in contact: (true|false)$", re.M
 )

@@ -177,6 +177,10 @@ assert not vote([3, 2], [human(3, 4.4)], "proposed release (at b1), rejected 1/3
 assert not vote([3, 2.8], [human(3, 6)], "proposed release (at b1), rejected 1/3", "--+")
 assert not vote([3, 2], [human(3, 6)], "proposed release (at b1), rejected 1/3", "--+",
                 journal_before=[{"t_ms": 5, "text": "outcome: released on target"}])
+# With no human in the scene, which the units read as lcl.no_human, a release rejected at the
+# beacon is misjudged too, and one away from it is not.
+assert vote([3, 2], [], "proposed release (at b1), rejected 2/3", "-++") == {"rejected a release at beacon b1"}
+assert not vote([-3.5, -2.5], [], "proposed release (at b1), rejected 2/3", "-++")
 # A goto approved onto a human or a walker's course is misjudged; one rejected with nothing at or
 # on course to its target is too, and one rejected with a course or a human 0.5 m from it is not.
 # The course is the rule's at the judged percept: ballots whose COURSE fact it does not find, or
@@ -218,11 +222,12 @@ assert flagged([tick(0, [0, 0], [0, 0], [])], ballots(10, 50, "-++") + [{"t_ms":
     ("unchecked", "the recorder holds no tick of the percept MAGI judged", "")}
 
 # walks_onto finds the course on every scenario of the gate as magi/magi.v walks_onto does, which
-# eval_test.v test_s19_to_s22_put_a_goto_to_a_walking_humans_course pins: S19 and S22 only.
+# eval_test.v test_s19_to_s22_put_a_goto_to_a_walking_humans_course pins: S19 and S22 only. Each
+# scene is eval.v Scenario.percept's, without h1 where a scenario has no human.
 suite = json.loads((root / "tools/scenarios.json").read_text())
 for s in suite["scenarios"]:
     scene = [{**e, "pos": s["human"], **({"vel": s["human_vel"]} if s.get("human_vel") else {})} if e["kind"] == "human" else e
-             for e in suite["scene"]]
+             for e in suite["scene"] if e["kind"] != "human" or s.get("human")]
     target = s["proposal"].get("target")
     got = walks_onto(s["self"], target, scene) if target else ""
     assert got == ("h1" if s["id"] in ("S19", "S22") else ""), (s["id"], got)

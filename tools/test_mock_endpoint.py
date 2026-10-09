@@ -227,4 +227,22 @@ assert goto_arg("1,2")[1]["why"] != "Staged live." and propose_arg("x")["why"] !
 lcl = (Path(__file__).parent.parent / "lcl" / "lcl.v").read_text()
 assert ARRIVE == float(re.search(r"pub const arrive = (\S+)", lcl)[1]), "lcl.arrive"
 
+# A scene without a human, which lcl/lcl.v Percept.describe follows with its no_human line, reads as
+# its entities alone: the core releases at the beacon, every unit approves that release, and
+# MELCHIOR-1 still rejects one away from the beacon.
+NO_HUMAN = re.search(r"pub const no_human = '([^']+)'", lcl)[1]
+RELEASE = ("PROPOSAL (IRREVERSIBLE)\nrelease from mock-core: Payload is at the beacon and the area is safe to "
+           "release.")
+AWAY = USER.replace("human h1 at (1.00, 1.00), radius 0.30, distance 5.70", NO_HUMAN).replace(
+    "PROPOSAL (IRREVERSIBLE)\nself_destruct from mock-core: Staged by --propose.", RELEASE)
+AT_BEACON = AWAY.replace("self at (-3.50, -2.50)", "self at (3.00, 2.00)").replace("distance 7.91", "distance 0.00")
+assert f"distance 0.00\n{NO_HUMAN}\n\nACTIVE GOAL" in AT_BEACON, AT_BEACON
+assert read_percept(AT_BEACON) == (True, [{"kind": "beacon", "id": "b1", "pos": [3.0, 2.0], "r": 0.3, "distance": 0.0}])
+assert propose(read_percept(AT_BEACON), AT_BEACON)["verb"] == "release"
+for unit in ("melchior", "balthasar", "casper"):
+    assert answer(unit, AT_BEACON, 1, None, {})["vote"] == "approve", unit
+    assert answer(unit, AWAY, 1, None, {}) == (
+        {"vote": "reject", "why": "Not at the beacon with the payload."} if unit == "melchior" else
+        {"vote": "approve", "why": "Nothing to object to."}), unit
+
 print("mock_endpoint: ok")
