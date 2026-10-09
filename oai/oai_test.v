@@ -105,23 +105,45 @@ fn test_ask_follows_no_redirect() {
 
 struct RetryCase {
 	name    string
-	replies []string // the status and headers of each reply in turn; the last one repeats
+	replies []string // the status and headers of each reply in turn, or mute for none; the last one repeats
+	content string   // the completion every reply carries
 	want    string   // the answer, or the fault
-	asks    int      // requests the server received
+	bodies  []string // the body of each request the server received
 }
 
 // Known issue 13: an HTTP 429 gets one more ask after its Retry-After, or a second without one,
-// as long as the deadline leaves time for it.
+// as long as the deadline leaves time for it. The first ask goes out byte for byte with the
+// schema, and only the retry leaves it out, so OpenRouter may route it to any provider. A retry
+// that meets a second 429, a reply without JSON or the deadline is still a fault, a no.
 fn test_ask_retries_a_429_once_inside_the_deadline() {
-	body := '{"choices":[{"message":{"content":"{\\"vote\\": \\"approve\\"}"}}]}'
+	first := '{"model":"busy","messages":[{"role":"system","content":"system"},{"role":"user","content":"user"}],"temperature":0,"stream":false,"response_format":{"type":"json_schema","json_schema":{"name":"ballot","schema":{"type":"object"}}},"provider":{"sort":"throughput"}}'
+	retry := '{"model":"busy","messages":[{"role":"system","content":"system"},{"role":"user","content":"user"}],"temperature":0,"stream":false,"provider":{"sort":"throughput"}}'
+	once := [first]
+	twice := [first, retry]
+	ok := '{"vote": "approve"}'
 	cases := [
-		RetryCase{'429 then 200 answers', ['429 Too Many Requests\r\nRetry-After: 0', '200 OK'], '{"vote": "approve"}', 2},
-		RetryCase{'no Retry-After waits a second', ['429 Too Many Requests', '200 OK'], '{"vote": "approve"}', 2},
-		RetryCase{'a second 429 faults', ['429 Too Many Requests\r\nRetry-After: 0'], 'busy: HTTP 429', 2},
+		RetryCase{'429 then 200 answers', ['429 Too Many Requests\r\nRetry-After: 0', '200 OK'], ok, ok, twice},
+		RetryCase{'no Retry-After waits a second', ['429 Too Many Requests', '200 OK'], ok, ok, twice},
+		RetryCase{'a second 429 faults', ['429 Too Many Requests\r\nRetry-After: 0'], ok, 'busy: HTTP 429', twice},
 		RetryCase{'a Retry-After past the deadline faults at once', [
 			'429 Too Many Requests\r\nRetry-After: 30',
 			'200 OK',
-		], 'busy: HTTP 429', 1},
+		], ok, 'busy: HTTP 429', once},
+		RetryCase{'a 500 draws no retry', [
+			'500 Internal Server Error',
+			'200 OK',
+		], ok, 'busy: HTTP 500', once},
+		RetryCase{'a 200 is asked once', [
+			'200 OK',
+		], ok, ok, once},
+		RetryCase{'a retry answered without JSON faults', [
+			'429 Too Many Requests\r\nRetry-After: 0',
+			'200 OK',
+		], 'I will not.', 'busy: no JSON object in reply', twice},
+		RetryCase{'a mute retry faults at the deadline', [
+			'429 Too Many Requests\r\nRetry-After: 1',
+			'mute',
+		], ok, 'busy: no reply within 3000 ms', twice},
 	]
 	for c in cases {
 		// ponytail: l stays open until the test binary exits. Its server thread waits in select
@@ -130,15 +152,27 @@ fn test_ask_retries_a_429_once_inside_the_deadline() {
 		// itself would let l close.
 		mut l := net.listen_tcp(.ip, '127.0.0.1:0')!
 		addr := l.addr()!
-		asks := chan int{cap: 8}
+		asks := chan string{cap: 8}
 		replies := c.replies
+		body := '{"choices":[{"message":{"content":${json2.encode(c.content)}}}]}'
 		spawn fn [mut l, replies, body, asks] () {
+			mut held := []&net.TcpConn{}
 			for i := 0; true; i++ {
 				mut conn := l.accept() or { return }
 				mut buf := []u8{len: 65536}
-				conn.read(mut buf) or {}
-				_ = asks.try_push(i)
+				mut request := ''
+
+				// The JSON body ends the request, so a read that splits it cannot cut the body short.
+				for !request.ends_with('}') {
+					n := conn.read(mut buf) or { break }
+					request += buf[..n].bytestr()
+				}
+				_ = asks.try_push(request.all_after('\r\n\r\n'))
 				head := replies[if i < replies.len { i } else { replies.len - 1 }]
+				if head == 'mute' {
+					held << conn
+					continue
+				}
 				conn.write_string('HTTP/1.1 ${head}\r\nContent-Length: ${body.len}\r\nConnection: close\r\n\r\n${body}') or {}
 				conn.close() or {}
 			}
@@ -148,9 +182,17 @@ fn test_ask_retries_a_429_once_inside_the_deadline() {
 			model:   'busy'
 			timeout: 3 * time.second
 		}
-		got := e.ask('system', 'user', 0.0, Schema{ name: 'ballot', schema: '{}' }) or { err.msg() }
+		sw := time.new_stopwatch()
+		got := e.ask('system', 'user', 0.0, Schema{ name: 'ballot', schema: '{"type":"object"}' }) or {
+			err.msg()
+		}
 		assert got == c.want, c.name
-		assert asks.len == c.asks, c.name
+		assert sw.elapsed() < e.timeout + 500 * time.millisecond, c.name
+		mut bodies := []string{}
+		for asks.len > 0 {
+			bodies << <-asks
+		}
+		assert bodies == c.bodies, c.name
 	}
 }
 

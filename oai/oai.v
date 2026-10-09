@@ -62,13 +62,15 @@ struct Provider {
 
 // Request is the body of one chat completions call from ask. OpenRouter, llama.cpp, Ollama and
 // vLLM 0.22 or newer all read the top level reasoning_effort, and none means no thinking on each
-// of them; a reasoning object or chat_template_kwargs is dropped by at least one of them.
+// of them; a reasoning object or chat_template_kwargs is dropped by at least one of them. json2
+// leaves out a response_format of none, which ask's retry after an HTTP 429 sends; @[omitempty]
+// would not, since V 0.5.2's json2 counts no struct as empty.
 struct Request {
 	model            string
 	messages         []Message
 	temperature      f64
 	stream           bool
-	response_format  Format
+	response_format  ?Format
 	reasoning_effort string @[omitempty]
 	provider         Provider
 }
@@ -94,20 +96,21 @@ struct Answer {
 // guards its cache.
 fn init() {
 	_ := json2.encode(Request{
-		messages: [Message{}]
+		messages:        [Message{}]
+		response_format: Format{}
 	})
 	_ := json2.decode[Response]('{"choices":[{"message":{}}]}') or { Response{} }
 }
 
 // ask runs one system plus user exchange and returns the JSON object in the reply. The reply
 // must arrive within e.timeout, however the time is spent, and an HTTP 429 is asked once more
-// inside it; jev.Endpoint.ask copies this deadline and the request limits below, not the retry.
-// tools/trials.py PARSE_ERRORS counts a ballot that faults with its unreadable completion or
-// extract_json's no JSON object as a parse fault.
+// inside it, without the schema; jev.Endpoint.ask copies this deadline and the request limits
+// below, not the retry. tools/trials.py PARSE_ERRORS counts a ballot that faults with its
+// unreadable completion or extract_json's no JSON object as a parse fault.
 pub fn (e Endpoint) ask(system string, user string, temperature f64, schema Schema) !string {
 	// ponytail: no retry with json_object after an HTTP 400, so an endpoint that rejects
 	// json_schema outright faults every ballot; extract_json covers endpoints that ignore it.
-	body := json2.encode(Request{
+	first := Request{
 		model:            e.model
 		messages:         [Message{
 			role:    'system'
@@ -127,7 +130,8 @@ pub fn (e Endpoint) ask(system string, user string, temperature f64, schema Sche
 				}
 			}
 		}
-	})
+	}
+	body := json2.encode(first)
 
 	// The sockets outlast the deadline by a second: at equal values a silent endpoint races the
 	// deadline and often reports a socket timeout instead, yet an abandoned exchange still ends.
@@ -153,7 +157,12 @@ pub fn (e Endpoint) ask(system string, user string, temperature f64, schema Sche
 	}
 
 	// A host that limits its rate, such as qwen3-8b's only provider on OpenRouter, gets one more
-	// ask after its Retry-After, if the deadline leaves time for it.
+	// ask after its Retry-After, if the deadline leaves time for it. That ask drops the schema:
+	// OpenRouter routes a json_schema request only to providers that support it, for
+	// llama-3.1-8b-instruct CoreWeave alone, which is rate limited upstream, while without it
+	// any provider may answer. extract_json reads that reply as it reads one from an endpoint
+	// that ignores the schema, and core/llm.v core_prompt and magi/magi.v ballot_format ask
+	// for the JSON object in words.
 	sw := time.new_stopwatch()
 	mut a := e.exchange(req, e.timeout)!
 	if a.err == '' && a.resp.status_code == 429 {
@@ -161,6 +170,10 @@ pub fn (e Endpoint) ask(system string, user string, temperature f64, schema Sche
 		left := e.timeout - sw.elapsed()
 		if wait < left {
 			time.sleep(wait)
+			req.data = json2.encode(Request{
+				...first
+				response_format: none
+			})
 			a = e.exchange(req, left - wait)!
 		}
 	}
