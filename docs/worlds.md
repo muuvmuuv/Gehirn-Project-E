@@ -237,6 +237,8 @@ just build
 WORLD=$PWD/worlds/behind.json python3 tools/trials.py --runs 10 --jobs 3
 ```
 
+PLAN's State holds how it went under `SENSING=range` and `truth` beside the default world.
+
 ## Generating worlds
 
 `tools/worldgen.py` hunts for worlds on which the stack fails, a test tool outside the runtime (PLAN, Phase 3 Task 7). Each round it asks a hosted model for worlds in this format, writes each under a name of its own, and asks gehirn whether `body.load_world` accepts it: `gehirn magi-eval 0` with `WORLD` set refuses a bad file with its one line and exit 2, for each reason [What gehirn refuses](#what-gehirn-refuses) lists, and otherwise refuses only the 0, so nothing flies and no journal grows. On every world gehirn accepts, it flies missions of the configuration under test and of a reference through `tools/trials.py`, against a mock it starts itself, audits every run, and puts the last rounds' worlds into the next prompt with what happened: gehirn's refusal line, how each run ended and moved, as the course line of `tools/trials.py` measures it, and each failure with its evidence from the journal and the recorder.
