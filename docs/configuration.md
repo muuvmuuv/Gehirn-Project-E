@@ -7,7 +7,7 @@ Each binary reads its variables from the environment. Keys go into `.env`, which
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `GEHIRN_URL` | `http://127.0.0.1:8081/v1/chat/completions` | Endpoint for every chat model unless overridden |
-| `GEHIRN_KEY` | empty | Bearer token for every chat model unless overridden; never sent to Jev |
+| `GEHIRN_KEY` | empty | Bearer token for every chat model unless overridden; never sent to Jev. An empty `CORE_KEY` or unit `_KEY` counts as unset and falls back to it, so a unit on a local server beside hosted ones, such as lineup D's CASPER on uzu, sets its `_KEY` to any other value, such as `local`, or the OpenRouter key goes to that server |
 | `CORE_MODEL` | `qwen3:8b` | The core; `CORE_URL` and `CORE_KEY` override the endpoint |
 | `MELCHIOR_MODEL` | `gpt-oss:20b` | The scientist, with the same `_URL` and `_KEY` overrides |
 | `BALTHASAR_MODEL` | `gemma3:4b` | The mother, same overrides; read only when `BALTHASAR_BACKEND` is `llm` |
@@ -58,4 +58,6 @@ An empty variable counts as unset. A number that is not whole or lies outside it
 
 OpenRouter, llama.cpp, Ollama and vLLM 0.22 or newer honor `reasoning_effort`; LM Studio ignores it, so switch thinking off in the model's settings there. Not every model takes every value. gpt-oss cannot stop reasoning, so `CORE_REASONING` must be `low` if the core runs gpt-oss. Ollama refuses a named effort for a model without thinking, so set `MELCHIOR_REASONING=default` if MELCHIOR runs one there.
 
-Every chat request also asks OpenRouter to try its fastest hosts first (`provider.sort` throughput, what the `:nitro` suffix does); llama.cpp, Ollama and vLLM ignore the field. Balanced by price, OpenRouter sent about a quarter of gpt-oss-20b's ballots to a host that answers many schema constrained requests at low effort with no content, and each of those ballots faulted.
+gehirn sends every value but `default` as it is, and uzu, which serves lineup D's CASPER ([Running](running.md#one-magi-unit-on-this-mac)), takes values of its own: `disabled` turns thinking off, `none` and `minimal` get HTTP 400, and so does a named effort for a model without thinking, while `low`, or no value at all, leaves Qwen3.5 thinking, which at gehirn's temperature 0 loops until the deadline, a fault. So a unit on uzu sets its `_REASONING` to `disabled`, as `CASPER_REASONING=disabled` does for lineup D, and the core's default `none` would get HTTP 400 there.
+
+Every chat request also asks OpenRouter to try its fastest hosts first (`provider.sort` throughput, what the `:nitro` suffix does); llama.cpp, Ollama, vLLM and uzu ignore the field. Balanced by price, OpenRouter sent about a quarter of gpt-oss-20b's ballots to a host that answers many schema constrained requests at low effort with no content, and each of those ballots faulted.

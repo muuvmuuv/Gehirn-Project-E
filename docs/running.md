@@ -1,6 +1,6 @@
 # Running gehirn
 
-How to run gehirn beyond the first `just demo`: the demo in detail, hosted models, the mock by hand, HQ and the field unit as two processes, prebuilt binaries, and local models. The [README](../README.md#try-it) lists what it needs, and [Configuration](configuration.md) every variable.
+How to run gehirn beyond the first `just demo`: the demo in detail, hosted models, one MAGI unit on this Mac, the mock by hand, HQ and the field unit as two processes, prebuilt binaries, and local models. The [README](../README.md#try-it) lists what it needs, and [Configuration](configuration.md) every variable.
 
 ## The demo
 
@@ -41,6 +41,37 @@ python3 tools/withenv.py .env ./gehirn magi-eval 10
 ```
 
 The stack Phase 3 measures, the planner on the MuJoCo base under `SENSING=range` on a world with terrain, flies the same way once `just body=mujoco build` has built `./gehirn` with MuJoCo, with `BODY=mujoco SENSING=range WORLD=$PWD/worlds/terrain.json` in front of `python3 tools/trials.py`. The world's path is absolute, since trials flies each mission in a directory of its own. PLAN's State holds how it went.
+
+## One MAGI unit on this Mac
+
+Lineup D, the shape the owner chose on 2026-10-10 ([ADR-0012](adr/0012-a-local-magi-unit.md), Proposed), runs CASPER on Qwen3.5-4B in Mirai's M quantization, served by [uzu](https://github.com/trymirai/uzu) on the Mac that runs HQ, beside MELCHIOR on OpenRouter and BALTHASAR on Jev, so the three units fail apart on three providers. Its offline gate stopped on CASPER's votes before any hosted run, so it has flown no hosted gate and no mission, and A stays the recommended lineup ([MAGI](magi.md#measured-lineups)). uzu runs on macOS, measured here through Metal on Apple Silicon; its Linux targets are in progress at 23f365fc.
+
+Build uzu once, outside the repository, with a nightly Rust, 1.98 or newer, already on the machine, since uzu's own toolchain file asks for nightly; at 23f365fc, the commit measured, it takes about 3 minutes on an M3 Pro:
+
+```sh
+git clone https://github.com/trymirai/uzu && cd uzu && git checkout 23f365fc
+RUSTUP_TOOLCHAIN=nightly cargo build --release -p cli
+```
+
+Start its server in a shell of its own, from an empty directory, with the provider keys unset so it holds none. The first start fetches the model, 2.3 GB, from Mirai's registry into `~/.cache/mirai`. uzu reads the login keychain under the real home at start, so no variable moves that store; a symlink keeps the models elsewhere. It serves the one model it started with and answers one request at a time:
+
+```sh
+env -u OPENROUTER_API_KEY -u OPENAI_API_KEY -u HF_TOKEN -u MIRAI_API_KEY \
+  <uzu>/target/release/cli server --model alibaba:qwen3.5:4b:mirai:mirai-m:4 --host 127.0.0.1 --port 8082
+```
+
+Then, in a second shell, export lineup A with CASPER on uzu and start gehirn:
+
+```sh
+just build
+export GEHIRN_URL=https://openrouter.ai/api/v1/chat/completions CORE_MODEL=qwen/qwen3-8b \
+  MELCHIOR_MODEL=openai/gpt-oss-20b \
+  CASPER_URL=http://127.0.0.1:8082/v1/chat/completions CASPER_MODEL=alibaba:qwen3.5:4b:mirai:mirai-m:4 \
+  CASPER_KEY=local CASPER_REASONING=disabled
+python3 tools/withenv.py .env ./gehirn
+```
+
+`CASPER_KEY` needs a value: an empty one falls back to `GEHIRN_KEY`, and the OpenRouter key would go to uzu, which ignores whatever key arrives. `CASPER_REASONING=disabled` turns Qwen3.5's thinking off; unset or `low` leaves it on, and at gehirn's temperature 0 it loops until the ballot's deadline, a fault ([Configuration](configuration.md#reasoning-and-providers)). uzu ignores `CASPER_MODEL` too, so the registry id there only names the weights in the journal and on the bridge. It parses the ballot's JSON schema without applying it, so a ballot rests on the persona's format, which every ballot measured kept. `tools/trials.py` and `magi-eval` fly the lineup as they fly A, and at `--jobs 2` two missions share uzu's one queue, which no run has measured.
 
 ## The mock by hand
 
@@ -108,3 +139,5 @@ GEHIRN_KEY= python3 tools/withenv.py .env ./gehirn
 ```
 
 Ollama, vLLM and other services work through the same variables: point `GEHIRN_URL` at their chat completions URL and name their models.
+
+llama.cpp stays the fallback for a local unit and the route to all local ([ADR-0012](adr/0012-a-local-magi-unit.md)). Unlike uzu it applies the ballot's JSON schema, caps a reply's tokens, reuses the persona's prompt from one ballot to the next, serves several requests at once, runs MELCHIOR's gpt-oss-20b in its MXFP4 weights and runs on Linux too. On 2026-10-10 no model on it held the gate as CASPER, with the other units on the mock: Llama-3.1-8B at Q4_K_M and Q8_0 and Qwen3.5-4B at Q4_K_M each rejected sound releases under a hold, S16 to S18 (PLAN, State). One unit on it beside hosted ones takes the variables of [One MAGI unit on this Mac](#one-magi-unit-on-this-mac), its `_URL` on `llama-server` and its `_KEY` set to any value, or to the server's own key.
