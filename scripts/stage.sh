@@ -69,7 +69,7 @@ if [ "$lineup" = mock ]; then
 else
     # The lineup of docs/running.md, "Hosted models", unless the environment names others.
     export GEHIRN_URL=${GEHIRN_URL:-https://openrouter.ai/api/v1/chat/completions}
-    export CORE_MODEL=${CORE_MODEL:-qwen/qwen3-8b} MELCHIOR_MODEL=${MELCHIOR_MODEL:-openai/gpt-oss-20b}
+    export MELCHIOR_MODEL=${MELCHIOR_MODEL:-openai/gpt-oss-20b}
     export CASPER_MODEL=${CASPER_MODEL:-meta-llama/llama-3.1-8b-instruct}
 
     # Hosted ballots take seconds, up to 9 s on 2026-10-04, so a shorter cooldown and pause bring
@@ -80,6 +80,12 @@ fi
 if [ "$lineup" = magi ]; then
     # Its own key keeps GEHIRN_KEY off the mock.
     export CORE_URL=http://127.0.0.1:$mock_port/v1/chat/completions CORE_MODEL=mock-core CORE_KEY=mock
+elif [ "$lineup" = hosted ] && [ -z "${CORE_URL:-}" ] && [ -z "${CORE_MODEL:-}" ]; then
+    # The core on uzu, unless CORE_URL or CORE_MODEL names another, at the default URL that
+    # scripts/lineup.sh repeats and found answering. Its own key keeps GEHIRN_KEY off uzu, and uzu
+    # answers the core's default reasoning, none, with HTTP 400.
+    export CORE_URL=http://127.0.0.1:8083/v1/chat/completions CORE_KEY=${CORE_KEY:-local} \
+        CORE_MODEL=${CORE_MODEL:-alibaba:qwen3.5:9b:mirai:mirai-m:4} CORE_REASONING=${CORE_REASONING:-disabled}
 fi
 key() { python3 -c 'import secrets; print(secrets.token_hex(32))'; }
 UMBILICAL_KEY=$(key) WATCH_KEY=$(key) PILOT_KEY=$(key)
@@ -166,7 +172,7 @@ up() {
         if [ "$lineup" = magi ]; then
             say "the core is the mock's on 127.0.0.1:$mock_port, scripted to release at the beacon whatever the human does"
         else
-            say "the core on $CORE_MODEL"
+            say "the core on ${CORE_MODEL:-its default model}"
         fi
     fi
 

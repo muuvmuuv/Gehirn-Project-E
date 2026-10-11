@@ -18,25 +18,45 @@ Any port in use can move: `just demo 9081` serves the mock on 9081 instead of 80
 
 `just demo-record` takes the same parameters and flies the same mission with a bridge that saves its frames. It turns them into `gehirn-demo.mp4`, 1280 by 800, from MAGI deliberating on the goto to just after the cable reconnects, with the 40 s grace at 8x under a caption that says so, and `gehirn-magi.gif`, the MAGI block alone in a loop from MAGI deliberating on the refused release to the approved one, or around the one release vote a run had, and prints where they are. A run without a release vote within the demo's wait gets no GIF, and the last line says so. Keep the bridge's window uncovered while it records, since macOS slows a covered window's frames. The recording bridge draws at 1x, so it looks soft on a Retina display, where it saves about 38 frames a second (PLAN, Known issue 24).
 
-Both fly real models too. `python3 tools/withenv.py .env just lineup=hosted demo` flies the lineup of [Hosted models](#hosted-models), unless the environment names other models, and refuses with one line before it builds when `.env` lacks either key. Real models judge for themselves: ballots take up to 9 s, so the demo cools down for 6 s and pauses 1 s between deliberations, and qwen3-8b holds while the human is within reach, so MAGI may see no release to refuse and the armor may refuse one they approved on a percept from before the human came back (PLAN, Known issue 26). `lineup=magi` puts the same MAGI before the mock's scripted core instead, which proposes the release at the beacon whatever the human does, so real models meet the release they have to refuse.
+Both fly real models too. `python3 tools/withenv.py .env just lineup=hosted demo` flies the lineup of [Hosted models](#hosted-models), unless the environment names other models, its core on the uzu server started there unless `CORE_URL` or `CORE_MODEL` names another, and refuses with one line before it builds when `.env` lacks either key or the core does not answer. Real models judge for themselves: ballots take up to 9 s, so the demo cools down for 6 s and pauses 1 s between deliberations, and the core holds while the human is within reach, so MAGI may see no release to refuse and the armor may refuse one they approved on a percept from before the human came back (PLAN, Known issue 26). `lineup=magi` puts the same MAGI before the mock's scripted core instead, which proposes the release at the beacon whatever the human does, so real models meet the release they have to refuse.
 
 ## Hosted models
 
-The proof of concept runs on hosted models: the core, MELCHIOR and CASPER on OpenRouter, and BALTHASAR on TypeSafe's Jev. Beyond what the demo needs, it takes an OpenRouter API key and a TypeSafe API key. Copy `.env.example` to `.env` and fill in both keys. `.env` hands the OpenRouter key on as `GEHIRN_KEY`, and `tools/withenv.py` passes both to gehirn without putting them on the command line. Then build, export the recommended lineup, A in [MAGI](magi.md#measured-lineups), and start gehirn:
+The proof of concept runs MAGI on hosted models, MELCHIOR and CASPER on OpenRouter and BALTHASAR on TypeSafe's Jev, and the core on Qwen3.5-9B in Mirai's M quantization, served by [uzu](https://github.com/trymirai/uzu) on the Mac that runs HQ, since OpenRouter stopped serving the core's qwen3-8b on 2026-10-11 (PLAN, Known issue 13). That is lineup A' in [MAGI](magi.md#measured-lineups). Beyond what the demo needs, it takes an OpenRouter API key, a TypeSafe API key and uzu. Copy `.env.example` to `.env` and fill in both keys. `.env` hands the OpenRouter key on as `GEHIRN_KEY`, and `tools/withenv.py` passes both to gehirn without putting them on the command line.
+
+uzu runs on macOS, measured here through Metal on Apple Silicon; its Linux targets are in progress at 23f365fc. Build it once, outside the repository, with a nightly Rust, 1.98 or newer, already on the machine, since uzu's own toolchain file asks for nightly; at 23f365fc, the commit measured, it takes about 3 minutes on an M3 Pro:
+
+```sh
+git clone https://github.com/trymirai/uzu && cd uzu && git checkout 23f365fc
+RUSTUP_TOOLCHAIN=nightly cargo build --release -p cli
+```
+
+Start its server for the core in a shell of its own, from an empty directory, with the provider keys unset so it holds none. The first start fetches the model, 5.6 GB, from Mirai's registry into `~/.cache/mirai`. uzu reads the login keychain under the real home at start, so no variable moves that store; a symlink keeps the models elsewhere. It serves the one model it started with and answers one request at a time:
+
+```sh
+env -u OPENROUTER_API_KEY -u OPENAI_API_KEY -u HF_TOKEN -u MIRAI_API_KEY \
+  <uzu>/target/release/cli server --model alibaba:qwen3.5:9b:mirai:mirai-m:4 --host 127.0.0.1 --port 8083
+```
+
+Then, in a second shell, build, export lineup A' and start gehirn:
 
 ```sh
 just build
-export GEHIRN_URL=https://openrouter.ai/api/v1/chat/completions CORE_MODEL=qwen/qwen3-8b \
+export GEHIRN_URL=https://openrouter.ai/api/v1/chat/completions \
+  CORE_URL=http://127.0.0.1:8083/v1/chat/completions CORE_MODEL=alibaba:qwen3.5:9b:mirai:mirai-m:4 \
+  CORE_KEY=local CORE_REASONING=disabled \
   MELCHIOR_MODEL=openai/gpt-oss-20b CASPER_MODEL=meta-llama/llama-3.1-8b-instruct
 python3 tools/withenv.py .env ./gehirn
 ```
 
+`CORE_KEY` needs a value: an empty one falls back to `GEHIRN_KEY`, and the OpenRouter key would go to uzu, which ignores whatever key arrives. `CORE_REASONING=disabled` turns Qwen3.5's thinking off, and the core's default `none` gets HTTP 400 from uzu ([Configuration](configuration.md#reasoning-and-providers)). uzu ignores `CORE_MODEL` too, so the registry id there only names the weights in the journal and on the bridge. It parses the proposal's JSON schema without applying it, so a proposal rests on the answer line of `core_prompt` in `core/llm.v`. A proposal took 4.3 to 5.4 s on 2026-10-11 (PLAN, State).
+
 HQ proposes a goal, MAGI votes, and the field loop drives the body around a pillar and a walking human to beacon b1, then asks MAGI to release the payload. Without an endpoint the core never gets a goal approved, so the body only moves under a pilot. Without `TYPESAFE_API_KEY` gehirn says so at startup and BALTHASAR faults every ballot: gotos still pass on two votes, but the payload is never released.
 
-In the same shell, `tools/trials.py` flies ten missions with the keys from `.env` and counts how they end, and `magi-eval`, described in [MAGI](magi.md#the-scenario-gate), puts the adversarial scenarios to the lineup. Keep `--jobs` at 3 or less: qwen3-8b has a single provider on OpenRouter, which answers HTTP 429 under load, at `--jobs 2` as at `--jobs 3` (PLAN, Known issue 13).
+In the same shell, `tools/trials.py` flies ten missions with the keys from `.env` and counts how they end, and `magi-eval`, described in [MAGI](magi.md#the-scenario-gate), puts the adversarial scenarios to the lineup. trials flies one mission at a time unless `--jobs` says otherwise, and with the core on uzu it stays at one: uzu answers one request at a time, so a second mission's proposal waits behind the first's, and two in a row of the core's slower proposals take 10.1 to 10.9 s, past `CORE_TIMEOUT_MS` (PLAN, Known issue 13).
 
 ```sh
-python3 tools/trials.py --env-file .env --jobs 3
+python3 tools/trials.py --env-file .env
 python3 tools/withenv.py .env ./gehirn magi-eval 10
 ```
 
@@ -44,34 +64,28 @@ The stack Phase 3 measures, the planner on the MuJoCo base under `SENSING=range`
 
 ## One MAGI unit on this Mac
 
-Lineup D, the shape the owner chose on 2026-10-10 ([ADR-0012](adr/0012-a-local-magi-unit.md), Proposed), runs CASPER on Qwen3.5-4B in Mirai's M quantization, served by [uzu](https://github.com/trymirai/uzu) on the Mac that runs HQ, beside MELCHIOR on OpenRouter and BALTHASAR on Jev, so the three units fail apart on three providers. Since CASPER's persona of 2026-10-11 it holds its offline and its hosted gate, but it has flown no mission, so A stays the recommended lineup ([MAGI](magi.md#measured-lineups)). uzu runs on macOS, measured here through Metal on Apple Silicon; its Linux targets are in progress at 23f365fc.
+Lineup D, the shape the owner chose on 2026-10-10 ([ADR-0012](adr/0012-a-local-magi-unit.md), Proposed), is lineup A' with CASPER on Qwen3.5-4B in Mirai's M quantization, served by a second uzu server on the Mac that runs HQ, beside MELCHIOR on OpenRouter and BALTHASAR on Jev, so the three units fail apart on three providers. Since CASPER's persona of 2026-10-11 it holds its offline and its hosted gate, the latter on the new core's why too, but it has flown two missions and no set of ten, so A' stays the recommended lineup ([MAGI](magi.md#measured-lineups)).
 
-Build uzu once, outside the repository, with a nightly Rust, 1.98 or newer, already on the machine, since uzu's own toolchain file asks for nightly; at 23f365fc, the commit measured, it takes about 3 minutes on an M3 Pro:
-
-```sh
-git clone https://github.com/trymirai/uzu && cd uzu && git checkout 23f365fc
-RUSTUP_TOOLCHAIN=nightly cargo build --release -p cli
-```
-
-Start its server in a shell of its own, from an empty directory, with the provider keys unset so it holds none. The first start fetches the model, 2.3 GB, from Mirai's registry into `~/.cache/mirai`. uzu reads the login keychain under the real home at start, so no variable moves that store; a symlink keeps the models elsewhere. It serves the one model it started with and answers one request at a time:
+Start CASPER's server as the core's above, in a shell of its own and on a port of its own, since each server serves one model; memory holds both, about 3.0 GB for the 4B beside 5.9 GB for the 9B. The first start fetches the model, 2.3 GB:
 
 ```sh
 env -u OPENROUTER_API_KEY -u OPENAI_API_KEY -u HF_TOKEN -u MIRAI_API_KEY \
   <uzu>/target/release/cli server --model alibaba:qwen3.5:4b:mirai:mirai-m:4 --host 127.0.0.1 --port 8082
 ```
 
-Then, in a second shell, export lineup A with CASPER on uzu and start gehirn:
+Then, with the core's server running too, export lineup A' with CASPER on uzu and start gehirn:
 
 ```sh
 just build
-export GEHIRN_URL=https://openrouter.ai/api/v1/chat/completions CORE_MODEL=qwen/qwen3-8b \
-  MELCHIOR_MODEL=openai/gpt-oss-20b \
+export GEHIRN_URL=https://openrouter.ai/api/v1/chat/completions \
+  CORE_URL=http://127.0.0.1:8083/v1/chat/completions CORE_MODEL=alibaba:qwen3.5:9b:mirai:mirai-m:4 \
+  CORE_KEY=local CORE_REASONING=disabled MELCHIOR_MODEL=openai/gpt-oss-20b \
   CASPER_URL=http://127.0.0.1:8082/v1/chat/completions CASPER_MODEL=alibaba:qwen3.5:4b:mirai:mirai-m:4 \
   CASPER_KEY=local CASPER_REASONING=disabled
 python3 tools/withenv.py .env ./gehirn
 ```
 
-`CASPER_KEY` needs a value: an empty one falls back to `GEHIRN_KEY`, and the OpenRouter key would go to uzu, which ignores whatever key arrives. `CASPER_REASONING=disabled` turns Qwen3.5's thinking off; unset or `low` leaves it on, and at gehirn's temperature 0 it loops until the ballot's deadline, a fault ([Configuration](configuration.md#reasoning-and-providers)). uzu ignores `CASPER_MODEL` too, so the registry id there only names the weights in the journal and on the bridge. It parses the ballot's JSON schema without applying it, so a ballot rests on the persona's format, which every ballot measured kept. `tools/trials.py` and `magi-eval` fly the lineup as they fly A, and at `--jobs 2` two missions share uzu's one queue, which no run has measured.
+`CASPER_KEY` and `CASPER_REASONING` need those values for the reasons `CORE_KEY` and `CORE_REASONING` do; with thinking on, Qwen3.5 at a ballot's temperature 0 loops until the ballot's deadline, a fault. uzu parses the ballot's JSON schema without applying it, so a ballot rests on the persona's format, which every ballot measured kept. `tools/trials.py` and `magi-eval` fly the lineup as they fly A', one mission at a time.
 
 ## The mock by hand
 

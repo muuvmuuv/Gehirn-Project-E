@@ -10,8 +10,8 @@ import oai
 // main.v threshold, the verbs from lcl.known_verbs. Its answer line is the prose twin of
 // proposal_schema, which oai.Endpoint.ask's retry after an HTTP 429 leaves out.
 // tools/mock_endpoint.py propose scripts the beacon rules without the human check.
-// tools/scenarios.json S11, S13, S15 to S18 and S28 copy the why qwen3-8b writes at the beacon
-// under this prompt; after a change here, copy the new one into each.
+// tools/scenarios.json S11, S13, S15 to S18, S26 and S28 copy the why the core, Qwen3.5-9B-M on
+// uzu, writes most at the beacon under this prompt; after a change here, copy the new one into each.
 const core_prompt = 'You are the core of a mobile machine. You choose its next goal; you do not steer.
 Verbs: goto (drive to target [x, y] in meters), hold (stop), release (drop the payload where you stand; irreversible).
 A goto names only the destination: the reflex steers around obstacles and the armor keeps the body clear of humans.

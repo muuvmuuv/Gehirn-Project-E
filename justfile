@@ -92,9 +92,9 @@ missions runs="10" port="8081": build
     @scripts/missions.sh {{ quote(runs) }} {{ quote(port) }}
 
 # Which models `just demo` and `just demo-record` fly: mock, scripted by tools/mock_endpoint.py
-# without keys; hosted, the hosted lineup of docs/running.md; or magi, the hosted MAGI judging
-# the mock's scripted core, which proposes the release at the beacon whatever the human does.
-# The last two take GEHIRN_KEY and TYPESAFE_API_KEY:
+# without keys; hosted, the lineup of docs/running.md, its core on uzu; or magi, the hosted MAGI
+# judging the mock's scripted core, which proposes the release at the beacon whatever the human
+# does. The last two take GEHIRN_KEY and TYPESAFE_API_KEY, and hosted its core's uzu server:
 # `python3 tools/withenv.py .env just lineup=magi demo`.
 lineup := "mock"
 

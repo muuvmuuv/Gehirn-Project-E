@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Refuses an unknown lineup or scene, a canon scene on any lineup but the mock, and hosted models
-# without their keys. Its arguments are LINEUP, mock unless given, and SCENE, the name of a script
-# in scripts/scenes, demo unless given. The justfile's _lineup runs it before anything builds,
-# scripts/record.sh before it builds the bridge that records, and scripts/stage.sh for every
-# scene, so a scene run by hand stops here too rather than at a beat.
+# Refuses an unknown lineup or scene, a canon scene on any lineup but the mock, hosted models
+# without their keys, and the hosted lineup when its core does not answer. Its arguments are
+# LINEUP, mock unless given, and SCENE, the name of a script in scripts/scenes, demo unless given.
+# The justfile's _lineup runs it before anything builds, scripts/record.sh before it builds the
+# bridge that records, and scripts/stage.sh for every scene, so a scene run by hand stops here too
+# rather than at a beat.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 lineup=${1:-mock} scene=${2-demo}
@@ -34,3 +35,15 @@ case "$lineup" in
         exit 2
         ;;
 esac
+
+# The hosted lineup's core runs on uzu (docs/running.md, Hosted models), at the default URL that
+# scripts/stage.sh repeats, unless CORE_URL or CORE_MODEL names another; a core that CORE_MODEL
+# names alone goes to GEHIRN_URL with the units. Any HTTP answer will do: uzu answers a GET there
+# with 404.
+if [ "$lineup" = hosted ] && { [ -n "${CORE_URL:-}" ] || [ -z "${CORE_MODEL:-}" ]; }; then
+    core=${CORE_URL:-http://127.0.0.1:8083/v1/chat/completions}
+    if ! curl -s -o /dev/null -m 5 "$core"; then
+        echo "lineup: hosted needs its core at $core, which does not answer; docs/running.md, Hosted models, starts it on uzu" >&2
+        exit 2
+    fi
+fi
