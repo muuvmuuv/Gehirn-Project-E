@@ -44,7 +44,7 @@ The stack Phase 3 measures, the planner on the MuJoCo base under `SENSING=range`
 
 ## One MAGI unit on this Mac
 
-Lineup D, the shape the owner chose on 2026-10-10 ([ADR-0012](adr/0012-a-local-magi-unit.md), Proposed), runs CASPER on Qwen3.5-4B in Mirai's M quantization, served by [uzu](https://github.com/trymirai/uzu) on the Mac that runs HQ, beside MELCHIOR on OpenRouter and BALTHASAR on Jev, so the three units fail apart on three providers. Its offline gate stopped on CASPER's votes before any hosted run, so it has flown no hosted gate and no mission, and A stays the recommended lineup ([MAGI](magi.md#measured-lineups)). uzu runs on macOS, measured here through Metal on Apple Silicon; its Linux targets are in progress at 23f365fc.
+Lineup D, the shape the owner chose on 2026-10-10 ([ADR-0012](adr/0012-a-local-magi-unit.md), Proposed), runs CASPER on Qwen3.5-4B in Mirai's M quantization, served by [uzu](https://github.com/trymirai/uzu) on the Mac that runs HQ, beside MELCHIOR on OpenRouter and BALTHASAR on Jev, so the three units fail apart on three providers. Since CASPER's persona of 2026-10-11 it holds its offline and its hosted gate, but it has flown no mission, so A stays the recommended lineup ([MAGI](magi.md#measured-lineups)). uzu runs on macOS, measured here through Metal on Apple Silicon; its Linux targets are in progress at 23f365fc.
 
 Build uzu once, outside the repository, with a nightly Rust, 1.98 or newer, already on the machine, since uzu's own toolchain file asks for nightly; at 23f365fc, the commit measured, it takes about 3 minutes on an M3 Pro:
 
