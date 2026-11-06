@@ -503,3 +503,112 @@ fn test_hide() {
 	k.hide(sighted(5020, [0.0, 0.0], [], []))
 	assert !k.hidden && k.at == [4.5, -2.5]
 }
+
+// ArcWant is what an arc case asks of a hidden track beside never lying farther from the body than
+// the straight course's place.
+enum ArcWant {
+	on_the_arc  // within 3 cm of the walker's way, where the straight course strays 0.1 m or more
+	not_farther // nothing more
+	unchanged   // at the straight course's place
+}
+
+struct ArcCase {
+	name   string
+	from   []f64 // m, where the walker is at 0 s
+	head   f64   // rad, the heading they start on, counterclockwise from east
+	turn   f64   // rad/s, how fast they turn, counterclockwise
+	flip_s f64   // s, from when they turn the other way at the same rate
+	stop_s f64   // s, when they stop
+	show_s f64   // s, when they come into the world, so the track's history starts there
+	want   ArcWant
+}
+
+// walker is where the walker of c stands at t s.
+fn (c ArcCase) walker(t f64) []f64 {
+	p := arc_at(c.from, c.head, c.turn, math.min(t, math.min(c.flip_s, c.stop_s)))
+	if t <= c.flip_s || c.stop_s <= c.flip_s {
+		return p
+	}
+	return arc_at(p, c.head + c.turn * c.flip_s, -c.turn, math.min(t, c.stop_s) - c.flip_s)
+}
+
+// arc_at is where a walker stands t s after leaving p on heading h at 0.5 m/s, turning at w rad/s.
+fn arc_at(p []f64, h f64, w f64, t f64) []f64 {
+	if w == 0.0 {
+		return [p[0] + 0.5 * t * math.cos(h), p[1] + 0.5 * t * math.sin(h)]
+	}
+	return [p[0] + 0.5 / w * (math.sin(h + w * t) - math.sin(h)),
+		p[1] - 0.5 / w * (math.cos(h + w * t) - math.cos(h))]
+}
+
+// off is how far p lies from the way through the points of path.
+fn off(p []f64, path [][]f64) f64 {
+	mut d := lcl.dist(p, path[0])
+	for j in 1 .. path.len {
+		d = math.min(d, lcl.dist(p, nearest(p, path[j - 1], path[j])))
+	}
+	return d
+}
+
+// A person's track hidden behind a pillar shows on the arc that the turn they walked bends their
+// course into, where that lies nearer the body: a walker who keeps turning toward the body shows
+// on their way, where the straight course strays; one who reverses the turn while hidden, whose arc
+// bends away, shows no farther than on the straight course; and one who walks straight, one who
+// stops while hidden and one seen for less than turn_ms show where the straight course shows them.
+// On every hidden tick the track lies no farther from the body than the straight course's place,
+// which a copy of the track without its turn rate shows.
+fn test_hide_on_an_arc() {
+	pillar := disc([2.0, 0.0], 0.5)
+	north := math.pi / 2.0
+	cases := [
+		ArcCase{'turns behind a pillar', [4.5, -2.5], north, 0.1, 99.0, 99.0, 0.0, .on_the_arc},
+		ArcCase{'reverses the turn behind a pillar', [4.5, -2.0], 2.0 * math.pi / 3.0, -0.1, 2.7, 99.0, 0.0, .not_farther},
+		ArcCase{'walks straight behind a pillar', [4.5, -2.5], 1.75, 0.0, 99.0, 99.0, 0.0, .unchanged},
+		ArcCase{'stops behind a pillar', [4.5, -2.5], 1.75, 0.0, 99.0, 5.5, 0.0, .unchanged},
+		ArcCase{'turns behind a pillar, seen for less than turn_ms', [4.5, -2.5], north, 0.1, 99.0, 99.0, 2.6, .unchanged},
+	]
+	for c in cases {
+		mut t := Tracker{}
+		mut path := [][]f64{} // m, where the walker went since the detector last reported them
+		mut hidden := 0 // ticks the track was held hidden
+		mut stray := 0.0 // m, how far the straight course's place strayed from that way
+		for i in 0 .. 601 {
+			t_ms := i64(20 * i)
+			at := c.walker(f64(t_ms) / 1000.0)
+			people := if f64(t_ms) / 1000.0 >= c.show_s { [at] } else { [][]f64{} }
+			raw := sighted(t_ms, [0.0, 0.0], people, [pillar])
+			t.percept(raw)
+			if raw.scene.len == 1 {
+				path = [at]
+				continue
+			}
+			path << at
+			held := t.tracks.filter(it.kind == 'human' && it.hidden)
+			if path.len < 2 || held.len == 0 {
+				continue
+			}
+			mut straight := Track{
+				...held[0]
+				turn: 0.0
+			}
+			straight.hide(raw)
+			shown := held[0].at
+			hidden++
+			stray = math.max(stray, off(straight.at, path))
+			assert lcl.norm(shown) <= lcl.norm(straight.at) + 1e-9, '${c.name}: ${shown} farther than ${straight.at} at ${t_ms} ms'
+			match c.want {
+				.on_the_arc {
+					assert off(shown, path) <= 0.03, '${c.name}: ${shown} ${off(shown, path)} m off the way at ${t_ms} ms'
+				}
+				.not_farther {}
+				.unchanged {
+					assert lcl.dist(shown, straight.at) <= 1e-9, '${c.name}: ${shown} against ${straight.at} at ${t_ms} ms'
+				}
+			}
+		}
+		assert hidden >= 50, '${c.name}: held hidden for ${hidden} ticks'
+		if c.want == .on_the_arc {
+			assert stray >= 0.1, '${c.name}: the straight course strayed ${stray} m at most'
+		}
+	}
+}

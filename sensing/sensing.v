@@ -54,6 +54,11 @@ const step = 0.1
 // to the track's velocity, per second of the time between them.
 const gain = 0.3
 
+// turn_ms is the least time, in milliseconds, over which a track's velocity has to turn before the
+// turn counts as its turn rate: about a second, which a walker on the default world's ellipse
+// keeps, and over which the residual filter's lag behind a steady turn cancels out.
+const turn_ms = 1000
+
 // Tracker is the field tier's memory of what the range ring and the person detector have seen.
 // main.v's field loop hands every percept of body.Ranged to percept before any reader gets it.
 pub struct Tracker {
@@ -77,6 +82,9 @@ mut:
 	hidden    bool  // a person nothing has seen who may stand where the ring cannot see
 	lo        []f64 // m, where the first hidden stretch of its course begins
 	hi        []f64 // m, where that stretch ends
+	back      []f64 // m/s, its velocity at back_ms, from which turn is measured
+	back_ms   i64
+	turn      f64 // rad/s, counterclockwise, how fast its velocity turned from back to a sighting
 }
 
 // Seen is one sighting, a person the detector reported or a circle around the ring's hits.
@@ -221,6 +229,9 @@ fn (mut t Tracker) update(seen []Seen, raw lcl.Percept) {
 
 // sight moves the track to s, seen at t_ms. Its velocity is the step from the first sighting to the
 // second, and from then on moves by gain of the residual against where the track predicted itself.
+// Its turn rate is how far that velocity turned from the one it kept back, once turn_ms or more ago,
+// over the time between, and the velocity it keeps back moves on to this one; a track has none
+// until its velocity is turn_ms old.
 fn (mut k Track) sight(s Seen, t_ms i64) {
 	dt := f64(t_ms - k.seen_ms) / 1000.0
 	if dt > 0.0 {
@@ -232,6 +243,13 @@ fn (mut k Track) sight(s Seen, t_ms i64) {
 		}
 		k.sightings++
 		k.seen_ms = t_ms
+		if k.back.len == 0 {
+			k.back, k.back_ms = k.vel.clone(), t_ms
+		} else if t_ms - k.back_ms >= turn_ms {
+			cross := k.back[0] * k.vel[1] - k.back[1] * k.vel[0]
+			k.turn = math.atan2(cross, lcl.dot(k.back, k.vel)) / (f64(t_ms - k.back_ms) / 1000.0)
+			k.back, k.back_ms = k.vel.clone(), t_ms
+		}
 	}
 	k.pos = s.pos.clone()
 	k.at = s.pos.clone()
@@ -247,15 +265,22 @@ fn (mut k Track) sight(s Seen, t_ms i64) {
 // its velocity, so MAGI's course rule and the planner still see them walk. Otherwise it shows at its
 // last place, as one the ring sees through. A track hidden after its first sighting has no velocity,
 // so it stays at that place, as a person who stands there would. The track keeps the first hidden
-// stretch of its course, from the last sighting on, for update's gate.
-// ponytail: a straight course from the last sighting along the filtered velocity, judged on the
-// ring of one tick and kept for hide_ms at most, so a walker who turns while hidden, or who sped up
-// in the last ticks before the ring lost them, can be shown farther than they are, one hidden longer
-// goes unreported, and a person who steps out of the same shadow beside that stretch, a newcomer or
-// one whose own track is hidden too, or a newcomer from a shadow that joined it only after the
-// person hid, as a moving solid's or one the body's drive turned, takes the track (PLAN, Known issue
-// 43); should a measurement show such a person within 2 m of a release, count a hidden sector within
-// 2 m as a person, the owner's fallback (docs/decisions.md, 2026-10-08).
+// stretch of its course, from the last sighting on, for update's gate. A hidden track whose person
+// was turning shows instead at the hidden place nearest the body on the arc their turn rate bends
+// that course into, where that place is nearer the body still, so a walker who keeps turning as
+// they did is shown on their way rather than off it, and the track is never farther from the body
+// than on its straight course; the arc changes neither whether the track is hidden nor its stretch.
+// ponytail: a straight course or one arc of the turn rate measured over the last second or more of
+// sightings, judged on the ring of one tick and kept for hide_ms at most, so a walker who reverses
+// the turn while hidden, or turns after less than turn_ms in view, is shown at the straight
+// course's place and one who turns harder than measured passes inside the arc, so each can be shown
+// farther than they are, as can one who sped up in the last ticks before the ring lost them; one
+// hidden longer or never seen goes unreported; and a person who steps out of the same shadow beside
+// that stretch, a newcomer or one whose own track is hidden too, or a newcomer from a shadow that
+// joined it only after the person hid, as a moving solid's or one the body's drive turned, takes
+// the track (PLAN, Known issue 43); should a measurement show such a person within 2 m of a
+// release, count a hidden sector within 2 m as a person, the owner's fallback (docs/decisions.md,
+// 2026-10-08).
 fn (mut k Track) hide(raw lcl.Percept) {
 	end := k.reach(raw.t_ms)
 
@@ -290,7 +315,26 @@ fn (mut k Track) hide(raw lcl.Percept) {
 	if k.hidden && k.lo.len == 0 {
 		k.lo, k.hi = best.clone(), best.clone()
 	}
+	if k.hidden && k.turn != 0.0 {
+		tau := f64(raw.t_ms - k.seen_ms) / 1000.0
+		for i in 0 .. n + 1 {
+			at := k.along(tau * f64(i) / f64(n))
+			if lcl.dist(raw.pose, at) < lcl.dist(raw.pose, best) && shadowed(raw, at, core * k.r) {
+				best = at.clone()
+			}
+		}
+	}
 	k.at = if k.hidden { best } else { k.pos.clone() }
+}
+
+// along is where the course of a track stands t seconds after its last sighting on the arc its
+// turn rate bends its velocity into, its straight course where it has none.
+fn (k Track) along(t f64) []f64 {
+	half := k.turn * t / 2.0
+	chord := if half == 0.0 { t } else { t * math.sin(half) / half }
+	c, s := math.cos(half), math.sin(half)
+	return lcl.add(k.pos, lcl.scale([k.vel[0] * c - k.vel[1] * s, k.vel[0] * s + k.vel[1] * c],
+		chord))
 }
 
 // reach is where the course of a track ends at t_ms: its last place moved along its velocity for
