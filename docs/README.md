@@ -24,4 +24,5 @@ Beside them:
 - [assets/README.md](../assets/README.md): every image, recording, icon and font in the repository with where it is used, how it is made and its license, for someone looking for one or adding one.
 - [bridge/README.md](../bridge/README.md): how the bridge is drawn, for someone changing its look, and [the website's bridge guide](../website/src/routes/bridge.tsx) how to read it, for someone watching.
 - [PLAN.md](../PLAN.md): where the project stands, its invariants and the module table, for whoever works next.
+- [logbook.md](logbook.md): every measurement in full, by day, and the full text of each known issue PLAN resolved and each task it sums up, for someone checking where a number comes from or how a fix was found.
 - [CONTRIBUTING.md](../CONTRIBUTING.md): the rules for changing the code.

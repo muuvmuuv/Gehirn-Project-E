@@ -154,7 +154,7 @@ WORLD=$PWD/worlds/example.json python3 tools/trials.py --runs 3 --jobs 3
 
 `tools/pilot.py` reads `WORLD` too and starts from the world's start, moved to `START` when set, and steers to its first beacon unless `--beacon` names another. The mission gehirn sets by default names the world's first beacon, so with HQ and the field unit apart, give HQ the same `WORLD`, or a `MISSION` of its own. The mock's core heads for the beacon the mission names, else the first ([Running gehirn](running.md#the-mock-by-hand)). The start sets of `tools/eval_dummy.py` lie in the default world, so with `WORLD` set it takes only starts you give it ([Piloting](piloting.md#training-the-dummy-plug)). `magi-eval` plays no world, since `tools/scenarios.json` holds its own scene. The bridge draws whatever the percept holds. The demo unsets `WORLD`, since its beats are timed on the default world, and each scene sets it to a world of its own ([The scene worlds](#the-scene-worlds)).
 
-PLAN's State holds what the example world's humans did in mock missions.
+The logbook holds what the example world's humans did in mock missions.
 
 ## The scene worlds
 
@@ -180,7 +180,7 @@ WORLD=$PWD/worlds/crossing.json python3 tools/trials.py --runs 10 --jobs 3
 
 The mock's core answers at once, so on the mock the first goto is judged at the start, before h1 nears b1, and the rule never fires. Slow the mock's core to judge it later, as `python3 tools/mock_endpoint.py --slow core=2000` does, or fly a hosted core ([Running gehirn](running.md#hosted-models)).
 
-PLAN's State holds how often the rule fired there and how often its fact held, on the mock and on hosted lineup A.
+The logbook holds how often the rule fired there and how often its fact held, on the mock and on hosted lineup A.
 
 ## The sweep world
 
@@ -191,7 +191,7 @@ just build
 WORLD=$PWD/worlds/sweep.json python3 tools/trials.py --runs 10 --jobs 3
 ```
 
-PLAN's State holds how it went on the mock and on hosted MAGI.
+The logbook holds how it went on the mock and on hosted MAGI.
 
 ## The pocket world
 
@@ -203,7 +203,7 @@ PLANNER=reflex WORLD=$PWD/worlds/pocket.json python3 tools/trials.py --runs 10 -
 WORLD=$PWD/worlds/pocket.json python3 tools/trials.py --runs 10 --jobs 3
 ```
 
-PLAN's State holds how both fared on the mock.
+The logbook holds how both fared on the mock.
 
 ## The terrain world
 
@@ -222,7 +222,7 @@ just build
 WORLD=$PWD/worlds/terrain.json python3 tools/trials.py --runs 10 --jobs 3
 ```
 
-PLAN's State holds what each kind did on the mock.
+The logbook holds what each kind did on the mock.
 
 `just scene=terrain demo` flies the same mission with HQ, the field unit and the bridge apart and narrates it, as the scenes of [Scenes](scenes.md) do, and `just scene=terrain demo-record` records it. It is a tour of this world rather than a scene from the series: no pilot sits down, and nothing but the world is set. Its take, [assets/media/terrain.mp4](../assets/media/terrain.mp4), shows every kind on the bridge's radar, and the website plays the radar cut from it.
 
@@ -230,14 +230,14 @@ PLAN's State holds what each kind did on the mock.
 
 [worlds/behind.json](../worlds/behind.json) is the default world with pillar o1 moved 1.03 m west-southwest, from 0,-0.3 to -0.96,-0.67, and every other entity as it is, so walker h1 passes behind the pillar rather than through it. It measures what `SENSING=range` costs around a person the ring loses behind a solid (PLAN, Known issue 43), which the default world cannot: there h1's loop runs 0.39 m inside o1's rim, so for about 1 s of each 21 s loop h1 is wholly inside the pillar, a place no person can be and the ring sees from nowhere, and the default world stays as it is, pinned to the bit ([The default world](#the-default-world)).
 
-Here h1's rim passes 2.5 cm outside o1's, about the least move that clears the loop and still has h1 pass behind o1 as seen from the way to b1. The straight way to b1 passes 0.06 m south-east of o1's center, so the body goes round o1 on that side, where it rounds the default world's pillar on the north-west, and h1 passes behind o1 on the west of its loop. A move of 0.7 m south-southwest, the least that clears the loop, leaves the way north-west of the pillar's center, so the body goes round it between the pillar and the loop, and in screening flights on the mock with the first goto at up to 8.25 s the ring never lost h1 once it had seen h1 (PLAN, State). From the start the ring misses h1 for 13.5 s of each loop, against 10.6 s on the default world. Along the way it depends on when the first goto comes: from about 5 s on, the ring sees h1 from the start and then loses h1 behind o1 for 3.4 to 5.9 s, where at the same gotos the default world's pillar hides h1 for 3.6 to 7.3 s under `truth` and 6.0 to 8.0 s under `range`, while with an earlier goto it first sees h1 as h1 comes out from behind o1, 9.5 to 13 s in and 1.7 to 2.9 m off. A person hidden behind a pillar 0.8 m in radius stays 1.5 m or more from the body by their rim while the body keeps outside the pillar's keep, and 1.7 m at the local planner's margin, so the ring loses h1 about 1.7 m off at the nearest, where the default world's pillar hides h1 at about 1.1 m and, with h1 inside it in the flights with the goto at 12.45 s under `range`, at 0.5 m. Fly it as any world, beside the default world:
+Here h1's rim passes 2.5 cm outside o1's, about the least move that clears the loop and still has h1 pass behind o1 as seen from the way to b1. The straight way to b1 passes 0.06 m south-east of o1's center, so the body goes round o1 on that side, where it rounds the default world's pillar on the north-west, and h1 passes behind o1 on the west of its loop. A move of 0.7 m south-southwest, the least that clears the loop, leaves the way north-west of the pillar's center, so the body goes round it between the pillar and the loop, and in screening flights on the mock with the first goto at up to 8.25 s the ring never lost h1 once it had seen h1 (logbook). From the start the ring misses h1 for 13.5 s of each loop, against 10.6 s on the default world. Along the way it depends on when the first goto comes: from about 5 s on, the ring sees h1 from the start and then loses h1 behind o1 for 3.4 to 5.9 s, where at the same gotos the default world's pillar hides h1 for 3.6 to 7.3 s under `truth` and 6.0 to 8.0 s under `range`, while with an earlier goto it first sees h1 as h1 comes out from behind o1, 9.5 to 13 s in and 1.7 to 2.9 m off. A person hidden behind a pillar 0.8 m in radius stays 1.5 m or more from the body by their rim while the body keeps outside the pillar's keep, and 1.7 m at the local planner's margin, so the ring loses h1 about 1.7 m off at the nearest, where the default world's pillar hides h1 at about 1.1 m and, with h1 inside it in the flights with the goto at 12.45 s under `range`, at 0.5 m. Fly it as any world, beside the default world:
 
 ```sh
 just build
 WORLD=$PWD/worlds/behind.json python3 tools/trials.py --runs 10 --jobs 3
 ```
 
-PLAN's State holds how it went under `SENSING=range` and `truth` beside the default world.
+The logbook holds how it went under `SENSING=range` and `truth` beside the default world.
 
 ## Generating worlds
 
@@ -250,13 +250,13 @@ just build
 python3 tools/withenv.py .env python3 tools/worldgen.py --out hunt --rounds 3 --worlds 4 --runs 2
 ```
 
-`--out` must be empty or new. The tool serves the mock on `--mock-port`, 8081 unless given, and flies `--jobs` missions at a time, 3 unless given, on plug ports from `--plug-base`, 7800 unless given, so a hunt beside another hunt or `just missions` needs ports of its own. `--model` names the model that writes the worlds, `google/gemini-3.8-flash` unless given, which OpenRouter asks for JSON at the reasoning effort of `--effort`, `low` unless given; from a reply that is not JSON alone the tool takes the first JSON object. It allows the model 32000 tokens; PLAN's State has how models fared. A configuration is the lineup's variables with `KEY=VALUE` overlays, `--test-env` for the configuration under test and `--ref-env` for the reference, where an empty value unsets the variable. The configuration under test is the default stack, which the local planner of PLAN's Phase 3 Task 6 steers, unless `--test-env` changes it, and the reference flies the reflex, `PLANNER=reflex`, unless `--ref-env` sets `PLANNER`, so `--test-env DRIVE=differential --ref-env PLANNER=local` tests the differential drive under the planner against the planner on the default holonomic drive, and `--ref-env PLANNER=local --test-env PLANNER=reflex` tests the reflex against the planner. `--lineup mock`, the default, puts the mock behind the core and MAGI and gives gehirn no key. A run, gehirn's verdict and the mock get the configuration and `PATH`, `HOME`, `TMPDIR` and `SSL_CERT_FILE`, nothing else of the shell's environment or of `.env`, so a variable reaches a run only as an overlay, and the prompt and the summary show the value of a key or token as `<set>`. `--lineup magi` puts the hosted MAGI of [lineup A](magi.md#measured-lineups), or the models the environment names, on OpenRouter and Jev before the mock's scripted core, as `just lineup=magi demo` does but at gehirn's default cooldown and pause, which the demo shortens to 6 s and 1 s, and needs `TYPESAFE_API_KEY` in `.env` too. The tool never writes into `worlds/` or `tools/scenarios.json`: a person reads a find and promotes it, into `worlds/`, the scenario gate or the dummy plug's training flights.
+`--out` must be empty or new. The tool serves the mock on `--mock-port`, 8081 unless given, and flies `--jobs` missions at a time, 3 unless given, on plug ports from `--plug-base`, 7800 unless given, so a hunt beside another hunt or `just missions` needs ports of its own. `--model` names the model that writes the worlds, `google/gemini-3.8-flash` unless given, which OpenRouter asks for JSON at the reasoning effort of `--effort`, `low` unless given; from a reply that is not JSON alone the tool takes the first JSON object. It allows the model 32000 tokens; the logbook has how models fared. A configuration is the lineup's variables with `KEY=VALUE` overlays, `--test-env` for the configuration under test and `--ref-env` for the reference, where an empty value unsets the variable. The configuration under test is the default stack, which the local planner of PLAN's Phase 3 Task 6 steers, unless `--test-env` changes it, and the reference flies the reflex, `PLANNER=reflex`, unless `--ref-env` sets `PLANNER`, so `--test-env DRIVE=differential --ref-env PLANNER=local` tests the differential drive under the planner against the planner on the default holonomic drive, and `--ref-env PLANNER=local --test-env PLANNER=reflex` tests the reflex against the planner. `--lineup mock`, the default, puts the mock behind the core and MAGI and gives gehirn no key. A run, gehirn's verdict and the mock get the configuration and `PATH`, `HOME`, `TMPDIR` and `SSL_CERT_FILE`, nothing else of the shell's environment or of `.env`, so a variable reaches a run only as an overlay, and the prompt and the summary show the value of a key or token as `<set>`. `--lineup magi` puts the hosted MAGI of [lineup A](magi.md#measured-lineups), or the models the environment names, on OpenRouter and Jev before the mock's scripted core, as `just lineup=magi demo` does but at gehirn's default cooldown and pause, which the demo shortens to 6 s and 1 s, and needs `TYPESAFE_API_KEY` in `.env` too. The tool never writes into `worlds/` or `tools/scenarios.json`: a person reads a find and promotes it, into `worlds/`, the scenario gate or the dummy plug's training flights.
 
 Into `--out` it writes each round's prompt as `rN/prompt.txt`, the model's replies as `rN/reply-M.txt` with the tokens and cost OpenRouter reports for each as `rN/usage-M.json`, each world as `rN/wK.json` and its runs as `rN/wK/test/run-NN` and `rN/wK/ref/run-NN`, as `tools/trials.py` leaves them, `findings.jsonl`, and `summary.txt`, which it prints at the end. `findings.jsonl` holds one line per world: gehirn's verdict and refusal line, every run's ending, its course as `tools/trials.py` measures it, facts and failures with their evidence, whether the world is solvable, and its kinds of find. SIGTERM or Ctrl-C stops every running mission and the mock at once and leaves the rounds that flew in `--out`, without `summary.txt`.
 
 ### What it costs
 
-A round takes one model call, more when a call fails, OpenRouter cuts its reply or it holds no world. A hunt makes at most `--max-calls` calls in all, 6 unless given, so a longer hunt needs more, each waiting up to `--timeout` seconds, 180 unless given; the summary adds up the tokens and the cost OpenRouter reports. A round flies `--worlds` times `--runs` missions of each configuration, 16 for 4 worlds of 2 runs. On the mock a mission that delivers ends a second after the release, about 35 s on the default world, and one that does not deliver runs to `--limit`, 180 s unless given, so a round of worlds that stall takes about 12 minutes at 4 jobs. With `--lineup magi` every ballot is a hosted call too, so keep `--jobs` at 3 or less, as for any hosted run ([Running gehirn](running.md#hosted-models)). The summary counts the ballots of every configuration whose endpoints are not the mock's, and no new round starts once `--max-ballots` of them, 600 unless given, are cast, so a hunt can pass it by the last round's ballots. PLAN's State holds what a hunt cost.
+A round takes one model call, more when a call fails, OpenRouter cuts its reply or it holds no world. A hunt makes at most `--max-calls` calls in all, 6 unless given, so a longer hunt needs more, each waiting up to `--timeout` seconds, 180 unless given; the summary adds up the tokens and the cost OpenRouter reports. A round flies `--worlds` times `--runs` missions of each configuration, 16 for 4 worlds of 2 runs. On the mock a mission that delivers ends a second after the release, about 35 s on the default world, and one that does not deliver runs to `--limit`, 180 s unless given, so a round of worlds that stall takes about 12 minutes at 4 jobs. With `--lineup magi` every ballot is a hosted call too, so keep `--jobs` at 3 or less, as for any hosted run ([Running gehirn](running.md#hosted-models)). The summary counts the ballots of every configuration whose endpoints are not the mock's, and no new round starts once `--max-ballots` of them, 600 unless given, are cast, so a hunt can pass it by the last round's ballots. The logbook holds what a hunt cost.
 
 ### What counts as a find
 

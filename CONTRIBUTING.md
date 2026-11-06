@@ -156,7 +156,7 @@ scope  optional: a module (lcl body armor plug core magi oai jev umbilical zenoh
 3. The body is prose wrapped at 72 columns: why, any external constraint, and what was verified (the checks, the mock missions, real models). A change across modules gives one bullet per module.
 4. A commit that touches an invariant says in its body why each one it touches still holds: `Invariant 3 holds: ...`.
 5. A commit that changes a safety number (an `armor.Limits` field, the quorum, a deadline, the umbilical's grace or budget) lists each old and new value in its body.
-6. Docs the change makes false are fixed in the same commit: the table of docs/configuration.md, the topic docs, PLAN's state, tasks and known issues, an ADR's consequences.
+6. Docs the change makes false are fixed in the same commit: the table of docs/configuration.md, the topic docs, PLAN's state, tasks and known issues, an ADR's consequences. A new measurement goes into docs/logbook.md under its day, and PLAN keeps the short version.
 7. No `Co-authored-by` and no `Signed-off-by` trailers.
 
 ## ADRs
@@ -169,5 +169,5 @@ scope  optional: a module (lcl body armor plug core magi oai jev umbilical zenoh
 ## Docs
 
 1. US English in code, comments and docs. Prose uses no dashes as punctuation.
-2. Each doc has one reader. README.md serves someone arriving at gehirn, docs/README.md someone looking for a doc, each topic doc it lists someone running or studying that part of gehirn, bridge/README.md someone changing how the bridge is drawn, assets/README.md anyone looking for or adding an image, a recording, an icon or a font, PLAN.md whoever works next, docs/adr anyone asking why, docs/decisions.md anyone reopening a decision of the owner's, docs/launch.md the owner taking gehirn public, docs/research/ anyone asking what the series shows, docs/reports/ the owner reviewing what a session landed, and this file anyone changing code. A fact lives in the doc that owns it, and the others point there.
+2. Each doc has one reader. README.md serves someone arriving at gehirn, docs/README.md someone looking for a doc, each topic doc it lists someone running or studying that part of gehirn, bridge/README.md someone changing how the bridge is drawn, assets/README.md anyone looking for or adding an image, a recording, an icon or a font, PLAN.md whoever works next, docs/logbook.md anyone checking where a number comes from or how a fix was found, docs/adr anyone asking why, docs/decisions.md anyone reopening a decision of the owner's, docs/launch.md the owner taking gehirn public, docs/research/ anyone asking what the series shows, docs/reports/ the owner reviewing what a session landed, and this file anyone changing code. A fact lives in the doc that owns it, and the others point there.
 3. Present tense. A date stands only beside a measurement or a status.
