@@ -495,6 +495,8 @@ The owner adopted this wording on 2026-10-05 (Open question 6). The earlier one,
 
 Done when pulling the network cable, killing the field process and pressing the e-stop each stop the motors within the watchdog period.
 
+A body that can fall, such as a humanoid, falls when its motors stop, so for one Task 2's e-stop and this criterion wait for an ADR on a controlled stop before power is cut ([docs/hardware.md](docs/hardware.md#stopping-a-body-that-can-fall)).
+
 ### Phase 6: Vinix
 
 1. [ ] Run the field unit on Vinix in a VM, aarch64 on Apple Silicon or amd64 under KVM, with HQ on Linux.
@@ -586,7 +588,7 @@ Done when the bridge follows a full mission live on the Mac, from goto to releas
 
 ## Open questions for the owner
 
-1. What is the first real body: an existing robot base or a custom build? Phases 3 and 5 depend on it.
+1. What is the first real body: an existing robot base or a custom build? Phases 3 and 5 depend on it. Since 2026-11-06 the owner watches Menlo Research's humanoid Asimov 1 and expects to join at its second version, with the lidar from a used vacuum robot ([docs/hardware.md](docs/hardware.md), [docs/decisions.md](docs/decisions.md#project)).
 2. Is CL1 access realistic, on a device or remotely? That decides whether Phase 7 stays.
 3. Where does the field unit run first: a Mac on Vinix, or a single board computer on Linux?
 4. ADR-0001, still Proposed, puts HQ on a Linux machine with a GPU that holds the four models, while the proof of concept runs them hosted on OpenRouter and TypeSafe. Does HQ keep that GPU plan for later, or does ADR-0001 change before it is accepted?

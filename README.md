@@ -75,7 +75,8 @@ An approved goal still has to pass the armor, and a refusal goes back to the cor
 - [MAGI](docs/magi.md): how a vote works, why the three judges come from three families, the scenario gate, and the hosted lineups as measured.
 - [The bridge](docs/bridge.md): how to run the operator's view and what each panel shows.
 - [Piloting](docs/piloting.md): the signed datagrams and the A10 reply, the gamepad, the sync ratio, and training the dummy plug.
-- [Safety](docs/safety.md): what the restraint armor holds the body to, what hardware adds, and where a failure leaves the body.
+- [Safety](docs/safety.md): what the restraint armor holds the body to and where a failure leaves the body.
+- [Hardware](docs/hardware.md): what a real body brings below the armor, how one that can fall has to stop, and the hardware under consideration.
 - [CL1 backend](docs/cl1.md): the experimental core on a living culture, and its two unauthenticated ports.
 - [docs/README.md](docs/README.md): these and the rest, the ADRs, the owner's decisions and the canon research among them.
 

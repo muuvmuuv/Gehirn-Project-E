@@ -10,6 +10,7 @@ One document per topic, each for one reader. The [README](../README.md) introduc
 - [bridge.md](bridge.md): for someone running the bridge or reading its panels.
 - [piloting.md](piloting.md): for someone steering the body, by script or gamepad, or training the dummy plug.
 - [safety.md](safety.md): for someone asking what holds the body.
+- [hardware.md](hardware.md): for someone choosing or bringing a real body, with what it brings below the armor and the hardware the owner is looking at.
 - [cl1.md](cl1.md): for someone bringing a Cortical Labs CL1.
 - [brand.md](brand.md): for someone putting gehirn's mark or name on a page, a slide or a video.
 
