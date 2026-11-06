@@ -74,7 +74,7 @@ Kill HQ and the field unit runs on internal power once `UMBILICAL_GRACE_MS` has 
 
 ## Prebuilt binaries
 
-A machine that only runs gehirn, the bridge or the gamepad needs no V. Each tag `v*` builds them and attaches them to a draft release on the repository's GitHub Releases page, where they appear once the owner publishes it; while the repository is private, only those with access see it. Each target has one archive, `gehirn-<tag>-<target>.tar.gz`, with `LICENSE` beside the binaries and the font licenses beside the bridge, and `SHA256SUMS` lists each archive's sha256.
+A machine that only runs gehirn, the bridge or the gamepad needs no V. Each tag `v*` builds them and attaches them to a draft release on the repository's GitHub Releases page, where they appear once the owner publishes it. Each target has one archive, `gehirn-<tag>-<target>.tar.gz`, with `LICENSE` beside the binaries and the font licenses beside the bridge, and `SHA256SUMS` lists each archive's sha256.
 
 | Target | Holds | Needs |
 | --- | --- | --- |
@@ -89,7 +89,7 @@ grep gehirn-v0.1.0-macos-arm64.tar.gz SHA256SUMS | shasum -a 256 -c
 tar -xzf gehirn-v0.1.0-macos-arm64.tar.gz
 ```
 
-The macOS binaries are neither signed nor notarized, so macOS refuses to open one that came through a browser until its quarantine flag is cleared, once per binary: `xattr -d com.apple.quarantine <file>`. That holds until the owner decides on signing (PLAN, Tooling task 4). The binaries run as the ones built from source do, with the variables of [Configuration](configuration.md); `just demo`, the mock and the tools under `tools/` still need a clone.
+The macOS binaries are neither signed nor notarized, so macOS refuses to open one that came through a browser until its quarantine flag is cleared, once per binary: `xattr -d com.apple.quarantine <file>`. The owner keeps it so, since gehirn is a fan project ([decisions](decisions.md#tooling)). The binaries run as the ones built from source do, with the variables of [Configuration](configuration.md); `just demo`, the mock and the tools under `tools/` still need a clone.
 
 ## Local models
 
