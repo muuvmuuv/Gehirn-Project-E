@@ -60,8 +60,8 @@ What it changes:
 
 ## A vacuum robot's lidar
 
-The lidar comes from a used vacuum robot, which also brings bumpers, cliff sensors and wheel odometry. Its rotating lidar scans one plane all around, a few meters out, and on most models turns about five times a second. That gives ADR-0011's range ring a real source. A model whose lidar protocol is already reverse engineered saves writing a driver from scratch.
+A used vacuum robot is one idea for getting a lidar cheaply, and no model is chosen. It also brings bumpers, cliff sensors and wheel odometry. Its rotating lidar scans one plane all around, a few meters out, and on most models turns about five times a second. That gives ADR-0011's range ring a real source. A model whose lidar protocol is already reverse engineered saves writing a driver from scratch.
 
 On a humanoid the scan plane tilts with every step, so the lidar sits at the hips or its scans are corrected by the IMU, and it sees one height only.
 
-Whole, the vacuum is a wheeled base of a few kilograms that cannot fall, with those sensors and a charging dock: a possible first body for Phase 5 and ADR-0011 on `DRIVE=differential`, the option PLAN keeps for a wheeled first body (Open question 7). Open, not decided.
+Whole, the vacuum is a wheeled base of a few kilograms that cannot fall, with those sensors and a charging dock: a possible first body for Phase 5 and ADR-0011 on `DRIVE=differential`, the option PLAN keeps for a wheeled first body (Open question 7). The owner's way to a real body takes such a wheeled body first, before Asimov ([decisions](decisions.md#project)); which one is open.
