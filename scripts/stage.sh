@@ -84,8 +84,10 @@ elif [ "$lineup" = hosted ] && [ -z "${CORE_URL:-}" ] && [ -z "${CORE_MODEL:-}" 
     # The core on uzu, unless CORE_URL or CORE_MODEL names another, at the default URL that
     # scripts/lineup.sh repeats and found answering. Its own key keeps GEHIRN_KEY off uzu, and uzu
     # answers the core's default reasoning, none, with HTTP 400.
+    # A proposal queued on uzu behind a stopped HQ's last took 10.09 s, so the core gets the top, 15 s.
     export CORE_URL=http://127.0.0.1:8083/v1/chat/completions CORE_KEY=${CORE_KEY:-local} \
-        CORE_MODEL=${CORE_MODEL:-alibaba:qwen3.5:9b:mirai:mirai-m:4} CORE_REASONING=${CORE_REASONING:-disabled}
+        CORE_MODEL=${CORE_MODEL:-alibaba:qwen3.5:9b:mirai:mirai-m:4} CORE_REASONING=${CORE_REASONING:-disabled} \
+        CORE_TIMEOUT_MS=${CORE_TIMEOUT_MS:-15000}
 fi
 key() { python3 -c 'import secrets; print(secrets.token_hex(32))'; }
 UMBILICAL_KEY=$(key) WATCH_KEY=$(key) PILOT_KEY=$(key)

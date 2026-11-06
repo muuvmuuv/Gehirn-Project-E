@@ -20,7 +20,7 @@ Each binary reads its variables from the environment. Keys go into `.env`, which
 | `TYPESAFE_API_KEY` | empty | Bearer token for Jev; never sent to a chat model. Without it BALTHASAR faults every ballot, so nothing irreversible passes, and gehirn says so at startup |
 | `SSL_CERT_FILE` | the first of `/etc/ssl/cert.pem`, `/etc/ssl/certs/ca-certificates.crt` and `/etc/pki/tls/certs/ca-bundle.crt` that exists | CA bundle every https endpoint's certificate must chain to. The defaults are where macOS and Alpine, Debian and Ubuntu, and Fedora and RHEL keep it; elsewhere set it. Without the file every https call faults, and gehirn says so at startup |
 | `MAGI_TIMEOUT_MS` | `10000` | Deadline for one ballot, 1000 to 15000. A unit that misses it votes no |
-| `CORE_TIMEOUT_MS` | `10000` | Deadline for one proposal from the core, 1000 to 15000 |
+| `CORE_TIMEOUT_MS` | `10000` | Deadline for one proposal from the core, 1000 to 15000. The core on uzu takes 15000, since uzu answers one request at a time and a proposal can wait behind the last one of a gehirn that stopped ([Running](running.md#hosted-models)) |
 | `CORE_BACKEND` | `llm` | `llm` or `cl1`, which is experimental ([CL1 backend](cl1.md)) |
 | `CL1_SPIKES` | `0.0.0.0:12345` | Where spikes from the CL1 sidecar arrive, from any sender: the port has no authentication |
 | `CL1_SIDECAR` | `127.0.0.1:12346` | Where stim packets go |

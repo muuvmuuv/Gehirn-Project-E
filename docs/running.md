@@ -44,16 +44,16 @@ Then, in a second shell, build, export lineup A' and start gehirn:
 just build
 export GEHIRN_URL=https://openrouter.ai/api/v1/chat/completions \
   CORE_URL=http://127.0.0.1:8083/v1/chat/completions CORE_MODEL=alibaba:qwen3.5:9b:mirai:mirai-m:4 \
-  CORE_KEY=local CORE_REASONING=disabled \
+  CORE_KEY=local CORE_REASONING=disabled CORE_TIMEOUT_MS=15000 \
   MELCHIOR_MODEL=openai/gpt-oss-20b CASPER_MODEL=meta-llama/llama-3.1-8b-instruct
 python3 tools/withenv.py .env ./gehirn
 ```
 
-`CORE_KEY` needs a value: an empty one falls back to `GEHIRN_KEY`, and the OpenRouter key would go to uzu, which ignores whatever key arrives. `CORE_REASONING=disabled` turns Qwen3.5's thinking off, and the core's default `none` gets HTTP 400 from uzu ([Configuration](configuration.md#reasoning-and-providers)). uzu ignores `CORE_MODEL` too, so the registry id there only names the weights in the journal and on the bridge. It parses the proposal's JSON schema without applying it, so a proposal rests on the answer line of `core_prompt` in `core/llm.v`. In the 80 hosted missions of 2026-10-11 a proposal took a median of 4.8 to 5.1 s a set, its p90 5.5 to 8.2 s (PLAN, State).
+`CORE_KEY` needs a value: an empty one falls back to `GEHIRN_KEY`, and the OpenRouter key would go to uzu, which ignores whatever key arrives. `CORE_REASONING=disabled` turns Qwen3.5's thinking off, and the core's default `none` gets HTTP 400 from uzu ([Configuration](configuration.md#reasoning-and-providers)). `CORE_TIMEOUT_MS=15000`, the most it takes, gives a proposal that waits behind one uzu still answers room to finish: one queued behind a stopped gehirn's last took 10.09 s, past the default 10 s (PLAN, Known issue 13). uzu ignores `CORE_MODEL` too, so the registry id there only names the weights in the journal and on the bridge. It parses the proposal's JSON schema without applying it, so a proposal rests on the answer line of `core_prompt` in `core/llm.v`. In the 80 hosted missions of 2026-10-11 a proposal took a median of 4.8 to 5.1 s a set, its p90 5.5 to 8.2 s (PLAN, State).
 
 HQ proposes a goal, MAGI votes, and the field loop drives the body around a pillar and a walking human to beacon b1, then asks MAGI to release the payload. Without an endpoint the core never gets a goal approved, so the body only moves under a pilot. Without `TYPESAFE_API_KEY` gehirn says so at startup and BALTHASAR faults every ballot: gotos still pass on two votes, but the payload is never released.
 
-In the same shell, `tools/trials.py` flies ten missions with the keys from `.env` and counts how they end, and `magi-eval`, described in [MAGI](magi.md#the-scenario-gate), puts the adversarial scenarios to the lineup. trials flies one mission at a time unless `--jobs` says otherwise, and with the core on uzu it stays at one: uzu answers one request at a time, so a second mission's proposal waits behind the first's, and two in a row of the core's slower proposals take 10.1 to 10.9 s, past `CORE_TIMEOUT_MS` (PLAN, Known issue 13). trials does not wait for uzu between missions either, so from a set's second mission on, a mission's first proposal waits behind the last one of the mission before: on 2026-10-11 it took 7.5 to 10.1 s, and one in 80 missed the 10 s deadline while something else loaded the Mac, so fly hosted sets on an otherwise idle Mac.
+In the same shell, `tools/trials.py` flies ten missions with the keys from `.env` and counts how they end, and `magi-eval`, described in [MAGI](magi.md#the-scenario-gate), puts the adversarial scenarios to the lineup. trials flies one mission at a time unless `--jobs` says otherwise, and with the core on uzu it stays at one: uzu answers one request at a time, so a second mission's proposal waits behind the first's, and two in a row of the core's slower proposals take 10.1 to 10.9 s (PLAN, Known issue 13). trials does not wait for uzu between missions either, so from a set's second mission on, a mission's first proposal waits behind the last one of the mission before: on 2026-10-11 it took 7.5 to 10.1 s, and the one in 80 that missed the 10 s deadline of then, while something else loaded the Mac, fits the 15 s above; such a mission's first goto still comes about 3.5 s late, so fly hosted sets on an otherwise idle Mac.
 
 ```sh
 python3 tools/trials.py --env-file .env
@@ -79,7 +79,7 @@ Then, with the core's server running too, export lineup A' with CASPER on uzu an
 just build
 export GEHIRN_URL=https://openrouter.ai/api/v1/chat/completions \
   CORE_URL=http://127.0.0.1:8083/v1/chat/completions CORE_MODEL=alibaba:qwen3.5:9b:mirai:mirai-m:4 \
-  CORE_KEY=local CORE_REASONING=disabled MELCHIOR_MODEL=openai/gpt-oss-20b \
+  CORE_KEY=local CORE_REASONING=disabled CORE_TIMEOUT_MS=15000 MELCHIOR_MODEL=openai/gpt-oss-20b \
   CASPER_URL=http://127.0.0.1:8082/v1/chat/completions CASPER_MODEL=alibaba:qwen3.5:4b:mirai:mirai-m:4 \
   CASPER_KEY=local CASPER_REASONING=disabled
 python3 tools/withenv.py .env ./gehirn
