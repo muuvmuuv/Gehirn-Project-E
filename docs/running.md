@@ -24,18 +24,29 @@ Both fly real models too. `python3 tools/withenv.py .env just lineup=hosted demo
 
 The proof of concept runs MAGI on hosted models, MELCHIOR and CASPER on OpenRouter and BALTHASAR on TypeSafe's Jev, and the core on Qwen3.5-9B in Mirai's M quantization, served by [uzu](https://github.com/trymirai/uzu) on the Mac that runs HQ, since OpenRouter stopped serving the core's qwen3-8b on 2026-10-11 (PLAN, Known issue 13). That is lineup A' in [MAGI](magi.md#measured-lineups). Beyond what the demo needs, it takes an OpenRouter API key, a TypeSafe API key and uzu. Copy `.env.example` to `.env` and fill in both keys. `.env` hands the OpenRouter key on as `GEHIRN_KEY`, and `tools/withenv.py` passes both to gehirn without putting them on the command line.
 
-uzu runs on macOS, measured here through Metal on Apple Silicon; its Linux targets are in progress at 23f365fc. Build it once, outside the repository, with a nightly Rust, 1.98 or newer, already on the machine, since uzu's own toolchain file asks for nightly; at 23f365fc, the commit measured, it takes about 3 minutes on an M3 Pro:
+uzu runs on macOS, measured here through Metal on Apple Silicon; its Linux targets are in progress at 23f365fc. Build it once, outside the repository, with a nightly Rust, 1.98 or newer, already on the machine, since uzu's own toolchain file asks for nightly, and Xcode's Metal Toolchain, which `xcodebuild -downloadComponent MetalToolchain` fetches once; at 23f365fc, the commit measured, it takes about 3 minutes on an M3 Pro:
 
 ```sh
 git clone https://github.com/trymirai/uzu && cd uzu && git checkout 23f365fc
 RUSTUP_TOOLCHAIN=nightly cargo build --release -p cli
 ```
 
-Start its server for the core in a shell of its own, from an empty directory, with the provider keys unset so it holds none. The first start fetches the model, 5.6 GB, from Mirai's registry into `~/.cache/mirai`. uzu reads the login keychain under the real home at start, so no variable moves that store; a symlink keeps the models elsewhere. It serves the one model it started with and answers one request at a time:
+The weights the measurements flew are those of `trymirai/Qwen3.5-9B-M` on Hugging Face at c7be6b81. Mirai's registry serves the model under the same id since 2026-10-30 at a later commit that 23f365fc cannot load, so fetch the measured one into a directory of its own, 5.6 GB, with the encoding the registry entry names beside it (logbook, 2026-11-07):
+
+```sh
+rev=c7be6b81cf077f6b430b332bfad90adf35afa943 dir=~/.cache/mirai/pinned/Qwen3.5-9B-M-c7be6b81
+curl -s "https://huggingface.co/api/models/trymirai/Qwen3.5-9B-M/tree/$rev?recursive=true" |
+  jq -r '.[] | select(.type == "file") | .path' | while read -r f; do
+    mkdir -p "$dir/$(dirname "$f")" && curl -fsL -o "$dir/$f" "https://huggingface.co/trymirai/Qwen3.5-9B-M/resolve/$rev/$f"
+  done
+echo '{"name":"qwen3.5","type":"hanashi"}' > "$dir/encoding.json"
+```
+
+Start its server for the core in a shell of its own, from an empty directory, with the provider keys unset so it holds none. uzu reads the login keychain under the real home at start, so no variable moves that store. It serves the one model it started with and answers one request at a time:
 
 ```sh
 env -u OPENROUTER_API_KEY -u OPENAI_API_KEY -u HF_TOKEN -u MIRAI_API_KEY \
-  <uzu>/target/release/cli server --model alibaba:qwen3.5:9b:mirai:mirai-m:4 --host 127.0.0.1 --port 8083
+  <uzu>/target/release/cli server --model ~/.cache/mirai/pinned/Qwen3.5-9B-M-c7be6b81 --host 127.0.0.1 --port 8083
 ```
 
 Then, in a second shell, build, export lineup A' and start gehirn:
