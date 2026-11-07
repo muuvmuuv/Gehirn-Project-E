@@ -544,6 +544,22 @@ On 2026-11-07 the armor began to count the place nearest the body where a person
 
 The release median runs from the run's first recorder tick. No run had a contact or a step toward a human inside `human_stop` by ground truth, and the only armor refusals were terrain's: there the boat, which stops for the body by its world's rule, stood about 0.95 m from the body at b1, the sensed circle s6 at 2.68,1.11 against the body at 3.00,2.00, and the shadow behind it held the place, so the armor refused each of the 12 releases MAGI approved in every run (PLAN, Known issue 46). On pocket the release came 6.0 s later, the only one of those six worlds where the place cost time. One search of the place took 24 µs beside a pillar of 0.4 m radius 1.2 m off and 82 µs beside one of 0.8 m 1.15 m off in a release build, 177 and 599 µs in a dev build, against the field loop's 20 ms tick.
 
+Later on 2026-11-07 the tracker began to remember where the ring saw no one, so the place counts only where a person could have walked into the shadow unseen since the ring last saw into it (PLAN, Known issue 43). The same sets on the build with that memory, beside those above:
+
+| World, first goto | Delivered, release median, runs past the cap |
+| --- | --- |
+| default, own | 6 of 6, 48.20 s, 0 |
+| behind, own | 6 of 6, 28.60 s, 0 |
+| example, own | 6 of 6, 102.38 s, 0 |
+| crossing, own | 6 of 6, 18.10 s, 0 |
+| sweep, own | 6 of 6, 13.58 s, 0 |
+| pocket, own | 6 of 6, 36.16 s, 0 |
+| terrain, own | 0 of 6, 72 armor refusals, 0 |
+| behind, core 3, 4 and 5 s | 3 of 3 each, 34.59, 37.07 and 37.58 s, 0 |
+| default, core 3, 4 and 5 s | 3 of 3 each, 57.13, 53.60 and 57.09 s, 1 at 3 s |
+
+On sweep and pocket the body came by its solids sooner, 13.58 against 22.73 s and 36.16 against 39.15 s with the place alone. On the default world the body reached b1 within reach at a median 36.48 s against 35.91 s, and MAGI rejected 5 release votes against 2, so the release came later; the armor refused none. The one pass of the cap was 3 ticks at 34.78 s by up to 0.00012 m/s while the walker stood 0.50 m from o1's center, inside its 0.8 m, where the memory counts no one, the default world's flag the owner set aside on 2026-11-07. Terrain stayed as before: the boat stopped beside b1 for the body, and a person could have walked up its shadow before each release. A tracker tick with the memory took 0.52 ms in a release build and 4.2 ms in a dev build beside a pillar of 0.8 m.
+
 ## Resolved known issues
 
 The full text of each known issue PLAN lists as resolved, under its number there.

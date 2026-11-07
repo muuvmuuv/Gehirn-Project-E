@@ -655,7 +655,7 @@ fn test_unseen() {
 				r:    s.r
 			}
 		}
-		got := unseen(raw, scene, c.reach)
+		got := unseen(raw, scene, c.reach, Room{})
 		if c.lo < 0.0 {
 			assert got.len == 0, c.name
 			continue
@@ -681,4 +681,76 @@ fn test_a_tracker_reports_where_a_person_may_stand_unseen() {
 	assert p.scan.len == 0
 	mut far := Tracker{}
 	assert far.percept(sighted(0, [0.0, 0.0], [], [disc([1.2, 0.0], 0.4)])).unseen.len == 0, 'a tracker with no reach'
+}
+
+// A Room holds no one in a shadow the ring saw empty until a person could have walked into it: a
+// boat that rolls in front of the body hides a place within reach, which counts only once a person
+// at spread could have come up the boat's shadow from the Room's edge, while a pillar there from the
+// start hides one at once, since the ring never saw behind it.
+fn test_a_room_holds_no_one_where_the_ring_saw_until_one_could_walk_in() {
+	o := [0.0, 0.0]
+	boat := disc([1.0, 0.0], 0.37)
+	mut t := Tracker{
+		reach: 2.0
+		fence: [-5.0, -5.0, 5.0, 5.0]
+	}
+	assert t.percept(sighted(0, o, [][]f64{}, []Circle{})).unseen.len == 0, 'open floor'
+	assert t.percept(sighted(20, o, [][]f64{}, [boat])).unseen.len == 0, 'the boat as it arrives'
+	assert t.percept(sighted(1000, o, [][]f64{}, [boat])).unseen.len == 0, 'a second on'
+
+	// From the Room's edge at x = 7 m to the place behind the boat at about 1.6 m, at spread.
+	due := i64((7.0 - 1.6) / spread * 1000.0)
+	late := t.percept(sighted(due + 500, o, [][]f64{}, [boat]))
+	assert late.unseen.len == 1, 'once a person could have walked in'
+	assert lcl.dist(o, late.unseen[0].pos) - slim < 2.0
+
+	mut fresh := Tracker{
+		reach: 2.0
+		fence: [-5.0, -5.0, 5.0, 5.0]
+	}
+	assert fresh.percept(sighted(0, o, [][]f64{}, [disc([1.2, 0.0], 0.4)])).unseen.len == 1, 'a pillar from the start'
+}
+
+struct ThroughCase {
+	name   string
+	solids []Circle
+	x      f64
+	y      f64
+	want   bool
+}
+
+// through sees a square on open floor within the ring's reach and the body's own place, and not
+// behind or inside a pillar, beyond 10 m, or where the bearing is no number.
+fn test_through() {
+	pillar := disc([3.0, 0.0], 0.8)
+	cases := [
+		ThroughCase{'open floor', [], 4.0, 3.0, true},
+		ThroughCase{'the body itself', [pillar], 0.1, 0.0, true},
+		ThroughCase{'before a pillar', [pillar], 1.5, 0.0, true},
+		ThroughCase{'inside a pillar', [pillar], 3.0, 0.0, false},
+		ThroughCase{'behind a pillar', [pillar], 5.0, 0.0, false},
+		ThroughCase{'beside a pillar', [pillar], 5.0, 3.0, true},
+		ThroughCase{'beyond the ring', [], 12.0, 0.0, false},
+	]
+	for c in cases {
+		raw := lcl.Percept{
+			pose: [0.0, 0.0]
+			scan: ring([0.0, 0.0], c.solids)
+		}
+		assert through(raw, c.x, c.y) == c.want, c.name
+	}
+	assert !through(lcl.Percept{
+		pose:    [0.0, 0.0]
+		heading: math.nan()
+		scan:    ring([0.0, 0.0], [pillar])
+	}, 5.0, 0.0), 'a heading that is no number'
+}
+
+// A Room with no squares, as a Tracker with no fence keeps, and a place beyond a Room's edge hold
+// a person at any time.
+fn test_open() {
+	assert Room{}.open([0.0, 0.0], 0)
+	m := new_room([-5.0, -5.0, 5.0, 5.0])
+	assert m.open([0.0, 0.0], 0), 'every square at the start'
+	assert m.open([9.0, 0.0], 0), 'beyond the edge'
 }

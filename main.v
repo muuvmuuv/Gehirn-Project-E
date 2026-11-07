@@ -757,9 +757,11 @@ fn main() {
 		bounds:     limits.bounds
 	}
 	// The armor counts a place where a person may stand unseen as a person for its separation and its
-	// release check, so the tracker looks as far as the farther of the two reaches.
+	// release check, so the tracker looks as far as the farther of the two reaches, and remembers where
+	// the ring saw no one over the fence and beyond it.
 	mut tracker := sensing.Tracker{
 		reach: math.max(limits.human_slow, limits.release_keep)
+		fence: limits.bounds
 	}
 	mut rec := plug.open_recorder(cfg.recorder) or { panic(err) }
 	mut cable := umbilical.plug_in(lcl.now_ms(), cfg.budget_ms, cfg.grace_ms)

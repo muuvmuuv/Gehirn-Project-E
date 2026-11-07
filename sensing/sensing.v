@@ -66,12 +66,33 @@ const slim = 0.2
 // look is the spacing, in meters, of the places along a beam that unseen checks.
 const look = 0.02
 
+// cell is the side, in meters, of the squares a Room keeps.
+const cell = 0.1
+
+// margin is how far, in meters, a Room reaches past the fence; a person may come from beyond it
+// at any time.
+const margin = 2.0
+
+// spread is how fast, in m/s, the squares where a person may stand unseen grow through the ring's
+// shadow: gate_speed, the fastest walker a world file allows, raised by a tenth, since steps
+// between neighboring squares overstate a straight walk by up to 8%.
+const spread = gate_speed * 1.1
+
+// never is a Room's time for a square where no person may stand unseen until one walks in.
+const never = 1e18
+
+// ni and nj are the steps to a square's eight neighbors, the four sides first.
+const ni = [-1, 1, 0, 0, -1, 1, -1, 1]
+const nj = [0, 0, -1, 1, -1, -1, 1, 1]
+
 // Tracker is the field tier's memory of what the range ring and the person detector have seen.
 // main.v's field loop hands every percept of body.Ranged to percept before any reader gets it.
 pub struct Tracker {
 pub:
-	reach f64 // m, from the body's center to a rim, within which unseen reports a place; 0 reports none
+	reach f64   // m, from the body's center to a rim, within which unseen reports a place; 0 reports none
+	fence []f64 // xmin, ymin, xmax, ymax, the area a Room keeps margin beyond; empty keeps none
 mut:
+	room   Room
 	tracks []Track
 	people int         // ids made for people so far
 	solids int         // ids made for sensed solids so far
@@ -148,6 +169,9 @@ pub fn (mut t Tracker) percept(raw lcl.Percept) lcl.Percept {
 	}
 	t.update(seen, raw)
 	mut scene := raw.scene.filter(it.kind != 'human')
+	if t.fence.len == 4 && t.room.from.len == 0 {
+		t.room = new_room(t.fence)
+	}
 	for kind in ['human', 'obstacle'] {
 		for k in t.tracks {
 			if k.kind == kind {
@@ -155,17 +179,19 @@ pub fn (mut t Tracker) percept(raw lcl.Percept) lcl.Percept {
 			}
 		}
 	}
+	t.room.look(raw, scene)
 	return lcl.Percept{
 		...raw
 		scene:  scene
 		scan:   []f64{}
-		unseen: unseen(raw, scene, t.reach)
+		unseen: unseen(raw, scene, t.reach, t.room)
 	}
 }
 
 // unseen is the place nearest the body, by its rim, where a person of radius slim may stand with
 // that rim within reach of the body's center while the ring of raw sees into no part of them:
-// behind something a beam met, and clear of every obstacle and person of scene, so inside neither. It
+// behind something a beam met, clear of every obstacle and person of scene, so inside neither, and
+// where room says a person may have come unseen since the ring last saw into it. It
 // holds at most that one place, since the armor reads only the nearest, as a person for its
 // separation and its release check: the hidden sector the owner chose to count as a person on
 // 2026-11-07 (ADR-0011). It looks along each beam that ended within reach, every look meters from
@@ -174,7 +200,7 @@ pub fn (mut t Tracker) percept(raw lcl.Percept) lcl.Percept {
 // it hides a place just behind it that unseen skips; checks every place per beam until the nearest,
 // some thousands a tick beside a pillar, so a ring of finer beams or a reach well past 2 m wants a
 // search that steps from shadow edge to shadow edge instead.
-fn unseen(raw lcl.Percept, scene []lcl.Entity, reach f64) []lcl.Entity {
+fn unseen(raw lcl.Percept, scene []lcl.Entity, reach f64, room Room) []lcl.Entity {
 	n := raw.scan.len
 	if n == 0 || raw.pose.len != 2 || !(reach > 0.0) {
 		return []lcl.Entity{}
@@ -190,7 +216,8 @@ fn unseen(raw lcl.Percept, scene []lcl.Entity, reach f64) []lcl.Entity {
 		dir := [math.cos(a), math.sin(a)]
 		for s := d + slim; s < far; s += look {
 			at := [raw.pose[0] + s * dir[0], raw.pose[1] + s * dir[1]]
-			if solids.all(lcl.dist(at, it.pos) >= it.r + slim) && shadowed(raw, at, slim) {
+			if solids.all(lcl.dist(at, it.pos) >= it.r + slim) && room.open(at, raw.t_ms)
+				&& shadowed(raw, at, slim) {
 				best, far = at.clone(), s
 				break
 			}
@@ -635,4 +662,123 @@ fn kasa(pts [][]f64, m []f64) ?[]f64 {
 	uc := (ru * svv - rv * suv) / (2.0 * det)
 	vc := (rv * suu - ru * suv) / (2.0 * det)
 	return [m[0] + uc, m[1] + vc]
+}
+
+// Room is where a person may stand unseen, so that a shadow the ring saw empty a moment ago holds
+// no one until a person could have walked into it: for each square of cell meters over the fence
+// and margin beyond it, the time from which a person's center may lie there while the ring sees no
+// part of them. A square the ring sees through, or one inside a sensed obstacle, holds no one; a
+// square in the ring's shadow holds one from the time a person could have walked to it at spread
+// through the shadow from a square that held one, or from beyond the Room's edge, where a person may
+// always come from, stepping in no sooner than the ring last saw it. At the start every square holds
+// one, since the ring has seen nothing yet.
+// ponytail: squares of 0.1 m at a person's fastest walk through the shadow as it stands this tick,
+// so a person who walked through a part the ring saw into later counts as reaching it; costs a pass
+// over some 20000 squares a tick, 0.5 ms in a release build and 4 ms in a dev build, so a larger
+// area wants squares around the body only.
+struct Room {
+mut:
+	x0   f64
+	y0   f64
+	nx   int
+	ny   int
+	from []f64 // ms on the percepts' clock from which a person may stand there unseen, never where none may
+	seen []f64 // ms when the ring last saw through the square or an obstacle filled it, -never before
+}
+
+// new_room is a Room over fence, xmin, ymin, xmax, ymax, and margin beyond it, every square holding
+// a person from the start.
+fn new_room(fence []f64) Room {
+	nx := int(math.ceil((fence[2] - fence[0] + 2.0 * margin) / cell))
+	ny := int(math.ceil((fence[3] - fence[1] + 2.0 * margin) / cell))
+	return Room{
+		x0:   fence[0] - margin
+		y0:   fence[1] - margin
+		nx:   nx
+		ny:   ny
+		from: []f64{len: nx * ny, init: -never}
+		seen: []f64{len: nx * ny, init: -never}
+	}
+}
+
+// open reports whether a person's center may lie at at unseen at t_ms. A Room with no squares, and a
+// place beyond its edge, hold one always.
+fn (m Room) open(at []f64, t_ms i64) bool {
+	i := int(math.floor((at[0] - m.x0) / cell))
+	j := int(math.floor((at[1] - m.y0) / cell))
+	if m.from.len == 0 || i < 0 || j < 0 || i >= m.nx || j >= m.ny {
+		return true
+	}
+	return m.from[j * m.nx + i] <= f64(t_ms)
+}
+
+// look clears every square raw's ring sees through and every square inside an obstacle of scene,
+// and grows the squares that may hold a person through the rest, a pass forward and one back.
+fn (mut m Room) look(raw lcl.Percept, scene []lcl.Entity) {
+	if m.from.len == 0 || raw.pose.len != 2 || raw.scan.len == 0 {
+		return
+	}
+	solids := scene.filter(it.kind == 'obstacle')
+	mut shut := []bool{len: m.from.len}
+	for j in 0 .. m.ny {
+		for i in 0 .. m.nx {
+			x := m.x0 + (f64(i) + 0.5) * cell
+			y := m.y0 + (f64(j) + 0.5) * cell
+			k := j * m.nx + i
+			if solids.any(math.hypot(x - it.pos[0], y - it.pos[1]) < it.r) || through(raw, x, y) {
+				m.from[k] = never
+				m.seen[k] = f64(raw.t_ms)
+				shut[k] = true
+			}
+		}
+	}
+	side := cell / spread * 1000.0 // ms a person needs to the next square across a side
+	corner := side * math.sqrt2
+	for pass in 0 .. 2 {
+		for jj in 0 .. m.ny {
+			j := if pass == 0 { jj } else { m.ny - 1 - jj }
+			for ii in 0 .. m.nx {
+				i := if pass == 0 { ii } else { m.nx - 1 - ii }
+				k := j * m.nx + i
+				if shut[k] {
+					continue
+				}
+				// A person steps in from a neighbor no sooner than they stood there and than the ring
+				// last saw this square, and from beyond the edge at any time.
+				mut best := m.from[k]
+				for q in 0 .. 8 {
+					x, y := i + ni[q], j + nj[q]
+					by := if q < 4 { side } else { corner }
+					there := if x < 0 || y < 0 || x >= m.nx || y >= m.ny {
+						-never
+					} else {
+						m.from[y * m.nx + x]
+					}
+					best = math.min(best, math.max(there, m.seen[k]) + by)
+				}
+				m.from[k] = best
+			}
+		}
+	}
+}
+
+// through reports whether raw's ring sees through the square at x, y: the beam nearest its bearing
+// ended at or past its center, so a person of radius slim centered anywhere in it would have
+// stopped that beam, which passes within 0.16 m of every point of the square out to lcl.scan_range,
+// and the detector would have reported them. The body's own place counts as seen.
+fn through(raw lcl.Percept, x f64, y f64) bool {
+	d := math.hypot(x - raw.pose[0], y - raw.pose[1])
+	if d <= slim {
+		return true
+	}
+	if d >= lcl.scan_range {
+		return false
+	}
+	n := raw.scan.len
+	a := math.atan2(y - raw.pose[1], x - raw.pose[0]) - raw.heading
+	if !math.is_finite(a) {
+		return false
+	}
+	i := int(math.round(a / (2.0 * math.pi / f64(n))))
+	return raw.scan[(i % n + n) % n] >= d
 }
