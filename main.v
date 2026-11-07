@@ -752,9 +752,10 @@ fn main() {
 		exit(1)
 	}, limits)
 	mut way := planner.Planner{
-		solid_keep: limits.solid_keep
-		human_stop: limits.human_stop
-		bounds:     limits.bounds
+		solid_keep:   limits.solid_keep
+		human_stop:   limits.human_stop
+		bounds:       limits.bounds
+		release_keep: limits.release_keep
 	}
 	// The armor counts a place where a person may stand unseen as a person for its separation and its
 	// release check, so the tracker looks as far as the farther of the two reaches, and remembers where
@@ -859,6 +860,9 @@ fn main() {
 				continue
 			}
 			refusal := ar.refusal(msg.goal.verb, p)
+			if ar.blind(msg.goal.verb, p) {
+				way.give_way(p)
+			}
 			if refusal != '' {
 				// The scenes in scripts/scenes wait on this line, such as `armor: release refused`.
 				println('armor: ${lcl.escaped(msg.goal.label())} refused')

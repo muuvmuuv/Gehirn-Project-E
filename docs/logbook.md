@@ -560,6 +560,22 @@ Later on 2026-11-07 the tracker began to remember where the ring saw no one, so 
 
 On sweep and pocket the body came by its solids sooner, 13.58 against 22.73 s and 36.16 against 39.15 s with the place alone. On the default world the body reached b1 within reach at a median 36.48 s against 35.91 s, and MAGI rejected 5 release votes against 2, so the release came later; the armor refused none. The one pass of the cap was 3 ticks at 34.78 s by up to 0.00012 m/s while the walker stood 0.50 m from o1's center, inside its 0.8 m, where the memory counts no one, the default world's flag the owner set aside on 2026-11-07. Terrain stayed as before: the boat stopped beside b1 for the body, and a person could have walked up its shadow before each release. A tracker tick with the memory took 0.52 ms in a release build and 4.2 ms in a dev build beside a pillar of 0.8 m.
 
+Later still on 2026-11-07 the local planner began to give way to a mover that stopped for the body beside the target, when the armor refuses a release only for a place a person may stand unseen (PLAN, Known issue 46). The same sets on that build:
+
+| World, first goto | Delivered, release median, runs past the cap |
+| --- | --- |
+| default, own | 6 of 6, 48.18 s, 0 |
+| behind, own | 6 of 6, 28.62 s, 0 |
+| example, own | 6 of 6, 102.38 s, 0 |
+| crossing, own | 6 of 6, 18.10 s, 0 |
+| sweep, own | 6 of 6, 13.58 s, 0 |
+| pocket, own | 6 of 6, 45.18 s, 0 |
+| terrain, own | 6 of 6, 73.80 s, 12 armor refusals, 0 |
+| behind, core 3, 4 and 5 s | 3 of 3 each, 34.58, 37.08 and 37.58 s, 0 |
+| default, core 3, 4 and 5 s | 3 of 3 each, 57.14, 53.60 and 57.10 s, 1 at 3 s |
+
+On terrain each run met two refused releases, gave way and delivered, the beacon within reach at a median 51.70 s and the closest solid's rim 0.459 m from the body; 18 release votes passed 3/3 and none was rejected. The default world's one pass of the cap was again the walker inside o1, 4 ticks at 34.78 s by up to 0.000156 m/s. Pocket's median moved from 36.16 to 45.18 s with no refusal, so giving way never fired there; flown again, eight runs each, two at a time and with nothing else on the Mac, the build with the memory released at a median 39.14 s, 34 to 45 s, and the build that gives way at 42.15 s, 34 to 52 s, the spread of pocket's runs.
+
 ## Resolved known issues
 
 The full text of each known issue PLAN lists as resolved, under its number there.

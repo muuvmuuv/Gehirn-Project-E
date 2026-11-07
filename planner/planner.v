@@ -86,11 +86,15 @@ const retreat = 1.0
 // so a person who steps aside for the body clears the way and the armor's human_stop alone holds
 // the body off the rest. Held the first time under a goto, it backs off by retreat, or until the
 // way stops growing for patience, then plans again; held again, it presses until the goto changes
-// (PLAN, Known issue 38).
+// (PLAN, Known issue 38). Giving way to a mover that stopped for the body beside the target, it
+// moves clear of the mover, then stays at rest until the mover has moved on, then plans again
+// (give_way, PLAN, Known issue 46).
 enum Mode {
 	plan
 	back
 	press
+	clear
+	stay
 }
 
 // Planner is the field tier's local planner, which main.v's field loop asks for the core's
@@ -98,18 +102,21 @@ enum Mode {
 // fence it plans around, and only the field loop's thread holds it.
 pub struct Planner {
 pub:
-	solid_keep f64   // m from the body's center to a solid's rim, armor.Limits solid_keep
-	human_stop f64   // m from the body's center to a human's rim, armor.Limits human_stop
-	bounds     []f64 // m, xmin, ymin, xmax, ymax, armor.Limits bounds
+	solid_keep   f64   // m from the body's center to a solid's rim, armor.Limits solid_keep
+	human_stop   f64   // m from the body's center to a human's rim, armor.Limits human_stop
+	bounds       []f64 // m, xmin, ymin, xmax, ymax, armor.Limits bounds
+	release_keep f64   // m from the body's center to a human's rim, armor.Limits release_keep, within which give_way yields to a mover
 mut:
 	last  []f64 = [0.0, 0.0] // m/s, the command next returned last
 	stood map[string]int // by id, ticks each one walked since it last stood, under settle
 	goal  []f64          // the target of the goto that mode, mark, since, from and held follow
 	mode  Mode
-	mark  f64 // m, the way's length progress counts from: its shortest, or backing off its longest
-	from  f64 // m, the way's length when the planner was last held
-	since i64 // ms, the percept's clock when mark last moved by progress or mode last changed
-	held  int // times the planner was held under this goto
+	mark  f64             // m, the way's length progress counts from: its shortest, or backing off its longest
+	from  f64             // m, the way's length when the planner was last held, or giving way the body's farthest from the mover's rim
+	since i64             // ms, the percept's clock when mark last moved by progress or mode last changed
+	held  int             // times the planner was held under this goto
+	moved map[string]bool // ids of every obstacle seen walking, so one that stands again is a mover that stopped
+	mover string          // id of the mover give_way yields to
 }
 
 // Circle is a solid as the planner sees it, a center and a radius in meters.
@@ -167,6 +174,7 @@ pub fn (mut pl Planner) next(p lcl.Percept, goal lcl.Intent, top f64) []f64 {
 		return []f64{len: p.pose.len}
 	}
 	pl.track(p)
+	pl.yielding(p)
 	u, length := pl.choose(p, goal, top)
 	pl.watch(p.t_ms, goal, length, if pl.stands_near(p) { patience } else { wait })
 	pl.last = u.clone()
@@ -198,6 +206,9 @@ fn (mut pl Planner) watch(t i64, goal lcl.Intent, length f64, hold i64) {
 		return
 	}
 	match pl.mode {
+		.clear, .stay {
+			pl.mark = length
+		}
 		.back {
 			if length > pl.mark + progress {
 				pl.mark, pl.since = length, t
@@ -220,12 +231,15 @@ fn (mut pl Planner) watch(t i64, goal lcl.Intent, length f64, hold i64) {
 
 // track counts, by id, the ticks each human and obstacle of p has walked since it last stood, as
 // long as that stays under settle, for choose to keep it in the way. An obstacle that never walks
-// stays at 0.
+// stays at 0. It also keeps the id of every obstacle seen walking in moved.
 fn (mut pl Planner) track(p lcl.Percept) {
 	mut stood := map[string]int{}
 	for e in p.scene {
 		if e.kind == 'beacon' {
 			continue
+		}
+		if e.kind == 'obstacle' && walks(e.vel) {
+			pl.moved[e.id] = true
 		}
 		if !walks(e.vel) {
 			stood[e.id] = 0
@@ -239,6 +253,72 @@ fn (mut pl Planner) track(p lcl.Percept) {
 	pl.stood = stood.move()
 }
 
+// give_way yields to the mover that stopped for the body beside the target of the planner's goto,
+// as a boat does that stops while the body is near it: main.v's field loop calls it when the armor
+// refused a release only for a place where a person may stand unseen (armor.Armor.blind), which
+// the mover's shadow holds for as long as the mover stands there for the body. The mover is the
+// obstacle of p seen walking before and standing now whose rim lies nearest the target and within
+// release_keep of it; with none, the planner goes on as it was. Otherwise it moves clear of the
+// mover and stays at rest until the mover has moved on (yielding), then goes back to the target.
+// ponytail: one mover at a time, found by the tracker's id, so a mover whose track the tracker
+// loses and finds anew counts as gone; a static solid beside the target holds the release still.
+pub fn (mut pl Planner) give_way(p lcl.Percept) {
+	if pl.goal.len != 2 || p.pose.len != 2 {
+		return
+	}
+	mut best := ''
+	mut near := pl.release_keep
+	for e in p.scene {
+		if e.kind == 'obstacle' && e.id in pl.moved && !walks(e.vel) && e.pos.len == 2
+			&& finite(e.pos) {
+			d := lcl.dist(pl.goal, e.pos) - e.r
+			if d < near {
+				best, near = e.id, d
+			}
+		}
+	}
+	if best == '' {
+		return
+	}
+	m := p.scene.filter(it.id == best)[0]
+	pl.mover, pl.mode, pl.since = best, .clear, p.t_ms
+	pl.from = lcl.dist(p.pose, m.pos) - m.r // how far the body stands from the mover's rim
+}
+
+// yielding moves the mode on while the planner gives way: clear ends once the body's center lies
+// release_keep beyond the mover's rim, or its distance from the rim has not grown by progress for
+// patience; stay ends once the mover walks, stands farther than release_keep from the target by its
+// rim, is gone from the scene, or wait has passed, and the planner plans its way back.
+fn (mut pl Planner) yielding(p lcl.Percept) {
+	if pl.mode != .clear && pl.mode != .stay {
+		return
+	}
+	found := p.scene.filter(it.id == pl.mover && it.pos.len == 2 && finite(it.pos))
+	if found.len == 0 || p.pose.len != 2 || pl.goal.len != 2 {
+		pl.mode, pl.since = .plan, p.t_ms
+		return
+	}
+	m := found[0]
+	match pl.mode {
+		.clear {
+			off := lcl.dist(p.pose, m.pos) - m.r
+			if off > pl.from + progress {
+				pl.from, pl.since = off, p.t_ms
+			}
+			if off >= pl.release_keep || p.t_ms - pl.since >= patience {
+				pl.mode, pl.since = .stay, p.t_ms
+			}
+		}
+		.stay {
+			if walks(m.vel) || lcl.dist(pl.goal, m.pos) - m.r >= pl.release_keep
+				|| p.t_ms - pl.since >= wait {
+				pl.mode, pl.since = .plan, p.t_ms
+			}
+		}
+		else {}
+	}
+}
+
 // choose is next's command without the bookkeeping, in the planner's mode, and the way's length:
 // zero and an infinite length on anything it cannot measure.
 fn (pl Planner) choose(p lcl.Percept, goal lcl.Intent, top f64) ([]f64, f64) {
@@ -248,7 +328,7 @@ fn (pl Planner) choose(p lcl.Percept, goal lcl.Intent, top f64) ([]f64, f64) {
 	}
 	x, y := p.pose[0], p.pose[1]
 	tx, ty := goal.target[0], goal.target[1]
-	if x == tx && y == ty {
+	if x == tx && y == ty && pl.mode != .clear {
 		return [0.0, 0.0], 0.0
 	}
 	pressing := pl.mode == .press
@@ -278,6 +358,19 @@ fn (pl Planner) choose(p lcl.Percept, goal lcl.Intent, top f64) ([]f64, f64) {
 	mut dx, mut dy, length, mut last_leg := pl.way(x, y, tx, ty, solids.filter(it.r > 0.0))
 	if pl.mode == .back {
 		dx, dy, last_leg = -dx, -dy, false
+	}
+	if pl.mode == .stay {
+		return [0.0, 0.0], length
+	}
+	if pl.mode == .clear {
+		for e in p.scene {
+			if e.id == pl.mover && e.pos.len == 2 {
+				d := lcl.dist(p.pose, e.pos)
+				if d > 0.0 {
+					dx, dy, last_leg = (x - e.pos[0]) / d, (y - e.pos[1]) / d, false
+				}
+			}
+		}
 	}
 	a := Ahead{
 		x:         x

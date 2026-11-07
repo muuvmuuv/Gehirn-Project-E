@@ -103,6 +103,14 @@ pub fn (a Armor) refusal(verb string, p lcl.Percept) string {
 	return ''
 }
 
+// blind reports whether refusal refuses verb on p only for a place where a person may stand unseen
+// (lcl.Percept.unseen), with no human within release_keep: main.v's field loop then has the local
+// planner give way to a mover whose shadow may hold that place (PLAN, Known issue 46).
+pub fn (a Armor) blind(verb string, p lcl.Percept) bool {
+	return !a.ejected && verb in a.limits.verbs && a.measurable(p) && lcl.is_irreversible(verb)
+		&& nearest_human(p) >= a.limits.release_keep && nearest_person(p) < a.limits.release_keep
+}
+
 // effect runs an effector if permits allows it here and now.
 pub fn (mut a Armor) effect(verb string, p lcl.Percept) ! {
 	if !a.permits(verb, p) {

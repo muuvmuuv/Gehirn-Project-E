@@ -1508,6 +1508,43 @@ fn test_refusal() {
 	}
 }
 
+struct BlindCase {
+	name    string
+	verb    string
+	p       lcl.Percept
+	ejected bool
+	want    bool
+}
+
+// blind holds only where the release is refused for a place a person may stand unseen and for no
+// human: main.v's field loop then has the planner give way.
+fn test_blind() {
+	o := [0.0, 0.0]
+	unseen := hidden(o, [1.5, 0.0], 0.2)
+	cases := [
+		BlindCase{'a release beside an unseen place', 'release', unseen, false, true},
+		BlindCase{'a release beside a human too', 'release', lcl.Percept{
+			...unseen
+			scene: [ent('human', [2.0, 0.0], 0.3)]
+		}, false, false},
+		BlindCase{'a goto beside an unseen place', 'goto', unseen, false, false},
+		BlindCase{'a release in the open', 'release', at(o), false, false},
+		BlindCase{'a release with the unseen place beyond release_keep', 'release', hidden(o, [
+			2.5, 0.0], 0.2), false, false},
+		BlindCase{'a release after an eject', 'release', unseen, true, false},
+		BlindCase{'a percept it cannot measure', 'release', hidden([
+			math.nan(), 0.0], [1.5, 0.0], 0.2), false, false},
+	]
+	for c in cases {
+		mut f := &Fake{}
+		mut a := restrain(f, Limits{})
+		if c.ejected {
+			a.eject()
+		}
+		assert a.blind(c.verb, c.p) == c.want, c.name
+	}
+}
+
 struct ClosenessCase {
 	name string
 	p    lcl.Percept

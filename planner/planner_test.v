@@ -11,9 +11,10 @@ const tick = 0.02 // s, one tick of main.v's field loop
 
 fn fresh() Planner {
 	return Planner{
-		solid_keep: solid_keep
-		human_stop: human_stop
-		bounds:     [-5.0, -5.0, 5.0, 5.0]
+		solid_keep:   solid_keep
+		human_stop:   human_stop
+		bounds:       [-5.0, -5.0, 5.0, 5.0]
+		release_keep: 2.0
 	}
 }
 
@@ -644,4 +645,90 @@ fn test_ground_is_waded() {
 		]), top)
 		assert dry == wet && lcl.norm(dry) > 0.0, '${pose}: ${dry} ${wet}'
 	}
+}
+
+// beside is a percept of the body at pose on the percept's clock t_ms with a boat of radius 0.37 at
+// 2.68, 1.11, the place terrain.json's boat stops for a body at b1, walking at vel.
+fn beside(t_ms i64, pose []f64, vel []f64) lcl.Percept {
+	return lcl.Percept{
+		t_ms:  t_ms
+		pose:  pose
+		scene: [lcl.Entity{
+			...boat(2.68, 1.11, vel)
+			r: 0.37
+		}]
+	}
+}
+
+// A mover that stopped for the body beside the target is given way: the body moves clear of it
+// until its center lies release_keep beyond the mover's rim, stays at rest while the mover stands,
+// and heads back for the target once it walks on.
+fn test_a_mover_that_stopped_beside_the_target_is_given_way() {
+	target := [3.0, 2.0]
+	goal := heading_to(target)
+	mut pl := fresh()
+	mut at := target.clone()
+	pl.next(beside(0, at, [0.3, 0.0]), goal, top)
+	mut t := i64(20)
+	pl.next(beside(t, at, []f64{}), goal, top)
+	pl.give_way(beside(t, at, []f64{}))
+	assert pl.mode == .clear
+	for pl.mode == .clear && t < 10000 {
+		t += i64(tick * 1000.0)
+		u := pl.next(beside(t, at, []f64{}), goal, top)
+		at = [at[0] + u[0] * tick, at[1] + u[1] * tick]
+	}
+	assert pl.mode == .stay, 'clear for good'
+	off := lcl.dist(at, [2.68, 1.11]) - 0.37
+	assert off >= 2.0 - 0.05, 'stayed ${off:.2f} m from the rim'
+	t += 1000
+	assert pl.next(beside(t, at, []f64{}), goal, top) == [0.0, 0.0], 'at rest while it stands'
+	assert pl.mode == .stay
+	t += 20
+	u := pl.next(beside(t, at, [0.3, 0.0]), goal, top)
+	assert pl.mode == .plan, 'back once it walks on'
+	assert lcl.dot(u, lcl.sub(target, at)) > 0.0, 'heads for the target'
+}
+
+// Only a mover gets way: a pillar beside the target, which never walked, leaves the planner as it
+// was, and so does a mover beyond release_keep of the target.
+fn test_a_solid_that_never_walked_gets_no_way() {
+	target := [3.0, 2.0]
+	goal := heading_to(target)
+	mut pl := fresh()
+	p := lcl.Percept{
+		t_ms:  0
+		pose:  target
+		scene: [solid(2.68, 1.11, 0.37)]
+	}
+	pl.next(p, goal, top)
+	pl.give_way(p)
+	assert pl.mode == .plan, 'a pillar'
+	mut far := fresh()
+	far.next(lcl.Percept{
+		...beside(0, target, [0.3, 0.0])
+		scene: [boat(0.0, -2.0, [0.3, 0.0])]
+	}, goal, top)
+	far.give_way(lcl.Percept{
+		...beside(20, target, []f64{})
+		scene: [boat(0.0, -2.0, []f64{})]
+	})
+	assert far.mode == .plan, 'a mover far from the target'
+}
+
+// Staying ends after wait even while the mover stands, and the planner heads back for the target.
+fn test_giving_way_stays_no_longer_than_wait() {
+	target := [3.0, 2.0]
+	goal := heading_to(target)
+	mut pl := fresh()
+	far := [3.5, 3.4]
+	pl.next(beside(0, far, [0.3, 0.0]), goal, top)
+	pl.next(beside(20, far, []f64{}), goal, top)
+	pl.give_way(beside(20, far, []f64{}))
+	pl.next(beside(40, far, []f64{}), goal, top)
+	assert pl.mode == .stay, 'already clear'
+	pl.next(beside(40 + wait - 20, far, []f64{}), goal, top)
+	assert pl.mode == .stay, 'before wait'
+	pl.next(beside(40 + wait + 20, far, []f64{}), goal, top)
+	assert pl.mode == .plan, 'after wait'
 }
