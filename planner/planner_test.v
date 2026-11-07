@@ -661,8 +661,9 @@ fn beside(t_ms i64, pose []f64, vel []f64) lcl.Percept {
 }
 
 // A mover that stopped for the body beside the target is given way: the body moves clear of it
-// until its center lies release_keep beyond the mover's rim, stays at rest while the mover stands,
-// and heads back for the target once it walks on.
+// until its center lies release_keep beyond the mover's rim, stays at rest while the mover stands
+// and while it walks on beside the target, and heads back for the target once the mover's rim lies
+// release_keep from it.
 fn test_a_mover_that_stopped_beside_the_target_is_given_way() {
 	target := [3.0, 2.0]
 	goal := heading_to(target)
@@ -685,9 +686,31 @@ fn test_a_mover_that_stopped_beside_the_target_is_given_way() {
 	assert pl.next(beside(t, at, []f64{}), goal, top) == [0.0, 0.0], 'at rest while it stands'
 	assert pl.mode == .stay
 	t += 20
-	u := pl.next(beside(t, at, [0.3, 0.0]), goal, top)
-	assert pl.mode == .plan, 'back once it walks on'
+	assert pl.next(beside(t, at, [0.3, 0.0]), goal, top) == [0.0, 0.0], 'at rest while it walks on beside the target'
+	assert pl.mode == .stay
+	t += 20
+	gone := lcl.Percept{
+		...beside(t, at, [-0.3, 0.0])
+		scene: [lcl.Entity{
+			...boat(1.0, 0.0, [-0.3, 0.0])
+			r: 0.37
+		}]
+	}
+	u := pl.next(gone, goal, top)
+	assert pl.mode == .plan, 'back once it is release_keep from the target'
 	assert lcl.dot(u, lcl.sub(target, at)) > 0.0, 'heads for the target'
+}
+
+// A mover still slowing to its stop beside the target gets way too, as a boat does in the tick it
+// comes to stand for the body.
+fn test_a_mover_still_slowing_beside_the_target_gets_way() {
+	target := [3.0, 2.0]
+	goal := heading_to(target)
+	mut pl := fresh()
+	pl.next(beside(0, target, [0.3, 0.0]), goal, top)
+	pl.next(beside(20, target, [0.1, 0.05]), goal, top)
+	pl.give_way(beside(20, target, [0.1, 0.05]))
+	assert pl.mode == .clear
 }
 
 // Only a mover gets way: a pillar beside the target, which never walked, leaves the planner as it

@@ -257,9 +257,10 @@ fn (mut pl Planner) track(p lcl.Percept) {
 // as a boat does that stops while the body is near it: main.v's field loop calls it when the armor
 // refused a release only for a place where a person may stand unseen (armor.Armor.blind), which
 // the mover's shadow holds for as long as the mover stands there for the body. The mover is the
-// obstacle of p seen walking before and standing now whose rim lies nearest the target and within
-// release_keep of it; with none, the planner goes on as it was. Otherwise it moves clear of the
-// mover and stays at rest until the mover has moved on (yielding), then goes back to the target.
+// obstacle of p seen walking, standing now or still slowing to a stop, whose rim lies nearest the
+// target and within release_keep of it; with none, the planner goes on as it was. Otherwise it
+// moves clear of the mover and stays at rest until the mover has moved on (yielding), then goes
+// back to the target.
 // ponytail: one mover at a time, found by the tracker's id, so a mover whose track the tracker
 // loses and finds anew counts as gone; a static solid beside the target holds the release still.
 pub fn (mut pl Planner) give_way(p lcl.Percept) {
@@ -269,8 +270,7 @@ pub fn (mut pl Planner) give_way(p lcl.Percept) {
 	mut best := ''
 	mut near := pl.release_keep
 	for e in p.scene {
-		if e.kind == 'obstacle' && e.id in pl.moved && !walks(e.vel) && e.pos.len == 2
-			&& finite(e.pos) {
+		if e.kind == 'obstacle' && e.id in pl.moved && e.pos.len == 2 && finite(e.pos) {
 			d := lcl.dist(pl.goal, e.pos) - e.r
 			if d < near {
 				best, near = e.id, d
@@ -287,8 +287,10 @@ pub fn (mut pl Planner) give_way(p lcl.Percept) {
 
 // yielding moves the mode on while the planner gives way: clear ends once the body's center lies
 // release_keep beyond the mover's rim, or its distance from the rim has not grown by progress for
-// patience; stay ends once the mover walks, stands farther than release_keep from the target by its
-// rim, is gone from the scene, or wait has passed, and the planner plans its way back.
+// patience; stay ends once the mover's rim lies release_keep or farther from the target, the mover
+// is gone from the scene, or wait has passed, and the planner plans its way back. A mover that only
+// starts to walk again, as a boat does once the body has left its keep, may still be beside the
+// target, and the body coming back too soon would stop it there again.
 fn (mut pl Planner) yielding(p lcl.Percept) {
 	if pl.mode != .clear && pl.mode != .stay {
 		return
@@ -310,8 +312,7 @@ fn (mut pl Planner) yielding(p lcl.Percept) {
 			}
 		}
 		.stay {
-			if walks(m.vel) || lcl.dist(pl.goal, m.pos) - m.r >= pl.release_keep
-				|| p.t_ms - pl.since >= wait {
+			if lcl.dist(pl.goal, m.pos) - m.r >= pl.release_keep || p.t_ms - pl.since >= wait {
 				pl.mode, pl.since = .plan, p.t_ms
 			}
 		}
