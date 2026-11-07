@@ -376,7 +376,7 @@ fn test_load_config() {
 		ConfigCase{'PLANNER', 'Local', 'PLANNER is "Local", not a known value; accepted local, reflex'},
 		ConfigCase{'PLANNER', 'planner', 'PLANNER is "planner", not a known value; accepted local, reflex'},
 		ConfigCase{'PLANNER', 'local\nfield: forged', 'PLANNER is "local\\x0afield: forged", not a known value; accepted local, reflex'},
-		ConfigCase{'SENSING', '', 'truth'},
+		ConfigCase{'SENSING', '', 'range'},
 		ConfigCase{'SENSING', 'truth', 'truth'},
 		ConfigCase{'SENSING', 'range', 'range'},
 		ConfigCase{'SENSING', 'Range', 'SENSING is "Range", not a known value; accepted truth, range'},

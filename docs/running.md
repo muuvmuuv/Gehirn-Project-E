@@ -60,7 +60,7 @@ python3 tools/trials.py --env-file .env
 python3 tools/withenv.py .env ./gehirn magi-eval 10
 ```
 
-The stack Phase 3 measures, the planner on the MuJoCo base under `SENSING=range` on a world with terrain, flies the same way once `just body=mujoco build` has built `./gehirn` with MuJoCo, with `BODY=mujoco SENSING=range WORLD=$PWD/worlds/terrain.json` in front of `python3 tools/trials.py`. The world's path is absolute, since trials flies each mission in a directory of its own. The logbook holds how it went.
+The stack Phase 3 measures, the planner on the MuJoCo base under `SENSING=range`, the default, on a world with terrain, flies the same way once `just body=mujoco build` has built `./gehirn` with MuJoCo, with `BODY=mujoco SENSING=range WORLD=$PWD/worlds/terrain.json` in front of `python3 tools/trials.py`. The world's path is absolute, since trials flies each mission in a directory of its own. The logbook holds how it went.
 
 ## One MAGI unit on this Mac
 

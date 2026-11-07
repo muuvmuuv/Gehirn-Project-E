@@ -576,6 +576,8 @@ Later still on 2026-11-07 the local planner began to give way to a mover that st
 
 On terrain each run met two refused releases, gave way and delivered, the beacon within reach at a median 51.70 s and the closest solid's rim 0.459 m from the body; 18 release votes passed 3/3 and none was rejected. The default world's one pass of the cap was again the walker inside o1, 4 ticks at 34.78 s by up to 0.000156 m/s. Pocket's median moved from 36.16 to 45.18 s with no refusal, so giving way never fired there; flown again, eight runs each, two at a time and with nothing else on the Mac, the build with the memory released at a median 39.14 s, 34 to 45 s, and the build that gives way at 42.15 s, 34 to 52 s, the spread of pocket's runs.
 
+On 2026-11-07 `SENSING=range` became the default, as the owner chose (docs/decisions.md, closing Phase 3). On that build, with the place where a person may stand unseen, the tracker's memory and the planner giving way, `just demo` and every scene of `scripts/scenes` flew once on the mock under the default: the demo's beats came in the same seconds as on ground truth, the goto at 0:08, the refusal at 0:27, the approval at 0:39, the release at 0:41, internal power at 1:19 and the reconnect at 1:30, and each canon scene flew every beat in order. The terrain tour waited on the release in vain, since the armor refused it for the boat's shadow, and once it narrated that refusal and waited longer it flew every beat: the release approved at 0:45, refused at 0:46, and released on target at 1:11.
+
 ## Resolved known issues
 
 The full text of each known issue PLAN lists as resolved, under its number there.

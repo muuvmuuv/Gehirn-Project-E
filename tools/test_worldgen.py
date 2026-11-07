@@ -459,6 +459,7 @@ assert form.startswith("## A world file") and "## What gehirn refuses" in form a
 text = prompt(4, 2, 180, "mock", {"GEHIRN_KEY": "sk-x"}, {"PLANNER": "local"}, "", form)
 assert "(GEHIRN_KEY=<set>, so the local planner steers)" in text and "(PLANNER=local)" in text and form in text and "sk-x" not in text
 assert "within 0.7 m of the body's center" in text and "{" not in text.split("TASK")[0].split("THE WORLD FILE")[0]
+assert "Sensing: unless a configuration sets SENSING=truth" in text and "could stand unseen" in text, text
 assert "every run either never within 0.5 m of the beacon within the limit or releasing off target" in text, text
 # What the reference can solve follows the reference's steering: the planner, held, backs off once
 # and then presses on (PLAN, Known issue 38), and the reflex stalls before a person on its way.

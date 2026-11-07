@@ -12,8 +12,11 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../stage.sh"
 
 # No pilot sits down, so the armor holds the empty seat's body to 0.4 m/s, 0.16 m/s in the mud and
-# 0.2 m/s in the lake, and the release comes about 31 s after the field unit's first tick, past the
-# rock's landing at 20 s (PLAN, Phase 3 Task 8).
+# 0.2 m/s in the lake, and MAGI approve the release past the rock's landing at 20 s (PLAN, Phase 3
+# Task 8). Under SENSING=range, the default, the boat stops beside b1 for the body and a person may
+# stand unseen in its shadow, so the armor refuses the release and the planner gives way to the boat
+# before it releases, some 30 s later; under SENSING=truth the release comes at once, about 31 s
+# after the field unit's first tick (PLAN, Known issue 46).
 export WORLD=$root/worlds/terrain.json
 field_note="the terrain world: mud and a lake slow the body, a pillar and a trench it keeps off, a boat that stops for it, and a rock falling beside the way"
 
@@ -28,7 +31,12 @@ alive "$field" "the field unit" "$run/field/field.log"
 beat "the rock lands beside the way, and its zone is a crater the armor keeps the body off" "$run/field/plug.shinji.jsonl" '"id":"rock","kind":"ditch"' 30
 beat "release approved 3/3 at b1, on the lake's shore" "$run/hq/hq.log" 'need 3: 可決' 40
 ballots 'need 3: 可決'
-beat "released on target" "$run/hq/core.shinji.jsonl" 'released on target' 15
+
+# main.v refused writes the armor's reason into the journal's outcome, which armor.Armor.refusal words.
+if [ "${SENSING:-range}" != truth ]; then
+    beat "the armor refuses: the boat waits beside b1 for the body, and a person may stand unseen in its shadow, so the body gives way to it" "$run/hq/core.shinji.jsonl" 'might have stood unseen' 15
+fi
+beat "released on target" "$run/hq/core.shinji.jsonl" 'released on target' 90
 if grep -qF 'outcome: contact' "$run/hq/core.shinji.jsonl"; then
     fail "the body touched something; the journal records a contact"
 fi

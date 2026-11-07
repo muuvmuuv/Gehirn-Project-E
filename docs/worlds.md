@@ -224,7 +224,7 @@ WORLD=$PWD/worlds/terrain.json python3 tools/trials.py --runs 10 --jobs 3
 
 The logbook holds what each kind did on the mock.
 
-`just scene=terrain demo` flies the same mission with HQ, the field unit and the bridge apart and narrates it, as the scenes of [Scenes](scenes.md) do, and `just scene=terrain demo-record` records it. It is a tour of this world rather than a scene from the series: no pilot sits down, and nothing but the world is set. Its take, [assets/media/terrain.mp4](../assets/media/terrain.mp4), shows every kind on the bridge's radar, and the website plays the radar cut from it.
+`just scene=terrain demo` flies the same mission with HQ, the field unit and the bridge apart and narrates it, as the scenes of [Scenes](scenes.md) do, and `just scene=terrain demo-record` records it. It is a tour of this world rather than a scene from the series: no pilot sits down, and nothing but the world is set. Under `SENSING=range`, the default, the boat stops beside b1 for the body and a person may stand unseen in its shadow, so the armor refuses the first approved release and the planner gives way to the boat before the release passes again (PLAN, Known issue 46); the take predates that and shows the release at once, as on ground truth. Its take, [assets/media/terrain.mp4](../assets/media/terrain.mp4), shows every kind on the bridge's radar, and the website plays the radar cut from it.
 
 ## The behind world
 

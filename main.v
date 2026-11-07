@@ -71,9 +71,10 @@ enum Steering {
 	reflex
 }
 
-// Sensing is how the field unit knows its scene, which SENSING names: the ground truth of the
-// simulator, the default every earlier measurement flew, or the range ring and person detector of
-// body.Ranged, which sensing.Tracker turns into the scene every reader takes (ADR-0011).
+// Sensing is how the field unit knows its scene, which SENSING names: the range ring and person
+// detector of body.Ranged, the default since 2026-11-07, which sensing.Tracker turns into the scene
+// every reader takes, or the ground truth of the simulator, which every measurement before flew
+// unless it named range (ADR-0011).
 enum Sensing {
 	truth
 	range
@@ -498,7 +499,7 @@ fn load_config() !Config {
 		} else {
 			Steering.local
 		}
-		sensing:     if env_choice('SENSING', 'truth', ['truth', 'range'])! == 'range' {
+		sensing:     if env_choice('SENSING', 'range', ['truth', 'range'])! == 'range' {
 			Sensing.range
 		} else {
 			Sensing.truth
