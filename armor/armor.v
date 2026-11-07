@@ -97,6 +97,9 @@ pub fn (a Armor) refusal(verb string, p lcl.Percept) string {
 	if lcl.is_irreversible(verb) && nearest_human(p) < a.limits.release_keep {
 		return 'a human was within ${a.limits.release_keep:.1f} m at that moment'
 	}
+	if lcl.is_irreversible(verb) && nearest_person(p) < a.limits.release_keep {
+		return 'a person might have stood unseen within ${a.limits.release_keep:.1f} m at that moment'
+	}
 	return ''
 }
 
@@ -304,7 +307,8 @@ pub fn (a Armor) closeness(p lcl.Percept) f64 {
 }
 
 // top_speed is the fastest drive lets the body move at p off ground, in m/s: v_max with a pilot or
-// the dummy plug seated, else v_unmanned, slowed by separation near a human, and 0 on a percept
+// the dummy plug seated, else v_unmanned, slowed by separation near a human or a place where a
+// person may stand unseen, and 0 on a percept
 // the armor cannot measure. main.v's field loop hands it to the local planner, which plans at that
 // speed and wades through ground, where drive slows the body further (ADR-0010).
 pub fn (a Armor) top_speed(p lcl.Percept, manned bool) f64 {
@@ -331,11 +335,11 @@ fn ground_factor(p lcl.Percept, margin f64) f64 {
 	return k
 }
 
-// separation scales speed down between human_slow and human_stop. Inside human_stop the
-// machine may still creep, but drive has already removed every component toward the human.
-// tools/worldgen.py SLOWEST copies its floor.
+// separation scales speed down between human_slow and human_stop, for a human or a place where a
+// person may stand unseen. Inside human_stop the machine may still creep, but drive has already
+// removed every component toward a human. tools/worldgen.py SLOWEST copies its floor.
 fn (a Armor) separation(p lcl.Percept) f64 {
-	d := nearest_human(p)
+	d := nearest_person(p)
 	if d >= a.limits.human_slow {
 		return 1.0
 	}
@@ -353,11 +357,24 @@ fn (a Armor) measurable(p lcl.Percept) bool {
 	return p.pose.len == a.last.len && finite(p.pose) && math.is_finite(p.heading)
 		&& p.scene.all(it.pos.len == p.pose.len && finite(it.pos) && math.is_finite(it.r))
 		&& p.ground.all(it.pos.len == p.pose.len && finite(it.pos) && math.is_finite(it.r)
-		&& it.factor > 0.0 && it.factor <= 1.0)
+		&& it.factor > 0.0 && it.factor <= 1.0) && p.unseen.all(it.pos.len == p.pose.len
+		&& finite(it.pos) && math.is_finite(it.r))
 }
 
 fn finite(v []f64) bool {
 	return v.all(math.is_finite(it))
+}
+
+// nearest_person is how far the rim of the nearest human, or of the place nearest the body where a
+// person may stand unseen (lcl.Percept.unseen), lies from the body's center. separation slows the
+// body for either and refusal holds back an irreversible effector for either, while the keeps and
+// closeness go by the humans the stack knows (ADR-0011).
+fn nearest_person(p lcl.Percept) f64 {
+	mut best := nearest_human(p)
+	for e in p.unseen {
+		best = math.min(best, lcl.dist(p.pose, e.pos) - e.r)
+	}
+	return best
 }
 
 fn nearest_human(p lcl.Percept) f64 {

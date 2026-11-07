@@ -58,7 +58,10 @@ pub:
 // body, water, mud or a slope, outside the scene, so nothing keeps the body off them: the armor
 // slows the body there, describe gives each a line and the bridge draws them (ADR-0010). scan holds
 // the range ring's beams under SENSING=range, which body.Ranged fills and sensing.Tracker turns into
-// the scene and leaves out, so no reader past the tracker sees it (ADR-0011).
+// the scene and leaves out, so no reader past the tracker sees it (ADR-0011). unseen holds, under
+// SENSING=range, the place nearest the body where a person the ring cannot see may stand within
+// the tracker's reach, which the armor alone reads, as a person for its separation and its
+// release check, so MAGI's and the planner's requests stay as they were (ADR-0011).
 pub struct Percept {
 pub:
 	t_ms    i64
@@ -68,8 +71,9 @@ pub:
 	ground  []Entity @[omitempty]
 	payload bool
 	contact bool
-	heading f64   @[omitempty] // rad, counterclockwise from +x; a holonomic body reports 0, which JSON leaves out
-	scan    []f64 @[omitempty] // m per beam, one a degree counterclockwise from the heading, scan_range where it meets nothing
+	heading f64      @[omitempty] // rad, counterclockwise from +x; a holonomic body reports 0, which JSON leaves out
+	scan    []f64    @[omitempty] // m per beam, one a degree counterclockwise from the heading, scan_range where it meets nothing
+	unseen  []Entity @[omitempty] // at most one place, kind human, id unseen
 }
 
 // Intent is a goal: a verb, a target for goto, the proposer's why and its origin. A Core

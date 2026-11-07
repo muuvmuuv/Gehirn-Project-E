@@ -612,3 +612,73 @@ fn test_hide_on_an_arc() {
 		}
 	}
 }
+
+struct UnseenCase {
+	name   string
+	solids []Circle
+	people [][]f64
+	reach  f64
+	lo     f64 // m, the least rim distance the place may have, or -1 for no place
+	hi     f64 // m, the greatest
+}
+
+// unseen finds the place nearest the body where a slim person may stand while the ring sees into
+// no part of them: behind a pillar, clear of it, and nearer than the place straight behind it, or
+// behind a person; none on open floor, behind a pillar whose shadow starts past reach, or with no
+// reach. Every place it finds lies in the ring's shadow and clear of every solid of the scene.
+fn test_unseen() {
+	pillar := disc([1.2, 0.0], 0.4)
+	cases := [
+		UnseenCase{'open floor', [], [], 2.0, -1.0, -1.0},
+		UnseenCase{'behind a pillar within reach, nearer than straight behind it', [
+			pillar,
+		], [], 2.0, 1.4, 1.6},
+		UnseenCase{'behind a pillar whose shadow starts past reach', [
+			disc([3.0, 0.0], 0.8),
+		], [], 2.0, -1.0, -1.0},
+		UnseenCase{'no reach', [
+			pillar,
+		], [], 0.0, -1.0, -1.0},
+		UnseenCase{'behind a person', [], [
+			[1.0, 0.0],
+		], 2.0, 0.7, 2.0},
+	]
+	o := [0.0, 0.0]
+	for c in cases {
+		raw := sighted(0, o, c.people, c.solids)
+		mut scene := raw.scene.clone()
+		for s in c.solids {
+			scene << lcl.Entity{
+				id:   's'
+				kind: 'obstacle'
+				pos:  s.pos
+				r:    s.r
+			}
+		}
+		got := unseen(raw, scene, c.reach)
+		if c.lo < 0.0 {
+			assert got.len == 0, c.name
+			continue
+		}
+		assert got.len == 1, c.name
+		u := got[0]
+		rim := lcl.dist(o, u.pos) - u.r
+		assert u.kind == 'human' && u.id == 'unseen' && u.r == slim, c.name
+		assert rim >= c.lo && rim <= c.hi, '${c.name}: rim ${rim}'
+		assert shadowed(raw, u.pos, u.r), '${c.name}: in view'
+		assert c.solids.all(lcl.dist(u.pos, it.pos) >= it.r + slim), '${c.name}: inside a solid'
+	}
+}
+
+// The tracker hands the place to every reader past it, the armor first, and finds it a tick at a
+// time from the scan alone, with no person it ever saw.
+fn test_a_tracker_reports_where_a_person_may_stand_unseen() {
+	mut t := Tracker{
+		reach: 2.0
+	}
+	p := t.percept(sighted(0, [0.0, 0.0], [], [disc([1.2, 0.0], 0.4)]))
+	assert p.unseen.len == 1
+	assert p.scan.len == 0
+	mut far := Tracker{}
+	assert far.percept(sighted(0, [0.0, 0.0], [], [disc([1.2, 0.0], 0.4)])).unseen.len == 0, 'a tracker with no reach'
+}

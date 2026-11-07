@@ -524,6 +524,26 @@ No numbered invariant a mission can show broke in the 80 runs. Every verdict met
 
 Never run: `sidecar/cl1_sidecar.py` and the `cl1` backend.
 
+On 2026-11-07 the armor began to count the place nearest the body where a person may stand unseen as a person for its separation cap and its release check (PLAN, Known issue 43). Mock missions under `range` on holonomic `Sim` under the planner, on the build just before, 66ae704, and the build with the place, six per world with the mock's own goto at about 0.03 s and three per world and delay with the core slowed by `--slow core=3000`, `4000` and `5000`, audited with `tools/worldgen.py`'s audit, raw data in `~/Developer/_TEMP/Project_E/unseen-2026-11-07`:
+
+| World, first goto | Before: delivered, release median, runs past the cap | With the place |
+| --- | --- | --- |
+| default, own | 6 of 6, 36.16 s, 0 | 6 of 6, 36.17 s, 0 |
+| behind, own | 6 of 6, 28.64 s, 0 | 6 of 6, 28.64 s, 0 |
+| example, own | 6 of 6, 102.38 s, 0 | 6 of 6, 102.40 s, 0 |
+| crossing, own | 6 of 6, 18.10 s, 0 | 6 of 6, 18.06 s, 0 |
+| sweep, own | 6 of 6, 22.60 s, 0 | 6 of 6, 22.73 s, 0 |
+| pocket, own | 6 of 6, 33.13 s, 0 | 6 of 6, 39.15 s, 0 |
+| terrain, own | 6 of 6, 30.12 s, 0 | 0 of 6, 72 armor refusals, 0 |
+| behind, core 3 s | 3 of 3, 34.58 s, 3, 14 ticks by up to 0.043 m/s | 3 of 3, 34.58 s, 0 |
+| behind, core 4 s | 3 of 3, 37.08 s, 3, 26 ticks by up to 0.081 m/s | 3 of 3, 37.08 s, 0 |
+| behind, core 5 s | 3 of 3, 37.56 s, 0 | 3 of 3, 37.56 s, 0 |
+| default, core 3 s | 3 of 3, 52.62 s, 0 | 3 of 3, 57.14 s, 0 |
+| default, core 4 s | 3 of 3, 53.60 s, 0 | 3 of 3, 53.62 s, 0 |
+| default, core 5 s | 3 of 3, 57.10 s, 0 | 3 of 3, 57.10 s, 0 |
+
+The release median runs from the run's first recorder tick. No run had a contact or a step toward a human inside `human_stop` by ground truth, and the only armor refusals were terrain's: there the boat, which stops for the body by its world's rule, stood about 0.95 m from the body at b1, the sensed circle s6 at 2.68,1.11 against the body at 3.00,2.00, and the shadow behind it held the place, so the armor refused each of the 12 releases MAGI approved in every run (PLAN, Known issue 46). On pocket the release came 6.0 s later, the only one of those six worlds where the place cost time. One search of the place took 24 µs beside a pillar of 0.4 m radius 1.2 m off and 82 µs beside one of 0.8 m 1.15 m off in a release build, 177 and 599 µs in a dev build, against the field loop's 20 ms tick.
+
 ## Resolved known issues
 
 The full text of each known issue PLAN lists as resolved, under its number there.

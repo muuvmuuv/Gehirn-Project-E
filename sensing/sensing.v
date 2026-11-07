@@ -59,9 +59,18 @@ const gain = 0.3
 // keeps, and over which the residual filter's lag behind a steady turn cancels out.
 const turn_ms = 1000
 
+// slim is the radius, in meters, of the slimmest person unseen looks for where the ring cannot see:
+// a child, or an adult seen side on, slimmer than the 0.3 m of every human the world files hold.
+const slim = 0.2
+
+// look is the spacing, in meters, of the places along a beam that unseen checks.
+const look = 0.02
+
 // Tracker is the field tier's memory of what the range ring and the person detector have seen.
 // main.v's field loop hands every percept of body.Ranged to percept before any reader gets it.
 pub struct Tracker {
+pub:
+	reach f64 // m, from the body's center to a rim, within which unseen reports a place; 0 reports none
 mut:
 	tracks []Track
 	people int         // ids made for people so far
@@ -120,7 +129,9 @@ struct Pair {
 // people without id or velocity, and the scan. A track carries a velocity from its second sighting
 // on, and none below walking; one nothing has seen stays at its last place for forget_ms. A person
 // nothing has seen who may stand where the ring cannot see, behind a solid or another person, stays
-// for hide_ms instead, at the place nearest the body where they may stand (Track.hide).
+// for hide_ms instead, at the place nearest the body where they may stand (Track.hide). A person
+// the ring never saw goes into unseen instead, the place nearest the body within reach where one
+// may stand unseen.
 pub fn (mut t Tracker) percept(raw lcl.Percept) lcl.Percept {
 	people := raw.scene.filter(it.kind == 'human' && it.pos.len == 2)
 	mut seen := people.map(Seen{
@@ -146,9 +157,54 @@ pub fn (mut t Tracker) percept(raw lcl.Percept) lcl.Percept {
 	}
 	return lcl.Percept{
 		...raw
-		scene: scene
-		scan:  []f64{}
+		scene:  scene
+		scan:   []f64{}
+		unseen: unseen(raw, scene, t.reach)
 	}
+}
+
+// unseen is the place nearest the body, by its rim, where a person of radius slim may stand with
+// that rim within reach of the body's center while the ring of raw sees into no part of them:
+// behind something a beam met, and clear of every obstacle and person of scene, so inside neither. It
+// holds at most that one place, since the armor reads only the nearest, as a person for its
+// separation and its release check: the hidden sector the owner chose to count as a person on
+// 2026-11-07 (ADR-0011). It looks along each beam that ended within reach, every look meters from
+// just behind its return, which finds the place to within look and a beam spacing.
+// ponytail: places on the beams only, against the sensed circles, so a wall whose circle overstates
+// it hides a place just behind it that unseen skips; checks every place per beam until the nearest,
+// some thousands a tick beside a pillar, so a ring of finer beams or a reach well past 2 m wants a
+// search that steps from shadow edge to shadow edge instead.
+fn unseen(raw lcl.Percept, scene []lcl.Entity, reach f64) []lcl.Entity {
+	n := raw.scan.len
+	if n == 0 || raw.pose.len != 2 || !(reach > 0.0) {
+		return []lcl.Entity{}
+	}
+	solids := scene.filter(it.kind in ['obstacle', 'human'])
+	mut best := []f64{}
+	mut far := reach + slim // m, from the body's center to the nearest place's center found so far
+	for i, d in raw.scan {
+		if !(d >= 0.0 && d + slim < far) {
+			continue
+		}
+		a := raw.heading + f64(i) * 2.0 * math.pi / f64(n)
+		dir := [math.cos(a), math.sin(a)]
+		for s := d + slim; s < far; s += look {
+			at := [raw.pose[0] + s * dir[0], raw.pose[1] + s * dir[1]]
+			if solids.all(lcl.dist(at, it.pos) >= it.r + slim) && shadowed(raw, at, slim) {
+				best, far = at.clone(), s
+				break
+			}
+		}
+	}
+	if best.len == 0 {
+		return []lcl.Entity{}
+	}
+	return [lcl.Entity{
+		id:   'unseen'
+		kind: 'human'
+		pos:  best
+		r:    slim
+	}]
 }
 
 // update matches each sighting to the nearest track of its kind that it may have walked from since

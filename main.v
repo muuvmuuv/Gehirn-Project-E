@@ -20,6 +20,7 @@ import sensing
 import umbilical
 import wire
 import zenoh
+import math
 
 // tick is the field loop's period and the dt over which armor.Armor.drive bounds a change of
 // velocity. body/body.v stride_s adds to it how long a tick runs over, as the most Sim moves
@@ -755,7 +756,11 @@ fn main() {
 		human_stop: limits.human_stop
 		bounds:     limits.bounds
 	}
-	mut tracker := sensing.Tracker{}
+	// The armor counts a place where a person may stand unseen as a person for its separation and its
+	// release check, so the tracker looks as far as the farther of the two reaches.
+	mut tracker := sensing.Tracker{
+		reach: math.max(limits.human_slow, limits.release_keep)
+	}
 	mut rec := plug.open_recorder(cfg.recorder) or { panic(err) }
 	mut cable := umbilical.plug_in(lcl.now_ms(), cfg.budget_ms, cfg.grace_ms)
 

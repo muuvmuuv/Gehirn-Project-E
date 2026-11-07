@@ -85,6 +85,22 @@ fn at(pose []f64, scene ...lcl.Entity) lcl.Percept {
 	}
 }
 
+// hidden is a percept at pose whose tracker found a place where a person may stand unseen, at pos
+// with radius r.
+fn hidden(pose []f64, pos []f64, r f64) lcl.Percept {
+	return lcl.Percept{
+		pose:   pose
+		unseen: [
+			lcl.Entity{
+				id:   'unseen'
+				kind: 'human'
+				pos:  pos
+				r:    r
+			},
+		]
+	}
+}
+
 fn same(a []f64, b []f64) bool {
 	return a.len == b.len && lcl.dist(a, b) < 1e-9
 }
@@ -1038,7 +1054,8 @@ struct TopCase {
 
 // top_speed is the cap drive clamps a command to, which main.v hands the local planner: v_max
 // seated, v_unmanned otherwise, slowed by separation from human_slow down to a fifth at
-// human_stop, and nothing on a percept the armor cannot measure.
+// human_stop, for a human or a place where a person may stand unseen, and nothing on a percept the
+// armor cannot measure.
 fn test_top_speed() {
 	o := [0.0, 0.0]
 	cases := [
@@ -1049,6 +1066,12 @@ fn test_top_speed() {
 		TopCase{'a human rim at human_stop', at(o, ent('human', [1.0, 0.0], 0.3)), true, 0.2},
 		TopCase{'a human rim at human_stop, unmanned', at(o, ent('human', [1.0, 0.0], 0.3)), false, 0.08},
 		TopCase{'an obstacle is no human', at(o, ent('obstacle', [0.5, 0.0], 0.3)), true, 1.0},
+		TopCase{'an unseen place halfway in', hidden(o, [1.65, 0.0], 0.3), true, 0.5},
+		TopCase{'an unseen place beyond human_slow', hidden(o, [2.5, 0.0], 0.2), true, 1.0},
+		TopCase{'a human nearer than an unseen place', lcl.Percept{
+			...hidden(o, [2.5, 0.0], 0.2)
+			scene: [ent('human', [1.0, 0.0], 0.3)]
+		}, true, 0.2},
 		TopCase{'a percept it cannot measure', at([math.nan(), 0.0]), true, 0.0},
 	]
 	for c in cases {
@@ -1452,6 +1475,25 @@ fn test_refusal() {
 	cases := [
 		RefusalCase{'release in the open', 'release', at(o), false, ''},
 		RefusalCase{'release with a human inside release_keep', 'release', near, false, 'a human was within 2.0 m at that moment'},
+		RefusalCase{'release with an unseen place inside release_keep', 'release', hidden(o, [
+			2.0,
+			0.0,
+		], 0.2), false, 'a person might have stood unseen within 2.0 m at that moment'},
+		RefusalCase{'release with an unseen place at release_keep', 'release', hidden(o, [
+			2.2,
+			0.0,
+		], 0.2), false, ''},
+		RefusalCase{'a human inside release_keep is named first', 'release', lcl.Percept{
+			...hidden(o, [
+				1.0,
+				0.0,
+			], 0.2)
+			scene: near.scene
+		}, false, 'a human was within 2.0 m at that moment'},
+		RefusalCase{'goto beside an unseen place', 'goto', hidden(o, [
+			0.5,
+			0.0,
+		], 0.2), false, ''},
 		RefusalCase{'unknown verb', 'selfdestruct', at(o), false, 'a verb the armor does not know'},
 		RefusalCase{'unmeasurable percept', 'goto', blind, false, 'a percept the armor could not measure'},
 		RefusalCase{'after an eject', 'hold', at(o), true, 'the pilot had ejected'},
@@ -1479,6 +1521,8 @@ fn test_closeness() {
 	cases := [
 		ClosenessCase{'nobody around', at([0.0, 0.0]), 0.0},
 		ClosenessCase{'an obstacle is no human', at([0.0, 0.0], ent('obstacle', [0.5, 0.0], 0.4)), 0.0},
+		ClosenessCase{'an unseen place is no human the pilot feels', hidden([0.0, 0.0], [
+			1.2, 0.0], 0.5), 0.0},
 		ClosenessCase{'a human beyond human_slow', at([0.0, 0.0], ent('human', [4.0, 0.0], 0.5)), 0.0},
 		ClosenessCase{'a human at human_slow', at([0.0, 0.0], at_slow), 0.0},
 		ClosenessCase{'a human halfway in', at([0.0, 0.0], halfway), 0.5},
@@ -1571,6 +1615,9 @@ fn test_unmeasurable_percept_permits_nothing_and_halts() {
 		'NaN human behind a far one':            at(o, far, ent('human', [nan, 0.0], 0.3))
 		'obstacle at a NaN position':            at(o, ent('obstacle', [nan, 0.0], 0.8))
 		'beacon at an infinite position':        at(o, ent('beacon', [inf, 2.0], 0.3))
+		'an unseen place at a NaN position':     hidden(o, [nan, 0.0], 0.2)
+		'an unseen place with a short position': hidden(o, [3.0], 0.2)
+		'an unseen place with a NaN radius':     hidden(o, [3.0, 0.0], nan)
 		'ground that slows to nothing':          lcl.Percept{
 			pose:   o
 			ground: [patch(o, 1.0, 0.0)]
