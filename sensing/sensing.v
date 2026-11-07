@@ -144,9 +144,9 @@ struct Pair {
 	d     f64
 }
 
-// percept is raw as the stack reads it: its map entries as they are, then every track of a person
-// and then of a solid, each at its newest sighting with ids that stay with their track, p1, p2 for
-// people and s1, s2 for solids, and no scan. raw comes from body.Ranged: the map, the detector's
+// percept is raw as the stack reads it: its map entries as they are, then every track of a person,
+// the nearest the body first, and then of a solid, each at its newest sighting with ids that stay
+// with their track, p1, p2 for people and s1, s2 for solids, and no scan. raw comes from body.Ranged: the map, the detector's
 // people without id or velocity, and the scan. A track carries a velocity from its second sighting
 // on, and none below walking; one nothing has seen stays at its last place for forget_ms. A person
 // nothing has seen who may stand where the ring cannot see, behind a solid or another person, stays
@@ -169,14 +169,34 @@ pub fn (mut t Tracker) percept(raw lcl.Percept) lcl.Percept {
 	}
 	t.update(seen, raw)
 	mut scene := raw.scene.filter(it.kind != 'human')
+
+	// The 9B core on uzu read a scene that listed the people with the nearest last, right above
+	// ACTIVE GOAL, as no person far enough to release, though its own check wrote 3.20 m against the
+	// 2.5 m it needs, and held on ep06-yashima for good; nearest first, it released every time
+	// (PLAN, Known issue 47).
+	mut persons := t.tracks.filter(it.kind == 'human')
+	if raw.pose.len == 2 {
+		pose := raw.pose.clone()
+		persons.sort_with_compare(fn [pose] (a &Track, b &Track) int {
+			da, db := lcl.dist(pose, a.at), lcl.dist(pose, b.at)
+			return if da < db {
+				-1
+			} else if da > db {
+				1
+			} else {
+				0
+			}
+		})
+	}
 	if t.fence.len == 4 && t.room.from.len == 0 {
 		t.room = new_room(t.fence)
 	}
-	for kind in ['human', 'obstacle'] {
-		for k in t.tracks {
-			if k.kind == kind {
-				scene << k.entity()
-			}
+	for k in persons {
+		scene << k.entity()
+	}
+	for k in t.tracks {
+		if k.kind == 'obstacle' {
+			scene << k.entity()
 		}
 	}
 	t.room.look(raw, scene)

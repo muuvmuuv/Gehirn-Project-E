@@ -144,10 +144,12 @@ fn test_an_id_stays_with_its_track() {
 		x := -2.0 + 0.02 * f64(k)
 		p = t.percept(reading(20 * k, [0.0, -3.0], [person([x, 0.5]),
 			person([-x, -0.5])], []))
-		assert p.scene.map(it.id) == ['p1', 'p2'], 'tick ${k}'
-		assert p.scene[0].pos[1] == 0.5 && p.scene[1].pos[1] == -0.5, 'tick ${k}'
+		assert p.scene.map(it.id).sorted() == ['p1', 'p2'], 'tick ${k}'
+		y1 := p.scene.filter(it.id == 'p1')[0].pos[1]
+		y2 := p.scene.filter(it.id == 'p2')[0].pos[1]
+		assert y1 == 0.5 && y2 == -0.5, 'tick ${k}'
 	}
-	last := p.scene[0].pos
+	last := p.scene.filter(it.id == 'p1')[0].pos
 	p = t.percept(reading(1980 + forget_ms, [0.0, -3.0], [person([-0.98, -0.5])], []))
 	ids := p.scene.map(it.id)
 	assert ids.len == 2 && 'p1' in ids && 'p2' in ids
@@ -753,4 +755,16 @@ fn test_open() {
 	m := new_room([-5.0, -5.0, 5.0, 5.0])
 	assert m.open([0.0, 0.0], 0), 'every square at the start'
 	assert m.open([9.0, 0.0], 0), 'beyond the edge'
+}
+
+// The scene lists the people nearest the body first, whatever order the tracker met them in, and
+// their ids stay with their tracks: the 9B core read the nearest last as too close to release
+// (PLAN, Known issue 47).
+fn test_people_come_nearest_first() {
+	mut t := Tracker{}
+	o := [0.0, 0.0]
+	t.percept(reading(0, o, [person([6.0, 0.0])], []))
+	p := t.percept(reading(20, o, [person([6.0, 0.0]), person([3.0, 1.0])], []))
+	assert p.scene.map(it.id) == ['p2', 'p1']
+	assert p.scene[0].pos == [3.0, 1.0]
 }

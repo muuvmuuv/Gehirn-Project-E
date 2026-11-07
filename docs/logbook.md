@@ -608,6 +608,17 @@ The release median runs from the run's first recorder tick over the runs that de
 
 Under `range` terrain and ep06-yashima delivered none where `truth` delivered every run. On terrain the core proposed a hold after the first refused release, "a human is too close", though the scene held none, and held for 20 to 70 s; under the hold the body stays at b1, where the boat stops beside it again on its loop, so each later release met the same shadow (PLAN, Known issue 46). On ep06-yashima the core held from its arrival for good under `range`, though the sensed scene matched the truth to the centimeter, Rei standing with her rim 2.90 m from the firing point, and released at a median 42.00 s under `truth` (PLAN, Known issue 47). Sweep and ep13-iruel delivered under neither: on sweep MAGI rejected every release with the walker crossing the beacon, and on ep13-iruel Ritsuko stands at the hatch. Example delivered 5 of 10 under `truth` and 3 under `range` within trials' 180 s, its beacon within reach at a median 99.74 and 99.33 s.
 
+Later on 2026-11-07, with the people of the sensed scene nearest the body first (PLAN, Known issue 47), the four worlds with several people flew hosted again under `range`, lineup A' on the MuJoCo base, ten missions each. The captured requests had shown why ep06-yashima held: the core's check wrote "nearest human 3.20 m so safe to release no" under `range` and "yes" under `truth` for the same distances, and put to uzu directly, ten asks per layout, the people first with the nearest last drew a hold every time, while the nearest first, before or after the solids, and the solids first with the nearest last drew a release every time.
+
+| World | Delivered | Release median | Release votes rejected | Armor refusals |
+| --- | --- | --- | --- | --- |
+| ep06-yashima | 10 of 10 | 38.44 s | 0 | 0 |
+| ep03-cable | 10 of 10 | 40.48 s | 0 | 0 |
+| ep19-bench | 9 of 10 | 46.04 s | 0 | 0 |
+| example | 4 of 10 | unmeasured | 24 | 3 |
+
+On ep19-bench run 06 the body stood from 30 s on with a person who stops for the body 0.80 m from its center by the rim, until trials' 180 s, as in Known issue 38. No run had a contact, a pass of the cap or a step toward a person inside `human_stop`.
+
 ## Resolved known issues
 
 The full text of each known issue PLAN lists as resolved, under its number there.
